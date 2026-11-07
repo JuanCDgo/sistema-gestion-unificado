@@ -3235,8 +3235,7 @@ def completar_setup_wizard(datos: SetupWizardIn):
     if datos.pin_dueno and len(datos.pin_dueno.strip()) == 4 and datos.pin_dueno.strip().isdigit():
         try:
             db.table("usuarios").update({
-                "pin_hash": hash_pin(datos.pin_dueno.strip()),
-                "debe_cambiar_pin": 0
+                "pin_hash": hash_pin(datos.pin_dueno.strip())
             }).eq("nombre", "Dueño").eq("comercio_id", COMERCIO_ID).execute()
         except Exception as e:
             log.warning("No se pudo actualizar PIN de Dueño: %s", e)
@@ -3245,8 +3244,7 @@ def completar_setup_wizard(datos: SetupWizardIn):
     if datos.pin_cajero and len(datos.pin_cajero.strip()) == 4 and datos.pin_cajero.strip().isdigit():
         try:
             db.table("usuarios").update({
-                "pin_hash": hash_pin(datos.pin_cajero.strip()),
-                "debe_cambiar_pin": 0
+                "pin_hash": hash_pin(datos.pin_cajero.strip())
             }).eq("nombre", "Cajero").eq("comercio_id", COMERCIO_ID).execute()
         except Exception as e:
             log.warning("No se pudo actualizar PIN de Cajero: %s", e)
