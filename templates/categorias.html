@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ config.nombre_comercio }} · Categorías</title>
+
+  <script src="/static/vendor/tailwind.js"></script>
+
+  <style>
+    :root {
+      --color-primario: {{ config.color_primario }};
+      --color-primario-suave: color-mix(in srgb, var(--color-primario) 10%, white);
+      --color-primario-oscuro: color-mix(in srgb, var(--color-primario) 85%, black);
+    }
+    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+    [x-cloak] { display: none !important; }
+    .campo { width:100%; padding:.625rem .75rem; font-size:.875rem; background:#fff; border:1px solid #e5e7eb; border-radius:.5rem; }
+    .campo:focus { outline:none; border-color:var(--color-primario); box-shadow:0 0 0 2px color-mix(in srgb, var(--color-primario) 20%, transparent); }
+  </style>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'] },
+        colors: {
+          primario: 'var(--color-primario)',
+          'primario-suave': 'var(--color-primario-suave)',
+          'primario-oscuro': 'var(--color-primario-oscuro)',
+          fondo: '#F7F9FA'
+        },
+        boxShadow: { suave: '0 1px 2px rgba(16,24,40,0.04)' }
+      } }
+    }
+  </script>
+
+  <link rel="manifest" href="/manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#2563EB">
+  <script src="/static/js/motor_offline_pwa.js"></script>
+  <script defer src="/static/vendor/alpine.min.js"></script>
+  <script src="/static/vendor/lucide.min.js"></script>
+</head>
+
+<body class="bg-fondo text-gray-900 antialiased min-h-screen"
+      x-data="categorias({{ config | tojson | forceescape }})" x-init="iniciar()" x-cloak>
+
+  <header class="bg-white border-b border-gray-200 px-3 sm:px-8 py-2.5 flex flex-wrap items-center justify-between gap-2 sticky top-0 z-20">
+    <div class="flex items-center gap-2 shrink-0 min-w-0">
+      <div data-brand-logo class="w-9 h-9 rounded-lg bg-primario text-white flex items-center justify-center overflow-hidden shrink-0">
+        <i data-lucide="store" class="w-5 h-5"></i>
+      </div>
+      <span data-brand-nombre class="font-semibold text-sm sm:text-lg text-gray-900 truncate max-w-[160px] sm:max-w-[260px]" x-text="config.nombre_comercio"></span>
+    </div>
+    {% set activa = 'categorias' %}{% include '_nav.html' %}
+  </header>
+
+  <main class="max-w-5xl mx-auto px-4 sm:px-8 py-8 space-y-6">
+    <div>
+      <h1 class="text-xl font-bold">🏷️ Gestión de Categorías</h1>
+      <p class="text-sm text-gray-500">Creá nuevas categorías o desplegá las existentes para renombrarlas o darlas de baja.</p>
+    </div>
+
+    <!-- Aviso de éxito o error global -->
+    <div x-show="aviso.texto" x-transition
+         class="rounded-xl px-4 py-3 text-sm font-medium flex items-center justify-between border"
+         :class="aviso.tipo === 'error' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'">
+      <span x-text="aviso.texto"></span>
+      <button type="button" @click="aviso.texto = ''" class="text-xs font-bold opacity-70 hover:opacity-100">✕</button>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+      <!-- Columna Izquierda: Nueva Categoría -->
+      <section class="md:col-span-5 bg-white border border-gray-200 rounded-xl p-5 shadow-suave space-y-4 md:sticky md:top-20">
+        <div class="flex items-center gap-2 border-b border-gray-100 pb-3">
+          <span class="w-8 h-8 rounded-lg bg-primario-suave text-primario flex items-center justify-center font-bold">➕</span>
+          <div>
+            <h2 class="font-semibold text-base">Nueva Categoría</h2>
+            <p class="text-xs text-gray-500">Agregá un grupo al catálogo</p>
+          </div>
+        </div>
+
+        <form @submit.prevent="crear()" class="space-y-4">
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Nombre de la Categoría</label>
+            <input type="text" x-model="nuevoNombre" required maxlength="60"
+                   placeholder="Ej: Bebidas, Almacén, Lácteos..." class="campo">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-600 mb-1">Descripción <span class="text-gray-400 font-normal">(opcional)</span></label>
+            <input type="text" x-model="nuevaDescripcion" maxlength="200"
+                   placeholder="Descripción breve..." class="campo">
+          </div>
+          <button type="submit" :disabled="creando"
+                  class="w-full py-2.5 px-4 rounded-lg bg-primario hover:bg-primario-oscuro text-white text-sm font-semibold transition-colors disabled:opacity-50">
+            <span x-text="creando ? 'Creando...' : 'Crear Categoría'"></span>
+          </button>
+        </form>
+      </section>
+
+      <!-- Columna Derecha: Categorías Existentes (Acordeones) -->
+      <section class="md:col-span-7 bg-white border border-gray-200 rounded-xl p-5 shadow-suave space-y-4">
+        <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+          <div>
+            <h2 class="font-semibold text-base">Categorías Existentes</h2>
+            <p class="text-xs text-gray-500">Hacé clic en una categoría para desplegar sus opciones</p>
+          </div>
+          <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-primario-suave text-primario"
+                x-text="lista.length + (lista.length === 1 ? ' categoría' : ' categorías')"></span>
+        </div>
+
+        <div class="space-y-2.5">
+          <template x-for="c in lista" :key="c.id">
+            <div class="border border-gray-200 rounded-xl overflow-hidden transition-colors"
+                 :class="abiertaId === c.id ? 'border-primario/50 bg-primario-suave/20' : 'bg-white'">
+              <!-- Cabecera del acordeón -->
+              <button type="button" @click="toggleAcordeon(c)"
+                      class="w-full px-4 py-3.5 flex items-center justify-between gap-3 text-left hover:bg-gray-50/80 transition-colors">
+                <div class="flex items-center gap-2.5 min-w-0">
+                  <span class="text-base">📁</span>
+                  <span class="font-semibold text-sm text-gray-900 truncate" x-text="c.nombre"></span>
+                </div>
+                <div class="flex items-center gap-2.5 shrink-0">
+                  <span class="text-xs font-medium px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-600"
+                        x-text="c.productos + (c.productos === 1 ? ' producto' : ' productos')"></span>
+                  <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform duration-150"
+                     :class="abiertaId === c.id ? 'rotate-180 text-primario' : ''"></i>
+                </div>
+              </button>
+
+              <!-- Cuerpo desplegable del acordeón -->
+              <div x-show="abiertaId === c.id" x-transition class="px-4 pb-4 pt-2 border-t border-gray-100 bg-white space-y-3">
+                <div>
+                  <label class="block text-xs font-semibold text-gray-600 mb-1">Renombrar categoría</label>
+                  <input type="text" x-model="c.editNombre" maxlength="60" class="campo">
+                </div>
+                <div>
+                  <label class="block text-xs font-semibold text-gray-600 mb-1">Descripción <span class="text-gray-400 font-normal">(opcional)</span></label>
+                  <input type="text" x-model="c.editDescripcion" maxlength="200" class="campo" placeholder="Sin descripción">
+                </div>
+                <div class="flex flex-wrap items-center gap-2 pt-1">
+                  <button type="button" @click="guardarCambios(c)" :disabled="procesandoId === c.id"
+                          class="flex-1 py-2 px-3 rounded-lg bg-primario hover:bg-primario-oscuro text-white text-xs font-semibold transition-colors disabled:opacity-50">
+                    💾 Guardar Cambios
+                  </button>
+                  <button x-show="esAdmin" type="button" @click="eliminar(c)" :disabled="procesandoId === c.id"
+                          class="py-2 px-3 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 text-xs font-semibold transition-colors disabled:opacity-50">
+                    🗑️ Dar de baja
+                  </button>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <p x-show="!lista.length" class="py-10 text-center text-sm text-gray-500">
+          Todavía no hay categorías registradas.
+        </p>
+
+        <!-- Dadas de baja -->
+        <div x-show="esAdmin && bajas.length" class="border-t border-gray-100 pt-3">
+          <button type="button" @click="bajasAbiertas = !bajasAbiertas"
+                  class="w-full flex items-center justify-between text-sm font-semibold text-gray-600">
+            <span x-text="`Dados de baja (${bajas.length})`"></span>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform duration-150"
+               :class="bajasAbiertas ? 'rotate-180' : ''"></i>
+          </button>
+          <div x-show="bajasAbiertas" x-transition class="mt-3 space-y-2">
+            <template x-for="b in bajas" :key="b.id">
+              <div class="flex items-center justify-between gap-3 border border-gray-200 rounded-lg px-3 py-2">
+                <div class="min-w-0">
+                  <p class="text-sm font-medium truncate" x-text="b.nombre"></p>
+                  <p class="text-xs text-gray-500" x-text="'Baja: ' + fechaBaja(b.fecha_baja)"></p>
+                </div>
+                <button type="button" @click="reactivar(b)" :disabled="procesandoId === b.id"
+                        class="shrink-0 py-1.5 px-3 rounded-lg border border-gray-200 hover:bg-gray-50 text-xs font-semibold text-gray-700 disabled:opacity-50">
+                  Reactivar
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    function categorias(config) {
+      config = window.obtenerConfigComercio ? window.obtenerConfigComercio(config) : config;
+      return {
+        config,
+        esAdmin: false,
+        lista: [],
+        bajas: [],
+        bajasAbiertas: false,
+        abiertaId: null,
+        nuevoNombre: '',
+        nuevaDescripcion: '',
+        creando: false,
+        procesandoId: null,
+        aviso: { texto: '', tipo: 'ok' },
+
+        async iniciar() {
+          try {
+            const ses = await fetch('/api/estado-barra').then(r => r.json());
+            this.esAdmin = (ses.rol === 'admin');
+          } catch (_) {}
+          await this.cargar();
+          this.$watch('lista', () => this.iconos());
+          this.iconos();
+        },
+        iconos() { this.$nextTick(() => window.lucide && lucide.createIcons()); },
+
+        mostrarAviso(texto, tipo = 'ok') {
+          this.aviso = { texto, tipo };
+          if (tipo === 'ok') {
+            setTimeout(() => {
+              if (this.aviso.texto === texto) this.aviso.texto = '';
+            }, 4000);
+          }
+        },
+
+        async cargar() {
+          const datos = await (await fetch('/api/categorias')).json();
+          this.lista = (datos || []).map(c => ({
+            ...c,
+            editNombre: c.nombre,
+            editDescripcion: c.descripcion || ''
+          }));
+          this.bajas = await (await fetch('/api/bajas/categorias')).json();
+          this.iconos();
+        },
+
+        fechaBaja(iso) {
+          return iso ? new Date(iso).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+        },
+
+        async reactivar(b) {
+          if (!this.esAdmin) return;
+          this.procesandoId = b.id;
+          try {
+            const r = await fetch(`/api/categorias/${b.id}/reactivar`, { method: 'POST' });
+            if (!r.ok) throw new Error((await r.json()).detail || 'No se pudo reactivar la categoría');
+            await this.cargar();
+            this.mostrarAviso(`Categoría "${b.nombre}" reactivada.`);
+          } catch (e) {
+            this.mostrarAviso(e.message, 'error');
+          } finally {
+            this.procesandoId = null;
+          }
+        },
+
+        toggleAcordeon(c) {
+          if (this.abiertaId === c.id) {
+            this.abiertaId = null;
+          } else {
+            c.editNombre = c.nombre;
+            c.editDescripcion = c.descripcion || '';
+            this.abiertaId = c.id;
+          }
+        },
+
+        async crear() {
+          const nombre = (this.nuevoNombre || '').trim();
+          if (!nombre) return;
+          this.creando = true;
+          try {
+            const r = await fetch('/api/categorias', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ nombre, descripcion: (this.nuevaDescripcion || '').trim() })
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.detail || 'No se pudo crear la categoría');
+            this.nuevoNombre = '';
+            this.nuevaDescripcion = '';
+            await this.cargar();
+            this.mostrarAviso(`Categoría "${nombre}" creada correctamente.`);
+          } catch (e) {
+            this.mostrarAviso(e.message, 'error');
+          } finally {
+            this.creando = false;
+          }
+        },
+
+        async guardarCambios(c) {
+          const nombre = (c.editNombre || '').trim();
+          if (!nombre) {
+            this.mostrarAviso('El nombre de la categoría no puede estar vacío.', 'error');
+            return;
+          }
+          this.procesandoId = c.id;
+          try {
+            const r = await fetch(`/api/categorias/${c.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ nombre, descripcion: (c.editDescripcion || '').trim() })
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.detail || 'No se pudo actualizar la categoría');
+            await this.cargar();
+            this.mostrarAviso(`Categoría actualizada a "${nombre}".`);
+          } catch (e) {
+            this.mostrarAviso(e.message, 'error');
+          } finally {
+            this.procesandoId = null;
+          }
+        },
+
+        async eliminar(c) {
+          if (!this.esAdmin) return;
+          if (!confirm(`¿Dar de baja la categoría "${c.nombre}"? Podés reactivarla cuando quieras.`)) return;
+          this.procesandoId = c.id;
+          try {
+            const r = await fetch(`/api/categorias/${c.id}`, { method: 'DELETE' });
+            if (!r.ok) {
+              const data = await r.json();
+              throw new Error(data.detail || 'No se pudo dar de baja la categoría');
+            }
+            if (this.abiertaId === c.id) this.abiertaId = null;
+            await this.cargar();
+            this.mostrarAviso(`Categoría "${c.nombre}" dada de baja.`);
+          } catch (e) {
+            this.mostrarAviso(e.message, 'error');
+          } finally {
+            this.procesandoId = null;
+          }
+        }
+      };
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!-- =================================================================== -->
+<!-- SETUP WIZARD (ASISTENTE DE PRIMER ARRANQUE) - MODO A / MODO B        -->
+<!-- =================================================================== -->
+<div x-show="mostrarWizard" x-cloak
+     class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-zinc-950/80 backdrop-blur-md overflow-y-auto">
+  <div class="bg-white border border-zinc-200 rounded-2xl shadow-2xl max-w-lg w-full p-5 sm:p-6 my-auto text-left space-y-5 transition-all">
+    
+    <!-- Encabezado del Wizard -->
+    <div class="flex items-center justify-between pb-3 border-b border-zinc-100">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-zinc-900 text-white flex items-center justify-center font-bold text-sm">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-zinc-900 text-base leading-tight">Bienvenido al Sistema</h3>
+          <p class="text-xs text-zinc-500">Configuración inicial en 4 simples pasos</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-zinc-100 text-zinc-700">
+        <span x-text="'Paso ' + wizardPaso + ' de 4'"></span>
+      </div>
+    </div>
+
+    <!-- Barra de progreso sutil -->
+    <div class="w-full bg-zinc-100 h-1.5 rounded-full overflow-hidden">
+      <div class="bg-zinc-900 h-full transition-all duration-300"
+           :style="'width: ' + ((wizardPaso / 4) * 100) + '%'"></div>
+    </div>
+
+    <!-- Mensaje de Error si ocurre -->
+    <div x-show="wizardError" class="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 flex items-start gap-2">
+      <i data-lucide="alert-circle" class="w-4 h-4 text-red-600 shrink-0 mt-0.5"></i>
+      <span x-text="wizardError"></span>
+    </div>
+
+    <!-- PASO 1: Identidad del Comercio -->
+    <div x-show="wizardPaso === 1" class="space-y-4">
+      <h4 class="font-semibold text-sm text-zinc-900">1. Identidad de tu Negocio</h4>
+      <div>
+        <label class="block text-xs font-semibold text-zinc-700 mb-1">Nombre del Comercio *</label>
+        <input type="text" x-model="wizardDatos.nombre_comercio" placeholder="Ej. Mi Kiosco, Barbería Central, etc."
+               class="w-full px-3 py-2 rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900 text-sm">
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-zinc-700 mb-1">Rubro Principal</label>
+          <select x-model="wizardDatos.rubro" class="w-full px-3 py-2 rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900 text-sm">
+            <option value="comercio_general">Kiosco / Almacén / Maxikiosco</option>
+            <option value="gastronomia">Gastronomía / Rotisería / Bar</option>
+            <option value="indumentaria">Indumentaria / Calzado</option>
+            <option value="servicios">Taller / Barbería / Servicios</option>
+            <option value="farmacia">Farmacia / Perfumería</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-zinc-700 mb-1">Teléfono (WhatsApp)</label>
+          <input type="tel" x-model="wizardDatos.telefono" placeholder="Ej. 351 1234567"
+                 class="w-full px-3 py-2 rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900 text-sm">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-zinc-700 mb-1">Logo del Comercio (Opcional)</label>
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-xl bg-zinc-100 border border-zinc-200 flex items-center justify-center overflow-hidden shrink-0">
+            <template x-if="wizardDatos.logo_imagen">
+              <img :src="wizardDatos.logo_imagen" class="w-full h-full object-cover">
+            </template>
+            <template x-if="!wizardDatos.logo_imagen">
+              <i data-lucide="image" class="w-5 h-5 text-zinc-400"></i>
+            </template>
+          </div>
+          <input type="file" accept="image/*" @change="comprimirLogoWizard($event)"
+                 class="text-xs text-zinc-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-100 file:text-zinc-700 hover:file:bg-zinc-200 cursor-pointer">
+        </div>
+      </div>
+    </div>
+
+    <!-- PASO 2: Modo de Trabajo (A vs B) -->
+    <div x-show="wizardPaso === 2" class="space-y-3">
+      <h4 class="font-semibold text-sm text-zinc-900">2. Modo de Operación</h4>
+      <p class="text-xs text-zinc-500">Elegí la arquitectura de funcionamiento según tu equipamiento:</p>
+
+      <div class="grid grid-cols-1 gap-2.5">
+        <!-- Modo A: Móvil Autónomo -->
+        <label class="flex items-start gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all"
+               :class="wizardDatos.modo_operacion === 'autonomo_offline' ? 'border-zinc-900 bg-zinc-50/50' : 'border-zinc-200 hover:border-zinc-300'">
+          <input type="radio" value="autonomo_offline" x-model="wizardDatos.modo_operacion" class="mt-1 text-zinc-900 focus:ring-zinc-900">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between">
+              <strong class="text-xs sm:text-sm font-bold text-zinc-900">Modo A: Celular Autónomo (PWA)</strong>
+              <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">100% Offline</span>
+            </div>
+            <p class="text-xs text-zinc-600 mt-1">
+              Para usar en celular o tablet sin computadora. La base de datos reside en la memoria de este teléfono y realiza copias automáticas en tu Google Drive.
+            </p>
+          </div>
+        </label>
+
+        <!-- Modo B: Servidor Central LAN -->
+        <label class="flex items-start gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all"
+               :class="wizardDatos.modo_operacion === 'servidor_central' ? 'border-zinc-900 bg-zinc-50/50' : 'border-zinc-200 hover:border-zinc-300'">
+          <input type="radio" value="servidor_central" x-model="wizardDatos.modo_operacion" class="mt-1 text-zinc-900 focus:ring-zinc-900">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between">
+              <strong class="text-xs sm:text-sm font-bold text-zinc-900">Modo B: Servidor Central LAN</strong>
+              <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">PC + Celulares Wi-Fi</span>
+            </div>
+            <p class="text-xs text-zinc-600 mt-1">
+              Para computadoras en mostrador. La PC almacena la base de datos central (SQLite WAL) y genera un código QR para que múltiples celulares del local operen en tiempo real.
+            </p>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- PASO 3: Cobro QR & Finanzas -->
+    <div x-show="wizardPaso === 3" class="space-y-4">
+      <h4 class="font-semibold text-sm text-zinc-900">3. Cobro por Transferencia y QR (Sin Comisiones)</h4>
+      <p class="text-xs text-zinc-500">Configurá tu Alias bancario o de billetera virtual para cobrar directamente en el mostrador:</p>
+
+      <div>
+        <label class="block text-xs font-semibold text-zinc-700 mb-1">Alias de Mercado Pago / Banco</label>
+        <input type="text" x-model="wizardDatos.alias" placeholder="Ej. mipyme.mp ó juan.perez.banco"
+               class="w-full px-3 py-2 rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-zinc-700 mb-1">CBU / CVU (22 dígitos)</label>
+        <input type="text" x-model="wizardDatos.cbu" placeholder="Opcional: 00000031000..."
+               class="w-full px-3 py-2 rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900 text-sm">
+      </div>
+      <div class="p-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-600 space-y-1">
+        <p class="font-semibold text-zinc-800">Formato financiero argentino:</p>
+        <p>• Moneda: ARS ($) con separador de miles en punto (.) y coma decimal (,).</p>
+        <p>• Los comprobantes de cobro y deudas se envían a WhatsApp en 1 toque sin comisiones intermediarias.</p>
+      </div>
+    </div>
+
+    <!-- PASO 4: Clave Maestra (PIN) -->
+    <div x-show="wizardPaso === 4" class="space-y-4">
+      <h4 class="font-semibold text-sm text-zinc-900">4. Seguridad y PIN Maestro</h4>
+      <p class="text-xs text-zinc-500">Definí tu PIN privado de 4 dígitos para ingresar como Dueño / Administrador:</p>
+
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-semibold text-zinc-700 mb-1">Nuevo PIN Dueño *</label>
+          <input type="password" x-model="wizardDatos.pin_dueno" inputmode="numeric" maxlength="4" placeholder="4 dígitos"
+                 class="w-full px-3 py-2 text-center tracking-widest font-bold text-lg rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-zinc-700 mb-1">Confirmar PIN *</label>
+          <input type="password" x-model="wizardDatos.pin_dueno_conf" inputmode="numeric" maxlength="4" placeholder="4 dígitos"
+                 class="w-full px-3 py-2 text-center tracking-widest font-bold text-lg rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900">
+        </div>
+      </div>
+
+      <div class="pt-2 border-t border-zinc-100">
+        <label class="block text-xs font-semibold text-zinc-700 mb-1">PIN para Empleados / Cajeros</label>
+        <input type="password" x-model="wizardDatos.pin_cajero" inputmode="numeric" maxlength="4" placeholder="Por defecto: 0000"
+               class="w-full sm:w-1/2 px-3 py-2 text-center tracking-widest font-semibold rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900 text-sm">
+        <span class="text-[11px] text-zinc-400 block mt-1">Los empleados solo pueden cobrar y consultar stock (sin anular ventas ni ver ganancias).</span>
+      </div>
+    </div>
+
+    <!-- Botones de Navegación del Wizard -->
+    <div class="flex items-center justify-between pt-3 border-t border-zinc-100">
+      <button type="button" @click="wizardAtras()" x-show="wizardPaso > 1"
+              class="px-4 py-2 rounded-xl border border-zinc-300 hover:bg-zinc-50 text-xs font-semibold text-zinc-700 transition-colors">
+        Atrás
+      </button>
+      <div x-show="wizardPaso === 1"></div>
+
+      <button type="button" @click="wizardSiguiente()" :disabled="guardandoWizard"
+              class="px-5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 disabled:opacity-50">
+        <span x-text="wizardPaso === 4 ? (guardandoWizard ? 'Guardando...' : 'Comenzar a Trabajar') : 'Siguiente'"></span>
+        <i data-lucide="chevron-right" class="w-3.5 h-3.5" x-show="wizardPaso < 4"></i>
+      </button>
+    </div>
+
+  </div>
+</div>

@@ -1,0 +1,779 @@
+<style>
+    /* Margen inferior en móvil para que la barra de navegación no tape contenidos ni botones */
+    @media (max-width: 767px) {
+      body {
+        padding-bottom: 5rem !important;
+      }
+    }
+
+    /* ===== Efecto 1: Boton Tactil 3D (Skeuomorphism) - Inspirado en Ania Kubow ===== */
+    .btn-tactil-3d {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: #ffffff !important;
+      background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-primario) 88%, white 12%) 0%,
+        var(--color-primario) 48%,
+        color-mix(in srgb, var(--color-primario) 88%, black 12%) 100%
+      ) !important;
+      border: 1px solid color-mix(in srgb, var(--color-primario) 70%, black 30%);
+      border-radius: 1rem;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.45),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.25),
+        0 2px 4px rgba(0, 0, 0, 0.15),
+        0 8px 20px -4px color-mix(in srgb, var(--color-primario) 45%, transparent);
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      cursor: pointer;
+    }
+
+    .btn-tactil-3d:hover:not(:disabled) {
+      filter: brightness(1.05);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.25),
+        0 4px 8px rgba(0, 0, 0, 0.2),
+        0 12px 24px -4px color-mix(in srgb, var(--color-primario) 60%, transparent);
+    }
+
+    .btn-tactil-3d:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.35),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.1),
+        0 1px 2px rgba(0, 0, 0, 0.15);
+    }
+
+    .btn-tactil-3d:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+      filter: grayscale(0.2);
+    }
+
+    /* ===== Efecto 2: Borde Resplandeciente Giratorio (@property + conic-gradient) ===== */
+    @property --glow-angle {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
+
+    @keyframes girarGlow {
+      0% { --glow-angle: 0deg; }
+      100% { --glow-angle: 360deg; }
+    }
+
+    .glow-giratorio {
+      position: relative;
+      z-index: 1;
+    }
+
+    .glow-giratorio::before {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: inherit;
+      background: conic-gradient(
+        from var(--glow-angle),
+        transparent 0deg,
+        var(--color-primario) 60deg,
+        color-mix(in srgb, var(--color-primario) 50%, white 50%) 90deg,
+        var(--color-primario) 120deg,
+        transparent 180deg,
+        transparent 360deg
+      );
+      z-index: -1;
+      animation: girarGlow 3.5s linear infinite;
+    }
+
+    .glow-giratorio::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: inherit;
+      background: conic-gradient(
+        from var(--glow-angle),
+        transparent 0deg,
+        var(--color-primario) 60deg,
+        color-mix(in srgb, var(--color-primario) 50%, white 50%) 90deg,
+        var(--color-primario) 120deg,
+        transparent 180deg,
+        transparent 360deg
+      );
+      z-index: -2;
+      filter: blur(8px);
+      opacity: 0.55;
+      animation: girarGlow 3.5s linear infinite;
+    }
+</style>
+
+{# Navegación compartida. Uso: {% set activa = 'pos' %}{% include '_nav.html' %} #}
+<div class="flex items-center gap-2 ml-auto flex-wrap justify-end" x-data="barraGlobal()" x-init="iniciarBarra()">
+  <!-- Secciones principales en Escritorio (Desktop: md y superior) -->
+  <nav class="hidden md:flex items-center gap-1 bg-gray-100 rounded-lg p-1 shrink-0" aria-label="Secciones">
+    <!-- 1. Ventas -->
+    <a href="/" title="Punto de Venta"
+       class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-colors
+              {{ 'bg-white text-primario shadow-suave font-semibold' if activa == 'pos' else 'text-gray-600 hover:text-gray-900' }}">
+      <i data-lucide="shopping-cart" class="w-4 h-4"></i><span>Ventas</span>
+    </a>
+
+    <!-- 2. Inventario -->
+    <a href="/inventario" title="Inventario y Stock"
+       class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-colors
+              {{ 'bg-white text-primario shadow-suave font-semibold' if activa == 'inventario' else 'text-gray-600 hover:text-gray-900' }}">
+      <i data-lucide="package" class="w-4 h-4"></i><span>Inventario</span>
+    </a>
+
+    <!-- 3. Caja -->
+    <a href="/caja" title="Caja y Control Diario"
+       class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-colors
+              {{ 'bg-white text-primario shadow-suave font-semibold' if activa == 'caja' else 'text-gray-600 hover:text-gray-900' }}">
+      <i data-lucide="wallet" class="w-4 h-4"></i><span>Caja</span>
+    </a>
+
+    <!-- 4. Menú Desplegable 'Más ▾' (Desktop) -->
+    <!-- Orden: 1. Categorías | 2. Clientes y Crédito | 3. Configuración | 4. Auditoría -->
+    <div class="relative" @click.outside="menuMasDesktop = false">
+      <button type="button" @click="menuMasDesktop = !menuMasDesktop"
+              title="Más secciones del sistema"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-colors
+                     {{ 'bg-white text-primario shadow-suave font-semibold' if activa in ['categorias', 'clientes', 'configuracion', 'auditoria'] else 'text-gray-600 hover:text-gray-900' }}">
+        <i data-lucide="layout-grid" class="w-4 h-4"></i>
+        <span>Más</span>
+        <i data-lucide="chevron-down" class="w-3.5 h-3.5 transition-transform duration-150" :class="menuMasDesktop ? 'rotate-180' : ''"></i>
+      </button>
+
+      <!-- Dropdown Flotante Desktop -->
+      <div x-show="menuMasDesktop" x-transition.opacity.duration.150ms
+           class="absolute right-0 mt-1.5 w-56 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-50 divide-y divide-gray-100"
+           style="display: none;">
+        <div class="py-1">
+          <!-- 1. Categorías -->
+          <a href="/categorias"
+             class="flex items-center gap-2.5 px-3.5 py-2 text-xs text-gray-700 hover:bg-gray-50 hover:text-primario font-medium transition-colors {{ 'text-primario font-bold bg-primario-suave/30' if activa == 'categorias' else '' }}">
+            <i data-lucide="tags" class="w-4 h-4 text-gray-400"></i>
+            <span>Categorías</span>
+          </a>
+          <!-- 2. Clientes y Crédito -->
+          <a href="/clientes"
+             class="flex items-center gap-2.5 px-3.5 py-2 text-xs text-gray-700 hover:bg-gray-50 hover:text-primario font-medium transition-colors {{ 'text-primario font-bold bg-primario-suave/30' if activa == 'clientes' else '' }}">
+            <i data-lucide="users" class="w-4 h-4 text-gray-400"></i>
+            <span>Clientes y Crédito</span>
+          </a>
+        </div>
+        <div class="py-1" x-show="esAdmin">
+          <!-- 3. Configuración -->
+          <a href="/configuracion"
+             class="flex items-center gap-2.5 px-3.5 py-2 text-xs text-gray-700 hover:bg-gray-50 hover:text-primario font-medium transition-colors {{ 'text-primario font-bold bg-primario-suave/30' if activa == 'configuracion' else '' }}">
+            <i data-lucide="settings" class="w-4 h-4 text-gray-400"></i>
+            <span>Configuración</span>
+          </a>
+          <!-- 4. Auditoría -->
+          <a href="/auditoria"
+             class="flex items-center gap-2.5 px-3.5 py-2 text-xs text-gray-700 hover:bg-gray-50 hover:text-primario font-medium transition-colors {{ 'text-primario font-bold bg-primario-suave/30' if activa == 'auditoria' else '' }}">
+            <i data-lucide="shield-check" class="w-4 h-4 text-gray-400"></i>
+            <span>Auditoría</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Indicador de ESTADO DEL STOCK (Compacto y visible en Desktop y Celular) -->
+  <template x-if="cargadoBarra">
+    <div>
+      <a x-show="stockCriticoCount > 0" href="/inventario?tab=critico"
+         title="Ir al Monitor de Stock Crítico"
+         class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors whitespace-nowrap">
+        <span>🚨</span>
+        <span class="hidden sm:inline" x-text="stockCriticoCount + ' prod. en stock crítico'"></span>
+        <span class="sm:hidden font-bold" x-text="stockCriticoCount + ' crítico'"></span>
+      </a>
+      <span x-show="stockCriticoCount === 0"
+            title="Ningún producto está por debajo del stock mínimo"
+            class="hidden lg:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+        <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-600"></i>
+        <span>Stock saludable</span>
+      </span>
+    </div>
+  </template>
+
+  <!-- Botones de Acción Rápida en Header (PIN de ejemplo) -->
+  <a x-show="debePin && esAdmin" href="/configuracion#seguridad"
+     class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors whitespace-nowrap">
+    Cambiá el PIN
+  </a>
+  <button x-show="debePin && !esAdmin" type="button" @click="abrirModalClave()"
+     class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors whitespace-nowrap">
+    Cambiá tu PIN
+  </button>
+
+  <!-- Botón Conectar Celular / Tablet por Wi-Fi (Desktop) -->
+  <button type="button" @click="abrirModalRedQR()" title="Conectar Celular o Tablet por Wi-Fi"
+          class="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors whitespace-nowrap">
+    <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
+    <span class="hidden md:inline">Conectar Celular</span>
+  </button>
+
+  <div class="flex items-center gap-1.5">
+    <a x-show="esAdmin" href="/configuracion#backup-drive"
+       :title="backupPendiente ? 'Datos guardados en el celular. Esperando Wi-Fi seguro para subir a Google Drive.' : 'Todos los datos están respaldados en Google Drive.'"
+       :class="backupPendiente ? 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100' : 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'"
+       class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors whitespace-nowrap">
+      <i data-lucide="hard-drive" class="w-3.5 h-3.5"></i>
+      <span class="hidden md:inline" x-text="backupPendiente ? 'Datos pendientes Wi-Fi' : 'Backup datos OK'"></span>
+    </a>
+  </div>
+
+
+  <!-- Usuario activo + PIN + Salir (Desktop) -->
+  <div class="hidden sm:flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-lg px-2 py-1 shrink-0">
+    <span class="inline-flex items-center gap-1 text-xs font-medium text-gray-700 px-1.5"
+          title="Usuario y rol activo">
+      <i data-lucide="user" class="w-3.5 h-3.5 text-zinc-500"></i>
+      <span class="font-semibold" x-text="usuarioNombre"></span>
+      <span class="text-gray-400">·</span>
+      <span class="text-primario font-semibold" x-text="usuarioRol"></span>
+    </span>
+    <button type="button" @click="abrirModalClave()" title="Cambiar PIN"
+            class="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-gray-600 hover:bg-primario-suave hover:text-primario transition-colors">
+      <i data-lucide="key" class="w-3.5 h-3.5"></i><span class="hidden lg:inline">PIN</span>
+    </button>
+    <span class="w-px h-4 bg-gray-200" aria-hidden="true"></span>
+    <button type="button" onclick="cerrarSesion()" title="Cerrar sesión"
+            class="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium text-gray-500 hover:text-red-600 transition-colors">
+      <i data-lucide="log-out" class="w-3.5 h-3.5"></i><span class="hidden lg:inline">Salir</span>
+    </button>
+  </div>
+
+  <!-- =================================================================== -->
+  <!-- BARRA INFERIOR TÁCTIL EN CELULARES (Ventas · Inventario · Caja · Más) -->
+  <!-- =================================================================== -->
+  <nav class="md:hidden fixed bottom-0 inset-x-0 h-16 bg-white/95 backdrop-blur-md border-t border-gray-200 z-40 flex items-stretch shadow-[0_-4px_16px_rgba(0,0,0,0.06)]"
+       aria-label="Navegación principal móvil">
+    <!-- 1. Ventas -->
+    <a href="/"
+       class="flex-1 flex flex-col items-center justify-center gap-0.5 active:bg-gray-100 transition-colors {{ 'text-primario font-bold' if activa == 'pos' else 'text-gray-500 hover:text-gray-900' }}">
+      <div class="relative">
+        <i data-lucide="shopping-cart" class="w-5 h-5 {{ 'stroke-[2.5]' if activa == 'pos' else '' }}"></i>
+        {% if activa == 'pos' %}<span class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-primario"></span>{% endif %}
+      </div>
+      <span class="text-[11px] leading-tight">Ventas</span>
+    </a>
+
+    <!-- 2. Inventario -->
+    <a href="/inventario"
+       class="flex-1 flex flex-col items-center justify-center gap-0.5 active:bg-gray-100 transition-colors {{ 'text-primario font-bold' if activa == 'inventario' else 'text-gray-500 hover:text-gray-900' }}">
+      <div class="relative">
+        <i data-lucide="package" class="w-5 h-5 {{ 'stroke-[2.5]' if activa == 'inventario' else '' }}"></i>
+        {% if activa == 'inventario' %}<span class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-primario"></span>{% endif %}
+      </div>
+      <span class="text-[11px] leading-tight">Inventario</span>
+    </a>
+
+    <!-- 3. Caja -->
+    <a href="/caja"
+       class="flex-1 flex flex-col items-center justify-center gap-0.5 active:bg-gray-100 transition-colors {{ 'text-primario font-bold' if activa == 'caja' else 'text-gray-500 hover:text-gray-900' }}">
+      <div class="relative">
+        <i data-lucide="wallet" class="w-5 h-5 {{ 'stroke-[2.5]' if activa == 'caja' else '' }}"></i>
+        {% if activa == 'caja' %}<span class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-primario"></span>{% endif %}
+      </div>
+      <span class="text-[11px] leading-tight">Caja</span>
+    </a>
+
+    <!-- 4. Más Opciones -->
+    <button type="button" @click="abrirMenuMas()"
+            class="flex-1 flex flex-col items-center justify-center gap-0.5 active:bg-gray-100 transition-colors {{ 'text-primario font-bold' if activa in ['categorias', 'clientes', 'configuracion', 'auditoria'] else 'text-gray-500 hover:text-gray-900' }}">
+      <div class="relative">
+        <i data-lucide="layout-grid" class="w-5 h-5 {{ 'stroke-[2.5]' if activa in ['categorias', 'clientes', 'configuracion', 'auditoria'] else '' }}"></i>
+        {% if activa in ['categorias', 'clientes', 'configuracion', 'auditoria'] %}
+          <span class="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-primario"></span>
+        {% endif %}
+      </div>
+      <span class="text-[11px] leading-tight">Más</span>
+    </button>
+  </nav>
+
+  <!-- Modal rápido para cambiar Clave / PIN desde cualquier pantalla -->
+  <div x-show="modalClave" x-transition.opacity
+       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40"
+       @keydown.escape.window="modalClave = false" style="display:none;">
+    <form @submit.prevent="guardarNuevaClave()" @click.outside="modalClave = false"
+          class="bg-white rounded-xl shadow-xl border border-gray-200 w-full max-w-sm p-6 space-y-4 text-left">
+      <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+        <h3 class="font-semibold text-base text-gray-900">Cambiar PIN</h3>
+        <button type="button" @click="modalClave = false" class="text-gray-400 hover:text-gray-600 text-sm font-bold">✕</button>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">PIN actual *</label>
+        <input type="password" x-model="claveActual" required inputmode="numeric" pattern="[0-9]{4}" maxlength="4" class="campo" placeholder="Tu PIN actual">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-600 mb-1">PIN nuevo * <span class="text-gray-400 font-normal">(4 números, no 1234 ni 0000)</span></label>
+        <input type="password" x-model="claveNueva" required inputmode="numeric" pattern="[0-9]{4}" maxlength="4" class="campo" placeholder="PIN nuevo de 4 números">
+      </div>
+      <p x-show="msgClave" x-text="msgClave"
+         :class="errClave ? 'text-red-600 bg-red-50 border-red-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200'"
+         class="text-xs font-medium px-3 py-2 rounded-lg border"></p>
+      <div class="flex gap-2 pt-1">
+        <button type="button" @click="modalClave = false"
+                class="flex-1 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50">
+          Cancelar
+        </button>
+        <button type="submit" :disabled="guardandoClave"
+                class="flex-1 py-2 rounded-lg bg-primario hover:bg-primario-oscuro text-white text-xs font-semibold transition-colors disabled:opacity-50">
+          <span x-text="guardandoClave ? 'Guardando…' : '💾 Actualizar'"></span>
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Modal / Drawer 'Más Opciones' en Móvil -->
+  <!-- Orden: 1. Categorías | 2. Clientes y Crédito | 3. Configuración | 4. Auditoría -->
+  <div x-show="menuMasAbierto" x-cloak
+       class="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-sm"
+       @keydown.escape.window="menuMasAbierto = false">
+    <!-- Overlay click fuera para cerrar -->
+    <div class="flex-1" @click="menuMasAbierto = false"></div>
+
+    <!-- Panel deslizable inferior -->
+    <div class="bg-white rounded-t-2xl shadow-2xl border-t border-gray-200 max-h-[85vh] overflow-y-auto p-4 space-y-4 text-left"
+         @click.stop>
+      <!-- Encabezado del menú -->
+      <div class="flex flex-col items-center">
+        <div class="w-10 h-1 bg-gray-300 rounded-full mb-3"></div>
+        <div class="w-full flex items-center justify-between border-b border-gray-100 pb-2">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-primario-suave text-primario flex items-center justify-center font-bold text-xs">
+              <i data-lucide="layout-grid" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-sm text-gray-900 leading-tight">Más Opciones</h3>
+              <p class="text-[11px] text-gray-500">
+                Usuario: <span class="font-semibold text-gray-800" x-text="usuarioNombre || 'Dueño'"></span> (<span x-text="usuarioRol || 'Admin'"></span>)
+              </p>
+            </div>
+          </div>
+          <button type="button" @click="menuMasAbierto = false"
+                  class="w-7 h-7 flex items-center justify-center rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 text-sm font-bold">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- Tarjetas de Acceso Ordenadas -->
+      <div class="grid grid-cols-1 gap-2">
+        <!-- 1. Categorías -->
+        <a href="/categorias"
+           class="flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-primario hover:bg-gray-50 transition-colors {{ 'bg-primario-suave/30 border-primario' if activa == 'categorias' else '' }}">
+          <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+            <i data-lucide="tags" class="w-5 h-5"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <span class="font-semibold text-xs text-gray-900 block">Categorías</span>
+            <span class="text-[11px] text-gray-500 block truncate">Organización y rubros del inventario</span>
+          </div>
+        </a>
+
+        <!-- 2. Clientes y Crédito -->
+        <a href="/clientes"
+           class="flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-primario hover:bg-gray-50 transition-colors {{ 'bg-primario-suave/30 border-primario' if activa == 'clientes' else '' }}">
+          <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <i data-lucide="users" class="w-5 h-5"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <span class="font-semibold text-xs text-gray-900 block">Clientes y Crédito</span>
+            <span class="text-[11px] text-gray-500 block truncate">Cuentas corrientes, saldos y fidelización</span>
+          </div>
+        </a>
+
+        <!-- 3. Configuración (Admin) -->
+        <a x-show="esAdmin" href="/configuracion"
+           class="flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-primario hover:bg-gray-50 transition-colors {{ 'bg-primario-suave/30 border-primario' if activa == 'configuracion' else '' }}">
+          <div class="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+            <i data-lucide="settings" class="w-5 h-5"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <span class="font-semibold text-xs text-gray-900 block">Configuración</span>
+            <span class="text-[11px] text-gray-500 block truncate">Nombre, tickets, seguridad y respaldo</span>
+          </div>
+        </a>
+
+        <!-- 4. Auditoría (Admin) -->
+        <a x-show="esAdmin" href="/auditoria"
+           class="flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-primario hover:bg-gray-50 transition-colors {{ 'bg-primario-suave/30 border-primario' if activa == 'auditoria' else '' }}">
+          <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+            <i data-lucide="shield-check" class="w-5 h-5"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <span class="font-semibold text-xs text-gray-900 block">Auditoría</span>
+            <span class="text-[11px] text-gray-500 block truncate">Historial de movimientos y ventas</span>
+          </div>
+        </a>
+
+        <!-- Conectar Celular / Wi-Fi -->
+        <button type="button" @click="menuMasAbierto = false; abrirModalRedQR()"
+                class="flex items-center gap-3 p-3 rounded-xl border border-blue-200 bg-blue-50/50 hover:bg-blue-100/50 text-left transition-colors">
+          <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+            <i data-lucide="smartphone" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <strong class="text-xs font-bold text-gray-900 block">Conectar otro Celular</strong>
+            <span class="text-[11px] text-gray-500">QR y dirección de red local</span>
+          </div>
+        </button>
+
+        <!-- Backup en Google Drive (Offline) -->
+        <a x-show="esAdmin" href="/configuracion#backup-drive"
+           class="flex items-center gap-3 p-3 rounded-xl border border-blue-200 bg-blue-50/50 hover:bg-blue-100/50 transition-colors">
+          <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+            <i data-lucide="hard-drive" class="w-5 h-5"></i>
+          </div>
+          <div class="flex-1 min-w-0">
+            <span class="font-semibold text-xs text-gray-900 block" x-text="backupPendiente ? 'Copia Pendiente (Esperando Wi-Fi)' : 'Copia de Seguridad en Google Drive'"></span>
+            <span class="text-[11px] text-gray-500 block truncate" x-text="backupUltimo ? 'Última copia: ' + backupUltimo : 'Sincronización automática de datos'"></span>
+          </div>
+        </a>
+
+      </div>
+
+      <!-- Acciones de Cuenta y Seguridad -->
+      <div class="pt-2 border-t border-gray-100 grid grid-cols-2 gap-2">
+        <button type="button" @click="menuMasAbierto = false; abrirModalClave()"
+                class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-xs font-semibold text-gray-700 transition-colors">
+          <i data-lucide="key" class="w-4 h-4 text-amber-600"></i>
+          <span>Cambiar PIN</span>
+        </button>
+
+        <button type="button" onclick="cerrarSesion()"
+                class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-xs font-semibold text-red-700 transition-colors">
+          <i data-lucide="log-out" class="w-4 h-4 text-red-600"></i>
+          <span>Cerrar Sesión</span>
+        </button>
+      </div>
+
+      <button type="button" @click="menuMasAbierto = false"
+              class="w-full py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-xs font-semibold text-gray-600 transition-colors">
+        Cerrar
+      </button>
+    </div>
+  </div>
+</div>
+
+
+
+
+  <!-- Modal Conectar Celular / QR en Red -->
+  <div x-show="modalRedQR" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+       @keydown.escape.window="modalRedQR = false">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center space-y-4" @click.outside="modalRedQR = false">
+      <div class="flex items-center justify-between pb-2 border-b border-gray-100">
+        <h3 class="font-bold text-gray-900 text-base flex items-center gap-2">
+          <i data-lucide="smartphone" class="w-5 h-5 text-primario"></i>
+          Conectar Celular o Tablet
+        </h3>
+        <button type="button" @click="modalRedQR = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none">&times;</button>
+      </div>
+
+      <p class="text-xs text-gray-600">
+        Conectá tu celular al <strong>mismo Wi-Fi</strong> y apuntá la cámara acá:
+      </p>
+
+      <div class="p-3 bg-white border border-gray-200 rounded-xl shadow-inner flex items-center justify-center mx-auto">
+        <img src="/api/red/qr.svg" alt="Código QR Wi-Fi" class="w-48 h-48 object-contain">
+      </div>
+
+      <div class="bg-gray-50 rounded-xl p-3 border border-gray-200 text-center">
+        <span class="text-[10px] text-gray-400 block uppercase font-bold tracking-wider">O escribí en el navegador del celular:</span>
+        <code class="text-xs font-bold text-gray-900 select-all block mt-1" x-text="redUrl || 'Cargando...'"></code>
+      </div>
+
+      <button type="button" @click="modalRedQR = false"
+              class="w-full py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 font-semibold text-xs text-gray-700 transition-colors">
+        Cerrar
+      </button>
+    </div>
+  </div>
+
+  <!-- Inclusión del Asistente de Primer Arranque (Setup Wizard) -->
+  {% include "_wizard.html" %}
+
+<script>
+  async function cerrarSesion() {
+    try {
+      sessionStorage.removeItem('POS_NAVEGANDO_INTERNO');
+      sessionStorage.removeItem('POS_REDIRECT_DESPUES_LOGIN');
+      sessionStorage.setItem('POS_BLOQUEAR_PIN', '1');
+      await fetch('/api/logout', { method: 'POST' });
+    } finally {
+      window.location.href = '/login';
+    }
+  }
+
+  function barraGlobal() {
+    return {
+      cargadoBarra: false,
+      menuMasDesktop: false,
+      menuMasAbierto: false,
+      stockCriticoCount: 0,
+      usuarioNombre: '',
+      usuarioRol: '',
+      esAdmin: false,
+      debePin: false,
+      modalClave: false,
+      claveActual: '',
+      claveNueva: '',
+      guardandoClave: false,
+      msgClave: '',
+      errClave: false,
+      modalRedQR: false,
+      redUrl: '',
+      backupPendiente: false,
+      backupUltimo: '',
+      mostrarWizard: false,
+      wizardPaso: 1,
+      wizardError: '',
+      guardandoWizard: false,
+      wizardDatos: {
+        nombre_comercio: '',
+        rubro: 'comercio_general',
+        modo_operacion: 'autonomo_offline',
+        alias: '',
+        cbu: '',
+        telefono: '',
+        logo_imagen: '',
+        pin_dueno: '',
+        pin_dueno_conf: '',
+        pin_cajero: '0000',
+      },
+
+      abrirMenuMas() {
+        this.menuMasAbierto = true;
+        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+      },
+
+      async abrirModalRedQR() {
+        this.modalRedQR = true;
+        if (!this.redUrl) {
+          try {
+            const r = await fetch('/api/red/info');
+            if (r.ok) {
+              const d = await r.json();
+              this.redUrl = d.url;
+            }
+          } catch (_) {}
+        }
+        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+      },
+
+
+      comprimirLogoWizard(event) {
+        const file = event.target.files && event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const maxLado = 160;
+            let w = img.width, h = img.height;
+            if (w > maxLado || h > maxLado) {
+              if (w > h) { h = Math.round((h * maxLado) / w); w = maxLado; }
+              else { w = Math.round((w * maxLado) / h); h = maxLado; }
+            }
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            this.wizardDatos.logo_imagen = canvas.toDataURL('image/png');
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      },
+
+      wizardAtras() {
+        if (this.wizardPaso > 1) this.wizardPaso--;
+        this.wizardError = '';
+        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+      },
+
+      async wizardSiguiente() {
+        this.wizardError = '';
+        if (this.wizardPaso === 1) {
+          if (!this.wizardDatos.nombre_comercio.trim()) {
+            this.wizardError = 'Por favor ingresá el nombre de tu comercio.';
+            return;
+          }
+          this.wizardPaso = 2;
+        } else if (this.wizardPaso === 2) {
+          this.wizardPaso = 3;
+        } else if (this.wizardPaso === 3) {
+          this.wizardPaso = 4;
+        } else if (this.wizardPaso === 4) {
+          const pin = this.wizardDatos.pin_dueno.trim();
+          const conf = this.wizardDatos.pin_dueno_conf.trim();
+          if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+            this.wizardError = 'El PIN del Dueño debe tener exactamente 4 números.';
+            return;
+          }
+          if (pin !== conf) {
+            this.wizardError = 'Los PINs ingresados no coinciden.';
+            return;
+          }
+          await this.guardarWizardCompleto();
+        }
+        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+      },
+
+      async guardarWizardCompleto() {
+        this.guardandoWizard = true;
+        this.wizardError = '';
+        try {
+          const resp = await fetch('/api/setup-wizard/completar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(this.wizardDatos),
+          });
+          if (!resp.ok) {
+            const err = await resp.json();
+            throw new Error(err.detail || 'Error al guardar la configuración');
+          }
+          localStorage.setItem('POS_WIZARD_COMPLETADO', '1');
+          localStorage.setItem('POS_MODO_OPERACION', this.wizardDatos.modo_operacion);
+          this.mostrarWizard = false;
+          window.location.reload();
+        } catch (e) {
+          this.wizardError = e.message || 'Error guardando configuración inicial';
+        } finally {
+          this.guardandoWizard = false;
+        }
+      },
+
+      async iniciarBarra() {
+        this.aplicarLogoHeader();
+        // Inyectar manifest PWA para instalación a pantalla completa en celular
+        if (!document.querySelector('link[rel="manifest"]')) {
+          const link = document.createElement('link');
+          link.rel = 'manifest';
+          link.href = '/manifest.json';
+          document.head.appendChild(link);
+        }
+        if (window.sincronizarIdentidadComercio) {
+          window.sincronizarIdentidadComercio();
+        }
+        try {
+          const r = await fetch('/api/estado-barra');
+          if (r.ok) {
+            const d = await r.json();
+            if (d.wizard_completado === 0 && !localStorage.getItem('POS_WIZARD_COMPLETADO')) {
+              this.mostrarWizard = true;
+              this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+            }
+            const n = Number(d.stock_critico_count);
+            this.stockCriticoCount = Number.isFinite(n) && n >= 0 ? n : 0;
+            this.usuarioNombre = d.usuario || '';
+            this.esAdmin = (d.rol === 'admin');
+            this.usuarioRol = d.rol === 'admin' ? 'Dueño' : 'Empleado';
+            this.debePin = !(!d.debe_cambiar_pin);
+            if (d.backup) {
+              this.backupPendiente = !(!d.backup.cambios_pendientes);
+              this.backupUltimo = d.backup.ultimo_backup_local || '';
+            }
+            // Configurar comportamiento de bloqueo de sesión si no corre bajo motor offline
+            if (!window.obtenerConfigComercio && d.modo_bloqueo) {
+              this.iniciarSeguridadSesion(d.modo_bloqueo, d.tiempo_inactividad_min);
+            }
+          } else {
+            this.stockCriticoCount = 0;
+          }
+        } catch (_) {
+          this.stockCriticoCount = 0;
+        }
+        this.cargadoBarra = true;
+        this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+      },
+
+      iniciarSeguridadSesion(modo, minutos) {
+        if (modo === 'inactividad') {
+          let timer = null;
+          const mins = Math.max(1, Number(minutos) || 15);
+          const ms = mins * 60 * 1000;
+          const reset = () => {
+            if (timer) clearTimeout(timer);
+            timer = setTimeout(() => {
+              cerrarSesion();
+            }, ms);
+          };
+          ['mousedown', 'keydown', 'touchstart', 'scroll'].forEach((ev) => {
+            window.addEventListener(ev, reset, { passive: true });
+          });
+          reset();
+        } else if (modo === 'minimizar') {
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+              try { sessionStorage.setItem('POS_BLOQUEAR_PIN', '1'); } catch (_) {}
+            } else if (document.visibilityState === 'visible') {
+              if (sessionStorage.getItem('POS_BLOQUEAR_PIN') === '1') {
+                try { sessionStorage.removeItem('POS_BLOQUEAR_PIN'); } catch (_) {}
+                cerrarSesion();
+              }
+            }
+          });
+        }
+      },
+
+      aplicarLogoHeader() {
+        const logoUrl = {{ (config.get('logo_imagen') or '') | tojson }};
+        const headerBox = document.querySelector('header .w-9.h-9');
+        if (!headerBox) return;
+        if (logoUrl) {
+          headerBox.innerHTML = `<img src="${logoUrl}" alt="Logo" class="w-full h-full object-contain rounded-lg p-0.5">`;
+          headerBox.classList.remove('bg-primario', 'text-white');
+          headerBox.classList.add('bg-white', 'border', 'border-gray-200', 'overflow-hidden');
+        }
+      },
+
+      abrirModalClave() {
+        this.claveActual = '';
+        this.claveNueva = '';
+        this.msgClave = '';
+        this.errClave = false;
+        this.modalClave = true;
+      },
+
+      async guardarNuevaClave() {
+        this.guardandoClave = true;
+        this.msgClave = '';
+        this.errClave = false;
+        try {
+          const r = await fetch('/api/config/cambiar-clave', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pin_actual: this.claveActual, pin_nuevo: this.claveNueva })
+          });
+          const data = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(data.detail || 'No se pudo actualizar el PIN');
+          this.errClave = false;
+          this.msgClave = data.mensaje || 'PIN actualizado con éxito.';
+          this.debePin = false;
+          this.claveActual = '';
+          this.claveNueva = '';
+          setTimeout(() => { this.modalClave = false; }, 1200);
+        } catch (e) {
+          this.errClave = true;
+          this.msgClave = e.message;
+        } finally {
+          this.guardandoClave = false;
+        }
+      }
+    };
+  }
+</script>

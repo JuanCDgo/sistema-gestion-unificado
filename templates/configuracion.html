@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ config.nombre_comercio }} · Configuración del Comercio</title>
+
+  <script src="/static/vendor/tailwind.js"></script>
+
+  <style>
+    :root {
+      --color-primario: {{ config.color_primario }};
+      --color-primario-suave: color-mix(in srgb, var(--color-primario) 10%, white);
+      --color-primario-oscuro: color-mix(in srgb, var(--color-primario) 85%, black);
+    }
+    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+    [x-cloak] { display: none !important; }
+    .campo { width:100%; padding:.625rem .75rem; font-size:.875rem; background:#fff; border:1px solid #e5e7eb; border-radius:.5rem; }
+    .campo:focus { outline:none; border-color:var(--color-primario); box-shadow:0 0 0 2px color-mix(in srgb, var(--color-primario) 20%, transparent); }
+    input[type=color] { width:3rem; height:2.75rem; padding:.2rem; background:#fff; border:1px solid #e5e7eb; border-radius:.5rem; cursor:pointer; }
+  </style>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'] },
+        colors: {
+          primario: 'var(--color-primario)',
+          'primario-suave': 'var(--color-primario-suave)',
+          'primario-oscuro': 'var(--color-primario-oscuro)',
+          fondo: '#F7F9FA'
+        },
+        boxShadow: { suave: '0 1px 2px rgba(16,24,40,0.04)' }
+      } }
+    }
+  </script>
+
+  <link rel="manifest" href="/manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#2563EB">
+  <script src="/static/js/motor_offline_pwa.js"></script>
+  <script defer src="/static/vendor/alpine.min.js"></script>
+  <script src="/static/vendor/lucide.min.js"></script>
+</head>
+
+<body class="bg-fondo text-gray-900 antialiased min-h-screen"
+      x-data="configuracion({{ config | tojson | forceescape }})" x-init="iniciar()" x-cloak>
+
+  <header class="bg-white border-b border-gray-200 px-3 sm:px-8 py-2.5 flex flex-wrap items-center justify-between gap-2 sticky top-0 z-20">
+    <div class="flex items-center gap-2 shrink-0 min-w-0">
+      <div data-brand-logo class="w-9 h-9 rounded-lg bg-primario text-white flex items-center justify-center overflow-hidden shrink-0">
+        <i data-lucide="store" class="w-5 h-5"></i>
+      </div>
+      <span data-brand-nombre class="font-semibold text-sm sm:text-lg text-gray-900 truncate max-w-[160px] sm:max-w-[260px]"
+            x-text="guardado.nombre_comercio || form.nombre_comercio || 'Mi Comercio'"></span>
+    </div>
+    {% set activa = 'configuracion' %}{% include '_nav.html' %}
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-8">
+    <div>
+      <h1 class="text-xl font-semibold">⚙️ Configuración del Comercio</h1>
+      <p class="text-sm text-gray-500">Identidad visual White Label, medios de cobro, correo de cierres, seguridad y respaldos.</p>
+    </div>
+
+    <!-- Avisos globales -->
+    <p x-show="okMsg" x-transition x-text="okMsg" class="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2.5 font-medium"></p>
+    <p x-show="error" x-transition x-text="error" class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 font-medium"></p>
+
+    <!-- =================================================================== -->
+    <!-- 1. FORMULARIO PRINCIPAL EN 2 COLUMNAS                               -->
+    <!-- =================================================================== -->
+    <form @submit.prevent="guardar()" class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+
+        <!-- COLUMNA IZQUIERDA: IDENTIDAD + DATOS BANCARIOS Y QR -->
+        <div class="space-y-6">
+
+          <!-- Identidad del Negocio y Logo -->
+          <div class="bg-white border border-gray-200 rounded-xl shadow-suave p-6 space-y-4">
+            <h2 class="text-base font-semibold flex items-center gap-2 border-b border-gray-100 pb-3">
+              🏪 Identidad del Negocio y Logo del Local
+            </h2>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Nombre de Fantasía del Negocio *</label>
+              <input x-model="form.nombre_comercio" required maxlength="60" type="text" placeholder="Ej: Almacén San Martín" class="campo font-medium">
+              <p class="text-[11px] text-gray-400 mt-1">Se muestra arriba en todas las pantallas, en el ingreso y en los tickets.</p>
+            </div>
+
+            <!-- Logo del Local -->
+            <div class="bg-fondo border border-gray-200 rounded-xl p-4 space-y-3">
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-xs font-semibold text-gray-700">Logo del Negocio</label>
+                <span class="text-[11px] text-gray-400">Visible en encabezado y tickets</span>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-4">
+                <div class="w-20 h-20 rounded-xl bg-white border border-gray-200 p-1.5 shadow-suave flex items-center justify-center overflow-hidden shrink-0">
+                  <img x-show="Boolean(guardado.logo_imagen || form.logo_imagen) && !errorImgLogo"
+                       :src="(guardado.logo_imagen || form.logo_imagen) || ''"
+                       @load="errorImgLogo = false"
+                       @error="if (guardado.logo_imagen || form.logo_imagen) errorImgLogo = true"
+                       alt="Logo del comercio"
+                       class="w-full h-full object-contain">
+                  <span x-show="(!guardado.logo_imagen && !form.logo_imagen) || errorImgLogo"
+                        class="text-[11px] text-gray-400 text-center leading-tight px-1"
+                        x-text="errorImgLogo ? 'Enlace inválido' : 'Sin logo'"></span>
+                </div>
+
+                <div class="flex-1 min-w-[200px] space-y-2.5">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <label class="px-4 py-2 bg-primario hover:bg-primario-oscuro text-white rounded-lg text-xs font-semibold cursor-pointer shadow-suave shrink-0 inline-flex items-center gap-1.5">
+                      <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                      <span x-text="guardado.logo_imagen ? 'Cambiar imagen' : 'Elegir imagen del celular / PC'"></span>
+                      <input type="file" accept="image/*" class="hidden" @change="subirArchivoImagen($event, 'logo')">
+                    </label>
+                    <button x-show="guardado.logo_imagen || form.logo_imagen" type="button" @click="eliminarLogo()"
+                            class="px-3 py-2 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium cursor-pointer">
+                      Quitar logo
+                    </button>
+                  </div>
+
+                  <div class="flex flex-col sm:flex-row gap-2">
+                    <input id="input-logo-url" x-model="urlLogoExterna" type="text" autocomplete="off"
+                           placeholder="O pegá un enlace https://..."
+                           class="campo flex-1 bg-white text-gray-900 text-xs">
+                    <button type="button" @click="guardarUrlExterna('logo')"
+                            class="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 text-xs font-semibold shrink-0">
+                      Usar enlace
+                    </button>
+                  </div>
+
+                  <p x-show="subiendoLogo" class="text-xs text-gray-500 font-medium">Procesando imagen...</p>
+                  <p x-show="okLogoMsg" x-text="okLogoMsg" class="text-xs text-emerald-700 font-semibold"></p>
+                  <p x-show="errorImgLogo" class="text-xs text-red-600">No se pudo cargar ese enlace externo. Usá el botón "Elegir imagen del celular / PC".</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Teléfono (WhatsApp)</label>
+                <input x-model="form.telefono" type="tel" inputmode="numeric" maxlength="20" placeholder="5491112345678" class="campo">
+                <p class="text-[11px] text-gray-400 mt-1">Con código de país, sin signos (+ ni espacios).</p>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Símbolo de Moneda *</label>
+                <input x-model="form.moneda" required maxlength="5" type="text" placeholder="$" class="campo">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Dirección Comercial</label>
+              <input x-model="form.direccion" maxlength="120" type="text" placeholder="Ej: Av. San Martín 1234" class="campo">
+            </div>
+
+            <!-- Color Primario White Label -->
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">🎨 Color Primario de Botones y Marca</label>
+              <div class="flex flex-wrap items-center gap-3">
+                <input x-model="form.color_primario" @input="previsualizarColor()" type="color">
+                <input x-model="form.color_primario" @input="previsualizarColor()" type="text" maxlength="7" pattern="#[0-9a-fA-F]{6}" class="campo w-28 font-mono uppercase">
+                <div class="flex-1 min-w-[180px] border border-gray-200 rounded-lg p-2.5 flex items-center gap-2.5 shadow-suave bg-white">
+                  <div class="w-8 h-8 rounded-lg text-white flex items-center justify-center shrink-0" :style="{ background: form.color_primario }">
+                    <i data-lucide="store" class="w-4 h-4"></i>
+                  </div>
+                  <span class="text-xs font-medium text-white px-2.5 py-1 rounded-md" :style="{ background: form.color_primario }">Botón</span>
+                  <span class="text-xs font-medium px-2 py-0.5 rounded-full"
+                        :style="{ color: form.color_primario, background: 'color-mix(in srgb, ' + form.color_primario + ' 12%, white)' }">Acento</span>
+                </div>
+              </div>
+            </div>
+
+                      <!-- Bloqueo de Pantalla y Seguridad de Sesión -->
+          <div class="bg-white border border-gray-200 rounded-xl shadow-suave p-6 space-y-4">
+            <h2 class="text-base font-semibold flex items-center gap-2 border-b border-gray-100 pb-3">
+              <i data-lucide="shield" class="w-4 h-4 text-primario"></i>
+              Bloqueo de Pantalla y Sesión
+            </h2>
+            <p class="text-xs text-gray-500">
+              Elegí cómo y cuándo querés que la aplicación solicite el PIN de seguridad.
+            </p>
+
+            <div class="space-y-3">
+              <label class="block text-xs font-semibold text-gray-700">Comportamiento de la sesión</label>
+              
+              <div class="space-y-2">
+                <label class="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
+                       :class="form.modo_bloqueo === 'nunca' ? 'border-primario bg-primario-suave/20' : ''">
+                  <input type="radio" name="modo_bloqueo" value="nunca" x-model="form.modo_bloqueo" class="mt-1 text-primario focus:ring-primario">
+                  <div class="text-xs">
+                    <span class="font-bold text-gray-900 block">Sin bloqueo automático (Recomendado para mostrador)</span>
+                    <span class="text-gray-500">La aplicación se mantiene siempre abierta y lista para trabajar. Solo se cierra si tocás manualmente "Salir".</span>
+                  </div>
+                </label>
+
+                <label class="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
+                       :class="form.modo_bloqueo === 'inactividad' ? 'border-primario bg-primario-suave/20' : ''">
+                  <input type="radio" name="modo_bloqueo" value="inactividad" x-model="form.modo_bloqueo" class="mt-1 text-primario focus:ring-primario">
+                  <div class="text-xs">
+                    <span class="font-bold text-gray-900 block">Bloquear por tiempo sin uso (Inactividad)</span>
+                    <span class="text-gray-500">Pide PIN automáticamente si nadie toca la pantalla o el teclado durante el tiempo seleccionado.</span>
+                  </div>
+                </label>
+
+                <label class="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
+                       :class="form.modo_bloqueo === 'minimizar' ? 'border-primario bg-primario-suave/20' : ''">
+                  <input type="radio" name="modo_bloqueo" value="minimizar" x-model="form.modo_bloqueo" class="mt-1 text-primario focus:ring-primario">
+                  <div class="text-xs">
+                    <span class="font-bold text-gray-900 block">Bloquear al salir o minimizar (Modo estricto)</span>
+                    <span class="text-gray-500">Pide PIN de inmediato cada vez que salís de la app, cambiás de ventana o apagás la pantalla.</span>
+                  </div>
+                </label>
+              </div>
+
+              <!-- Tiempo de inactividad (solo visible si eligió 'inactividad') -->
+              <div x-show="form.modo_bloqueo === 'inactividad'" x-transition class="pt-2 pl-6">
+                <label class="block text-xs font-medium text-gray-600 mb-1">Tiempo de espera antes de pedir PIN</label>
+                <select x-model.number="form.tiempo_inactividad_min" class="campo max-w-xs">
+                  <option :value="5">5 minutos sin uso</option>
+                  <option :value="15">15 minutos sin uso (Recomendado)</option>
+                  <option :value="30">30 minutos sin uso</option>
+                  <option :value="60">1 hora sin uso</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+            <div class="pt-3 border-t border-gray-100">
+              <button type="submit" :disabled="guardando"
+                      class="w-full py-3 px-5 rounded-xl bg-primario hover:bg-primario-oscuro text-white text-sm font-semibold transition-colors disabled:opacity-50 shadow-suave">
+                <span x-text="guardando ? 'Guardando cambios...' : 'Guardar Nombre, Color e Identidad'"></span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Datos Bancarios y QR de Cobro -->
+          <div class="bg-white border border-gray-200 rounded-xl shadow-suave p-6 space-y-4">
+            <h2 class="text-base font-semibold flex items-center gap-2 border-b border-gray-100 pb-3">
+              🏦 Datos Bancarios y QR de Cobro (Para Transferencias)
+            </h2>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Titular de la Cuenta</label>
+                <input x-model="form.titular_cuenta" maxlength="80" type="text" placeholder="Nombre y Apellido / Razón Social" class="campo">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Banco o Billetera Virtual</label>
+                <input x-model="form.banco" maxlength="80" type="text" placeholder="Ej: Mercado Pago / Banco Nación" class="campo">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Alias CBU / CVU</label>
+                <input x-model="form.alias" maxlength="60" type="text" placeholder="mi.comercio.mp" class="campo font-mono">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">CBU / CVU Numérico</label>
+                <input x-model="form.cbu" maxlength="30" type="text" inputmode="numeric" placeholder="00000031000..." class="campo font-mono">
+              </div>
+            </div>
+
+            <!-- Código QR de Cobro Estático -->
+            <div class="bg-fondo border border-gray-200 rounded-xl p-4 space-y-3">
+              <div class="flex items-center justify-between gap-2">
+                <label class="text-xs font-semibold text-gray-700">Código QR de Cobro</label>
+                <span class="text-[11px] text-gray-400">Visible al cobrar con Transferencia en el POS</span>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-4">
+                <div class="w-24 h-24 rounded-xl bg-white border border-gray-200 p-1.5 shadow-suave flex items-center justify-center overflow-hidden shrink-0">
+                  <img x-show="Boolean(guardado.qr_imagen || form.qr_imagen) && !errorImgQr"
+                       :src="(guardado.qr_imagen || form.qr_imagen) || ''"
+                       @load="errorImgQr = false"
+                       @error="if (guardado.qr_imagen || form.qr_imagen) errorImgQr = true"
+                       alt="QR de cobro"
+                       class="w-full h-full object-contain">
+                  <span x-show="(!guardado.qr_imagen && !form.qr_imagen) || errorImgQr"
+                        class="text-[11px] text-gray-400 text-center leading-tight px-1"
+                        x-text="errorImgQr ? 'Enlace inválido' : 'Sin QR cargado'"></span>
+                </div>
+
+                <div class="flex-1 min-w-[200px] space-y-2.5">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <label class="px-4 py-2 bg-primario hover:bg-primario-oscuro text-white rounded-lg text-xs font-semibold cursor-pointer shadow-suave shrink-0 inline-flex items-center gap-1.5">
+                      <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                      <span x-text="guardado.qr_imagen ? 'Cambiar imagen QR' : 'Elegir imagen QR del celular / PC'"></span>
+                      <input type="file" accept="image/*" class="hidden" @change="subirArchivoImagen($event, 'qr')">
+                    </label>
+                    <button x-show="guardado.qr_imagen || form.qr_imagen" type="button" @click="eliminarQr()"
+                            class="px-3 py-2 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium cursor-pointer">
+                      Quitar QR
+                    </button>
+                  </div>
+
+                  <div class="flex flex-col sm:flex-row gap-2">
+                    <input id="input-qr-url" x-model="urlQrExterna" type="text" autocomplete="off"
+                           placeholder="O pegá un enlace https://..."
+                           class="campo flex-1 bg-white text-gray-900 text-xs">
+                    <button type="button" @click="guardarUrlExterna('qr')"
+                            class="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-300 text-xs font-semibold shrink-0">
+                      Usar enlace
+                    </button>
+                  </div>
+
+                  <p x-show="subiendoQr" class="text-xs text-gray-500 font-medium">Procesando código QR...</p>
+                  <p x-show="okQrMsg" x-text="okQrMsg" class="text-xs text-emerald-700 font-semibold"></p>
+                  <p x-show="errorImgQr" class="text-xs text-red-600">No se pudo cargar ese enlace externo. Usá el botón "Elegir imagen QR del celular / PC".</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="pt-3 border-t border-gray-100">
+              <button type="submit" :disabled="guardando"
+                      class="w-full py-3 px-5 rounded-xl bg-primario hover:bg-primario-oscuro text-white text-sm font-semibold transition-colors disabled:opacity-50 shadow-suave">
+                <span x-text="guardando ? 'Guardando cambios...' : 'Guardar Datos Bancarios y QR'"></span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- COLUMNA DERECHA: CONFIGURACIÓN DE CORREO SMTP -->
+        <div class="space-y-6">
+          <div class="bg-white border border-gray-200 rounded-xl shadow-suave p-6 space-y-4">
+            <h2 class="text-base font-semibold flex items-center gap-2 border-b border-gray-100 pb-3">
+              ✉️ Configuración de Correo SMTP (Envío Automático de Cierre Diario)
+            </h2>
+            <p class="text-xs text-gray-500">
+              Si completás estos datos, cada vez que realices el <strong>Cierre Oficial de Caja Diario</strong> se enviará automáticamente el reporte PDF adjunto al correo destinatario.
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div class="sm:col-span-2">
+                <label class="block text-xs font-medium text-gray-500 mb-1">Servidor SMTP</label>
+                <input x-model="form.smtp_servidor" type="text" placeholder="smtp.gmail.com" class="campo font-mono">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Puerto SMTP</label>
+                <input x-model.number="form.smtp_puerto" type="number" min="1" max="65535" placeholder="587" class="campo font-mono">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Usuario / Email Remitente</label>
+              <input x-model="form.smtp_usuario" type="email" placeholder="micomercio@gmail.com" class="campo">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Contraseña de Aplicación (App Password)</label>
+              <div class="relative">
+                <input x-model="form.smtp_password" :type="verSmtpPass ? 'text' : 'password'"
+                       placeholder="xxxx xxxx xxxx xxxx" class="campo pr-10 font-mono">
+                <button type="button" @click="verSmtpPass = !verSmtpPass"
+                        class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 p-1"
+                        title="Mostrar / ocultar contraseña">
+                  <i :data-lucide="verSmtpPass ? 'eye-off' : 'eye'" class="w-4 h-4"></i>
+                </button>
+              </div>
+              <p class="text-[11px] text-gray-400 mt-1">Para Gmail se recomienda usar una Contraseña de Aplicación de 16 caracteres.</p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Email Destinatario del Cierre Diario</label>
+              <input x-model="form.email_destinatario" type="email" placeholder="dueno@micomercio.com" class="campo">
+            </div>
+
+            <div class="pt-3 border-t border-gray-100">
+              <button type="submit" :disabled="guardando"
+                      class="w-full py-3 px-6 rounded-xl bg-primario hover:bg-primario-oscuro text-white font-semibold transition-colors disabled:opacity-50 shadow-suave">
+                <span x-text="guardando ? 'Guardando configuración…' : '💾 Guardar Configuración del Comercio'"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </form>
+
+    <!-- =================================================================== -->
+    <!-- 2. ACORDEÓN: CLAVE / PIN DE DUEÑO - ADMINISTRADOR                   -->
+    <!-- =================================================================== -->
+    <div id="seguridad" class="bg-white border border-gray-200 rounded-xl shadow-suave overflow-hidden">
+      <p x-show="debePin" role="alert" class="px-6 py-3 text-sm font-medium text-amber-800 bg-amber-50 border-b border-amber-200">
+        Estás usando un PIN de ejemplo. Cambialo para poder seguir usando el sistema.
+      </p>
+      <button type="button" @click="acordeonClave = !acordeonClave"
+              class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-gray-50 transition-colors">
+        <span class="font-semibold text-sm flex items-center gap-2">
+          PIN de acceso
+        </span>
+        <i :data-lucide="acordeonClave ? 'chevron-up' : 'chevron-down'" class="w-4 h-4 text-gray-400"></i>
+      </button>
+
+      <div x-show="acordeonClave" x-transition class="p-6 border-t border-gray-100 bg-fondo/50">
+        <form @submit.prevent="cambiarClave()" class="max-w-2xl space-y-4">
+          <p class="text-xs text-gray-500">
+            El PIN de 4 números es tu acceso al sistema y autoriza las acciones críticas (restaurar, puesta a cero).
+          </p>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">PIN actual *</label>
+              <input x-model="formClave.pin_actual" type="password" required inputmode="numeric" pattern="\d{4}" maxlength="4" autocomplete="current-password" class="campo">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">PIN nuevo *</label>
+              <input x-model="formClave.pin_nuevo" type="password" required inputmode="numeric" pattern="\d{4}" maxlength="4" autocomplete="new-password" class="campo">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Repetir PIN nuevo *</label>
+              <input x-model="formClave.confirmar_nueva" type="password" required inputmode="numeric" pattern="\d{4}" maxlength="4" autocomplete="new-password" class="campo">
+            </div>
+          </div>
+
+          <p x-show="errorClave" x-text="errorClave" class="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2"></p>
+          <p x-show="okClave" x-text="okClave" class="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2"></p>
+
+          <button type="submit" :disabled="guardandoClave"
+                  class="px-5 py-2.5 rounded-lg bg-primario hover:bg-primario-oscuro text-white text-sm font-semibold disabled:opacity-50">
+            <span x-text="guardandoClave ? 'Actualizando…' : 'Actualizar PIN'"></span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- 2.5 BACKUP AUTOMÁTICO DE CARPETA DATOS EN GOOGLE DRIVE (WI-FI)      -->
+    <!-- =================================================================== -->
+    <section id="backup-drive" class="bg-white border-2 border-blue-200 rounded-xl shadow-suave p-6 space-y-6">
+      <div class="flex flex-wrap items-start justify-between gap-4 border-b border-gray-100 pb-4">
+        <div>
+          <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <i data-lucide="hard-drive" class="w-5 h-5 text-primario"></i>
+            Copias de Seguridad y Google Drive
+          </h2>
+          <p class="text-xs text-gray-500 mt-1">
+            Tus datos quedan guardados en tu celular y se respaldan automáticamente en tu Google Drive cuando te conectás al Wi-Fi.
+          </p>
+        </div>
+        <button type="button" @click="ejecutarBackupDriveAhora()" :disabled="ejecutandoBackupDrive"
+                class="px-4 py-2.5 rounded-xl bg-primario hover:bg-primario-oscuro text-white text-xs sm:text-sm font-semibold shadow-suave transition-colors disabled:opacity-50 flex items-center gap-2 shrink-0">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          <span x-text="ejecutandoBackupDrive ? 'Guardando copia…' : 'Hacer Copia Ahora'"></span>
+        </button>
+      </div>
+
+      <!-- Estado simple y claro -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p class="text-[11px] font-semibold uppercase text-gray-400">Última Copia Guardada</p>
+            <p class="text-sm font-bold text-gray-900 mt-0.5" x-text="estadoDrive.ultimo_backup_local || 'Sin copias aún'"></p>
+          </div>
+          <div class="text-right">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
+                  :class="estadoDrive.cambios_pendientes ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'">
+              <span class="w-2 h-2 rounded-full" :class="estadoDrive.cambios_pendientes ? 'bg-amber-500' : 'bg-emerald-500'"></span>
+              <span x-text="estadoDrive.cambios_pendientes ? 'Copia pendiente (esperando Wi-Fi)' : 'Copia al día'"></span>
+            </span>
+          </div>
+        </div>
+
+        <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 flex items-center justify-between">
+          <div>
+            <p class="text-[11px] font-semibold uppercase text-gray-400">Google Drive</p>
+            <p class="text-sm font-bold text-emerald-700 mt-0.5 flex items-center gap-1.5">
+              <span>✓ Conectado a tu Google Drive</span>
+            </p>
+          </div>
+          <button type="button" @click="mostrarAvanzadoDrive = !mostrarAvanzadoDrive"
+                  class="text-xs text-primario hover:underline font-medium">
+            <span x-text="mostrarAvanzadoDrive ? 'Ocultar cuenta' : 'Cambiar cuenta'"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Configuración y Acciones -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-1">
+        <!-- Columna 1: Copia Automática en Wi-Fi -->
+        <div class="border border-gray-200 rounded-xl p-5 space-y-4 bg-white">
+          <h3 class="font-bold text-sm text-gray-900 flex items-center gap-2">
+            <i data-lucide="cloud" class="w-4 h-4 text-primario"></i>
+            Copia Automática en Google Drive
+          </h3>
+
+          <label class="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
+                 :class="form.auto_backup_activo ? 'border-primario bg-primario-suave/20' : ''">
+            <input type="checkbox" x-model="form.auto_backup_activo" class="mt-0.5 rounded text-primario w-4 h-4">
+            <div class="text-xs">
+              <span class="font-bold text-gray-900 block">Guardar copia automática al conectarse al Wi-Fi</span>
+              <span class="text-gray-500">Respalda tus datos solos cada vez que cerrás la caja o tu teléfono se conecta al Wi-Fi.</span>
+            </div>
+          </label>
+
+          <div>
+            <label class="block text-xs font-semibold text-gray-700 mb-1">¿Cuándo guardar la copia?</label>
+            <select x-model="form.modo_wifi_backup" class="campo text-xs">
+              <option value="cualquier_wifi">En cualquier Wi-Fi con conexión a Internet (Recomendado)</option>
+              <option value="wifi_especifico">Solo en mi Wi-Fi de confianza (ej. el de mi casa o local)</option>
+            </select>
+          </div>
+
+          <div x-show="form.modo_wifi_backup === 'wifi_especifico'" class="space-y-2 bg-fondo p-3 rounded-lg border border-gray-200">
+            <label class="block text-xs font-medium text-gray-700">Nombre de tu red Wi-Fi</label>
+            <div class="flex gap-2">
+              <input type="text" x-model="form.wifi_seguro_ssid" placeholder="Ej: MiCasa_WiFi" class="campo flex-1 text-xs">
+              <button type="button" @click="usarWifiActual()"
+                      class="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold border border-gray-300 shrink-0">
+                Usar Wi-Fi actual
+              </button>
+            </div>
+          </div>
+
+          <!-- Opcional para cambiar el enlace si lo desea -->
+          <div x-show="mostrarAvanzadoDrive" x-transition class="pt-2 border-t border-gray-100 space-y-1">
+            <label class="block text-xs font-semibold text-gray-700">Enlace de tu cuenta de Google Drive</label>
+            <input type="url" x-model="form.google_drive_webhook_url" placeholder="https://script.google.com/macros/s/.../exec" class="campo font-mono text-xs">
+          </div>
+
+          <button type="button" @click="guardar()" :disabled="guardando"
+                  class="w-full py-2.5 px-4 rounded-xl bg-primario hover:bg-primario-oscuro text-white text-xs sm:text-sm font-semibold transition-colors shadow-sm">
+            Guardar Ajustes de Copia
+          </button>
+        </div>
+
+        <!-- Columna 2: Descargar o Restaurar Copia Manual -->
+        <div class="border border-gray-200 rounded-xl p-5 flex flex-col justify-between space-y-4 bg-white">
+          <div class="space-y-3">
+            <h3 class="font-bold text-sm text-gray-900 flex items-center gap-2">
+              <i data-lucide="download" class="w-4 h-4 text-blue-600"></i>
+              Descargar Copia de Seguridad
+            </h3>
+            <p class="text-xs text-gray-500">
+              Guarda en tu dispositivo un archivo completo con todos tus productos, fotos, clientes, precios y ventas.
+            </p>
+            <a href="/api/backup-drive/descargar-zip"
+               class="inline-flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold shadow-suave transition-colors">
+              <i data-lucide="download" class="w-4 h-4"></i>
+              Descargar Copia Completa
+            </a>
+          </div>
+
+          <div class="border-t border-gray-100 pt-4 space-y-3">
+            <h3 class="font-bold text-sm text-gray-900 flex items-center gap-2">
+              <i data-lucide="upload" class="w-4 h-4 text-amber-600"></i>
+              Restaurar Copia de Seguridad
+            </h3>
+            <p class="text-xs text-gray-500">
+              Elegí tu archivo de copia, ingresá tu PIN de seguridad y presioná Restaurar para recuperar todo.
+            </p>
+            <input type="file" accept=".zip,.json" @change="seleccionarZipDatos($event)"
+                   class="block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 cursor-pointer">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 items-center">
+              <input type="password" x-model="pinRestaurarZip" inputmode="numeric" maxlength="4" placeholder="Tu PIN de 4 números" class="campo text-xs">
+              <button type="button" @click="restaurarZipDatos()"
+                      :disabled="!archivoZipDatos || !pinRestaurarZip || restaurandoZipDatos"
+                      class="py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold disabled:opacity-40 transition-colors">
+                <span x-text="restaurandoZipDatos ? 'Restaurando todo…' : 'Restaurar Todo'"></span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- 4. ZONA DE MANTENIMIENTO / PUESTA A CERO (TRIPLE CANDADO)           -->
+    <!-- =================================================================== -->
+    <div class="bg-white border-2 border-red-200 rounded-xl shadow-suave overflow-hidden">
+      <button type="button" @click="acordeonPeligro = !acordeonPeligro"
+              class="w-full px-6 py-4 flex items-center justify-between text-left bg-red-50/70 hover:bg-red-50 transition-colors">
+        <span class="font-semibold text-sm text-red-700 flex items-center gap-2">
+          ⚠️ Zona de Mantenimiento / Puesta a Cero (Acciones Irreversibles)
+        </span>
+        <i :data-lucide="acordeonPeligro ? 'chevron-up' : 'chevron-down'" class="w-4 h-4 text-red-600"></i>
+      </button>
+
+      <div x-show="acordeonPeligro" x-transition class="p-6 space-y-5 border-t border-red-200">
+        <p class="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">
+          <strong>Atención:</strong> Utilizá esta herramienta para limpiar datos de prueba antes de salir a producción o para reiniciar el sistema por completo. Se recomienda descargar primero un Snapshot JSON.
+        </p>
+
+        <!-- Selector de modo -->
+        <div class="space-y-2">
+          <label class="block text-xs font-semibold text-gray-700 uppercase">Seleccioná el modo de limpieza:</label>
+          <label class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors"
+                 :class="resetForm.modo === 'movimientos' ? 'border-red-400 bg-red-50/40' : 'border-gray-200 hover:bg-gray-50'">
+            <input type="radio" x-model="resetForm.modo" value="movimientos" class="mt-0.5">
+            <div class="text-xs">
+              <p class="font-semibold text-gray-900">Vaciar solo movimientos y pruebas (CONSERVAR productos y categorías)</p>
+              <p class="text-gray-500">Archiva ventas, movimientos de caja, cierres y movimientos de Cuenta Corriente (quedan guardados, pero dejan de verse) y reinicia saldos/puntos de clientes a 0. Mantiene intacto el catálogo de productos y categorías.</p>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors"
+                 :class="resetForm.modo === 'total' ? 'border-red-500 bg-red-50/60' : 'border-gray-200 hover:bg-gray-50'">
+            <input type="radio" x-model="resetForm.modo" value="total" class="mt-0.5">
+            <div class="text-xs">
+              <p class="font-semibold text-red-700">Reinicio de fábrica total (archiva el historial y da de baja productos, categorías y clientes)</p>
+              <p class="text-gray-500">Archiva todo el historial y da de baja el catálogo y los clientes. No se borra nada: para deshacerlo, restaurá un respaldo.</p>
+            </div>
+          </label>
+        </div>
+
+        <!-- Triple candado de seguridad -->
+        <div class="bg-fondo border border-gray-200 rounded-xl p-4 space-y-4">
+          <p class="text-xs font-semibold text-gray-700">🔒 Triple Candado de Seguridad Obligatorio</p>
+
+          <label class="flex items-center gap-2 text-xs font-medium text-gray-800 cursor-pointer">
+            <input type="checkbox" x-model="resetForm.confirmar" class="rounded text-red-600">
+            <span>1. Entiendo que se archiva el historial y que solo se deshace restaurando un respaldo.</span>
+          </label>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">2. Escribí la palabra <strong class="text-red-600 font-mono">BORRAR</strong> en mayúsculas</label>
+              <input x-model="resetForm.palabra" type="text" placeholder="BORRAR" class="campo font-mono">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">3. Tu PIN para autorizar</label>
+              <input x-model="resetForm.pin" type="password" inputmode="numeric" maxlength="4" placeholder="Tu PIN de 4 números" class="campo">
+            </div>
+          </div>
+
+          <p x-show="errorReset" x-text="errorReset" class="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2"></p>
+
+          <button type="button" @click="ejecutarReset()"
+                  :disabled="!resetForm.confirmar || resetForm.palabra !== 'BORRAR' || !resetForm.pin || ejecutandoReset"
+                  class="w-full sm:w-auto px-6 py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-bold disabled:opacity-40 transition-colors">
+            <span x-text="ejecutandoReset ? 'Archivando datos…' : '💣 BORRAR DATOS AHORA'"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    function configuracion(configServidor) {
+      const config = window.obtenerConfigComercio ? window.obtenerConfigComercio(configServidor) : configServidor;
+      return {
+        async subirArchivoImagen(event, destino) {
+          const file = event.target.files[0];
+          if (!file) return;
+          const fd = new FormData();
+          fd.append('archivo', file);
+          this.error = '';
+          this.okMsg = '';
+          if (destino === 'logo') { this.subiendoLogo = true; this.okLogoMsg = ''; this.errorImgLogo = false; }
+          if (destino === 'qr') { this.subiendoQr = true; this.okQrMsg = ''; this.errorImgQr = false; }
+          try {
+            const res = await fetch('/api/archivos/subir-imagen', { method: 'POST', body: fd });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok && data.url) {
+              if (destino === 'logo') {
+                this.form.logo_imagen = data.url;
+                this.guardado.logo_imagen = data.url;
+                this.urlLogoExterna = '';
+                await this.subirLogo();
+              } else if (destino === 'qr') {
+                this.form.qr_imagen = data.url;
+                this.guardado.qr_imagen = data.url;
+                this.urlQrExterna = '';
+                await this.subirQr();
+              }
+            } else {
+              this.error = data.detail || 'Error al procesar la imagen seleccionada';
+            }
+          } catch (e) {
+            this.error = 'Error al procesar la imagen seleccionada';
+          } finally {
+            if (destino === 'logo') this.subiendoLogo = false;
+            if (destino === 'qr') this.subiendoQr = false;
+            event.target.value = '';
+          }
+        },
+
+        async guardarUrlExterna(destino) {
+          const norm = (u) => (window.normalizarUrlImagen ? window.normalizarUrlImagen(u) : String(u || '').trim());
+          if (destino === 'logo') {
+            const limpia = norm(this.urlLogoExterna);
+            if (!limpia) {
+              this.error = 'Pegá un enlace válido o usá el botón para elegir una imagen de tu dispositivo.';
+              return;
+            }
+            this.errorImgLogo = false;
+            this.form.logo_imagen = limpia;
+            await this.subirLogo();
+          } else if (destino === 'qr') {
+            const limpia = norm(this.urlQrExterna);
+            if (!limpia) {
+              this.error = 'Pegá un enlace válido o usá el botón para elegir la imagen QR de tu dispositivo.';
+              return;
+            }
+            this.errorImgQr = false;
+            this.form.qr_imagen = limpia;
+            await this.subirQr();
+          }
+        },
+
+        previsualizarColor() {
+          const c = String(this.form.color_primario || '').trim();
+          if (/^#[0-9a-fA-F]{6}$/.test(c)) {
+            document.documentElement.style.setProperty('--color-primario', c);
+            document.documentElement.style.setProperty('--color-primario-suave', `color-mix(in srgb, ${c} 10%, white)`);
+            document.documentElement.style.setProperty('--color-primario-oscuro', `color-mix(in srgb, ${c} 85%, black)`);
+          }
+        },
+
+        guardado: { ...config },
+        form: {
+          nombre_comercio: config.nombre_comercio || 'Mi Comercio',
+          telefono: config.telefono || '',
+          direccion: config.direccion || '',
+          moneda: config.moneda || '$',
+          color_primario: config.color_primario || '#2563EB',
+          logo_imagen: config.logo_imagen || '',
+          qr_imagen: config.qr_imagen || '',
+          titular_cuenta: config.titular_cuenta || '',
+          banco: config.banco || '',
+          alias: config.alias || '',
+          cbu: config.cbu || '',
+          modo_bloqueo: config.modo_bloqueo || 'nunca',
+          tiempo_inactividad_min: config.tiempo_inactividad_min || 15,
+          smtp_servidor: config.smtp_servidor || 'smtp.gmail.com',
+          smtp_puerto: config.smtp_puerto || 587,
+          smtp_usuario: config.smtp_usuario || '',
+          smtp_password: config.smtp_password || '',
+          email_destinatario: config.email_destinatario || '',
+          auto_backup_activo: config.auto_backup_activo !== undefined ? !!config.auto_backup_activo : true,
+          modo_wifi_backup: config.modo_wifi_backup || 'cualquier_wifi',
+          wifi_seguro_ssid: config.wifi_seguro_ssid || '',
+          carpeta_sincronizacion_drive: config.carpeta_sincronizacion_drive || '',
+          google_drive_webhook_url: config.google_drive_webhook_url || '',
+        },
+        urlLogoExterna: (config.logo_imagen && !String(config.logo_imagen).startsWith('data:')) ? config.logo_imagen : '',
+        urlQrExterna: (config.qr_imagen && !String(config.qr_imagen).startsWith('data:')) ? config.qr_imagen : '',
+        errorImgLogo: false,
+        errorImgQr: false,
+        okLogoMsg: '',
+        okQrMsg: '',
+        verSmtpPass: false,
+        guardando: false,
+        subiendoLogo: false,
+        subiendoQr: false,
+        error: '',
+        okMsg: '',
+
+        // Estado Backup Automático en Google Drive (Wi-Fi Seguro)
+        estadoDrive: {},
+        wifiInfo: {},
+        carpetaSugeridaDrive: '',
+        ejecutandoBackupDrive: false,
+        mostrarAvanzadoDrive: false,
+        archivoZipDatos: null,
+        pinRestaurarZip: '',
+        restaurandoZipDatos: false,
+
+        // Acordeón Clave / PIN
+        acordeonClave: location.hash === '#seguridad',
+        debePin: {{ 'true' if debe_cambiar_pin else 'false' }},
+        formClave: { pin_actual: '', pin_nuevo: '', confirmar_nueva: '' },
+        guardandoClave: false,
+        errorClave: '',
+        okClave: '',
+
+        // Backup & Restore
+        backupArchivo: null,
+        backupPreview: null,
+        confirmarRestauracion: false,
+        pinRestaurar: '',
+        restaurando: false,
+
+        // Zona de peligro / Reset
+        acordeonPeligro: false,
+        resetForm: { modo: 'movimientos', confirmar: false, palabra: '', pin: '' },
+        ejecutandoReset: false,
+        errorReset: '',
+
+        async iniciar() {
+          let pendiente = false;
+          new MutationObserver(() => {
+            if (pendiente || !document.querySelector('i[data-lucide]')) return;  // solo iconos nuevos: lucide deja data-lucide en el <svg> y sin esto se redibuja en bucle
+            pendiente = true;
+            requestAnimationFrame(() => { window.lucide && lucide.createIcons(); pendiente = false; });
+          }).observe(document.body, { childList: true, subtree: true });
+          window.lucide && lucide.createIcons();
+          if (window.sincronizarIdentidadComercio) {
+            window.sincronizarIdentidadComercio(this.guardado);
+          }
+          try {
+            const rb = await fetch('/api/estado-barra');
+            if (rb.ok) {
+              const dbBarra = await rb.json();
+              this.debePin = Boolean(dbBarra.debe_cambiar_pin);
+              if (this.debePin) this.acordeonClave = true;
+            }
+          } catch (_) {}
+          this.cargarEstadoBackupDrive();
+        },
+
+        async cargarEstadoBackupDrive() {
+          try {
+            const r = await fetch('/api/backup-drive/estado');
+            if (r.ok) {
+              const d = await r.json();
+              this.estadoDrive = d.estado || {};
+              this.wifiInfo = d.wifi || {};
+              this.carpetaSugeridaDrive = d.carpeta_sugerida || '';
+              if (!this.form.carpeta_sincronizacion_drive && this.carpetaSugeridaDrive) {
+                this.form.carpeta_sincronizacion_drive = this.carpetaSugeridaDrive;
+              }
+            }
+          } catch (_) {}
+        },
+
+        usarWifiActual() {
+          if (this.wifiInfo && this.wifiInfo.ssid_actual) {
+            this.form.wifi_seguro_ssid = this.wifiInfo.ssid_actual;
+            this.notificarOk('Se copió el nombre del Wi-Fi actual: ' + this.wifiInfo.ssid_actual + '. Recordá tocar Guardar Ajustes.');
+          } else {
+            this.error = 'No se pudo leer automáticamente el nombre del Wi-Fi en este dispositivo. Escribilo manualmente (tal como figura en el celular).';
+          }
+        },
+
+        async ejecutarBackupDriveAhora() {
+          this.ejecutandoBackupDrive = true;
+          this.error = '';
+          this.okMsg = '';
+          try {
+            const r = await fetch('/api/backup-drive/ejecutar-ahora', { method: 'POST' });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.detail || 'No se pudo completar el backup de la carpeta datos');
+            this.estadoDrive = d.estado || {};
+            this.wifiInfo = d.wifi || {};
+            this.notificarOk(this.estadoDrive.ultimo_mensaje || 'Carpeta datos respaldada con éxito.');
+          } catch (e) {
+            this.error = e.message;
+          } finally {
+            this.ejecutandoBackupDrive = false;
+          }
+        },
+
+        seleccionarZipDatos(e) {
+          const f = e.target.files[0];
+          this.archivoZipDatos = f || null;
+        },
+
+        async restaurarZipDatos() {
+          if (!this.archivoZipDatos || !this.pinRestaurarZip) return;
+          this.restaurandoZipDatos = true;
+          this.error = '';
+          this.okMsg = '';
+          try {
+            const fd = new FormData();
+            fd.append('archivo', this.archivoZipDatos);
+            fd.append('pin', this.pinRestaurarZip);
+            const r = await fetch('/api/backup-drive/restaurar-zip', { method: 'POST', body: fd });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.detail || 'No se pudo restaurar la carpeta datos desde el ZIP');
+            this.archivoZipDatos = null;
+            this.pinRestaurarZip = '';
+            await this.cargarEstadoBackupDrive();
+            this.notificarOk('Carpeta datos restaurada íntegramente desde el archivo ZIP.');
+            setTimeout(() => location.reload(), 1200);
+          } catch (e) {
+            this.error = e.message;
+          } finally {
+            this.restaurandoZipDatos = false;
+          }
+        },
+
+        notificarOk(msg) {
+          this.okMsg = msg;
+          this.error = '';
+          setTimeout(() => { if (this.okMsg === msg) this.okMsg = ''; }, 4500);
+        },
+
+        async guardar() {
+          this.guardando = true;
+          this.error = '';
+          this.okMsg = '';
+          try {
+            const r = await fetch('/api/config', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.form),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) {
+              throw new Error(typeof d.detail === 'string' ? d.detail : 'Revisá los datos ingresados (color en formato #RRGGBB).');
+            }
+            this.guardado = { ...d };
+            this.form.nombre_comercio = d.nombre_comercio || this.form.nombre_comercio;
+            this.form.color_primario = d.color_primario || this.form.color_primario;
+            this.form.logo_imagen = d.logo_imagen || '';
+            this.form.qr_imagen = d.qr_imagen || '';
+            if (window.sincronizarIdentidadComercio) {
+              window.sincronizarIdentidadComercio(this.guardado);
+            } else {
+              document.documentElement.style.setProperty('--color-primario', this.guardado.color_primario);
+            }
+            this.notificarOk('Configuración del comercio guardada correctamente.');
+          } catch (e) {
+            this.error = e.message;
+          } finally {
+            this.guardando = false;
+          }
+        },
+
+        async subirLogo() {
+          const url = (this.form.logo_imagen || '').trim();
+          if (!url) {
+            this.error = 'Elegí una imagen de tu dispositivo o pegá un enlace válido.';
+            return;
+          }
+          this.subiendoLogo = true;
+          this.error = '';
+          this.okLogoMsg = '';
+          try {
+            const response = await fetch('/api/config/logo', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url }),
+            });
+            const d = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              throw new Error(typeof d.detail === 'string' ? d.detail : 'Error al guardar el logo');
+            }
+            const nuevaImg = d.logo_imagen || url;
+            this.guardado.logo_imagen = nuevaImg;
+            this.form.logo_imagen = nuevaImg;
+            this.errorImgLogo = false;
+            if (window.sincronizarIdentidadComercio) {
+              window.sincronizarIdentidadComercio(this.guardado);
+            }
+            this.okLogoMsg = 'Logo guardado y aplicado en el encabezado.';
+            setTimeout(() => { if (this.okLogoMsg) this.okLogoMsg = ''; }, 4500);
+            this.notificarOk('Logo del negocio guardado correctamente.');
+          } catch (err) {
+            this.error = err.message || 'Error al guardar el logo';
+          } finally {
+            this.subiendoLogo = false;
+          }
+        },
+
+        async eliminarLogo() {
+          this.subiendoLogo = true;
+          this.error = '';
+          this.okLogoMsg = '';
+          try {
+            const r = await fetch('/api/config/logo', { method: 'DELETE' });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) {
+              throw new Error(typeof d.detail === 'string' ? d.detail : 'No se pudo eliminar el logo');
+            }
+            this.guardado.logo_imagen = '';
+            this.form.logo_imagen = '';
+            this.urlLogoExterna = '';
+            this.errorImgLogo = false;
+            if (window.sincronizarIdentidadComercio) {
+              window.sincronizarIdentidadComercio(this.guardado);
+            }
+            this.notificarOk('Logo eliminado.');
+          } catch (err) {
+            this.error = err.message || 'Error al eliminar el logo';
+          } finally {
+            this.subiendoLogo = false;
+          }
+        },
+
+        async subirQr() {
+          const url = (this.form.qr_imagen || '').trim();
+          if (!url) {
+            this.error = 'Elegí una imagen QR de tu dispositivo o pegá un enlace válido.';
+            return;
+          }
+          this.subiendoQr = true;
+          this.error = '';
+          this.okQrMsg = '';
+          try {
+            const response = await fetch('/api/config/qr', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url }),
+            });
+            const d = await response.json().catch(() => ({}));
+            if (!response.ok) {
+              throw new Error(typeof d.detail === 'string' ? d.detail : 'Error al guardar el código QR');
+            }
+            const nuevaImg = d.qr_imagen || url;
+            this.guardado.qr_imagen = nuevaImg;
+            this.form.qr_imagen = nuevaImg;
+            this.errorImgQr = false;
+            this.okQrMsg = 'Código QR guardado. Ya aparece al cobrar con Transferencia en el POS.';
+            setTimeout(() => { if (this.okQrMsg) this.okQrMsg = ''; }, 5000);
+            this.notificarOk('Código QR guardado correctamente.');
+          } catch (err) {
+            this.error = err.message || 'Error al guardar el código QR';
+          } finally {
+            this.subiendoQr = false;
+          }
+        },
+
+        async eliminarQr() {
+          this.subiendoQr = true;
+          this.error = '';
+          this.okQrMsg = '';
+          try {
+            const r = await fetch('/api/config/qr', { method: 'DELETE' });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) {
+              throw new Error(typeof d.detail === 'string' ? d.detail : 'No se pudo eliminar el código QR');
+            }
+            this.guardado.qr_imagen = '';
+            this.form.qr_imagen = '';
+            this.urlQrExterna = '';
+            this.errorImgQr = false;
+            this.notificarOk('Código QR eliminado.');
+          } catch (err) {
+            this.error = err.message || 'Error al eliminar el código QR';
+          } finally {
+            this.subiendoQr = false;
+          }
+        },
+
+        async cambiarClave() {
+          this.errorClave = '';
+          this.okClave = '';
+          if (this.formClave.pin_nuevo !== this.formClave.confirmar_nueva) {
+            this.errorClave = 'El PIN nuevo y su repetición no coinciden.';
+            return;
+          }
+          this.guardandoClave = true;
+          try {
+            const r = await fetch('/api/config/cambiar-clave', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ pin_actual: this.formClave.pin_actual, pin_nuevo: this.formClave.pin_nuevo }),
+            });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.detail || 'No se pudo actualizar el PIN');
+            this.okClave = 'PIN actualizado con éxito.';
+            this.debePin = false;
+            this.formClave = { pin_actual: '', pin_nuevo: '', confirmar_nueva: '' };
+          } catch (e) {
+            this.errorClave = e.message;
+          } finally {
+            this.guardandoClave = false;
+          }
+        },
+
+        async previsualizarBackup(e) {
+          const file = e.target.files[0];
+          this.backupArchivo = file || null;
+          this.backupPreview = null;
+          if (!file) return;
+          try {
+            const txt = await file.text();
+            const json = JSON.parse(txt);
+            const t = json.tablas || json;
+            this.backupPreview = {
+              categorias: (t.categorias || []).length,
+              productos: (t.productos || []).length,
+              clientes: (t.clientes || []).length,
+              ventas: (t.ventas || []).length,
+              detalle_ventas: (t.detalle_ventas || []).length,
+              movimientos_caja: (t.movimientos_caja || []).length,
+              movimientos_cuenta: (t.movimientos_cuenta || []).length,
+            };
+          } catch (err) {
+            this.error = 'El archivo seleccionado no es un JSON de respaldo válido.';
+            this.backupArchivo = null;
+          }
+        },
+
+        async restaurarBackup() {
+          if (!this.backupArchivo || !this.confirmarRestauracion) return;
+          this.restaurando = true;
+          this.error = '';
+          try {
+            const fd = new FormData();
+            fd.append('archivo', this.backupArchivo);
+            fd.append('pin', this.pinRestaurar);
+            const r = await fetch('/api/backup/restaurar', { method: 'POST', body: fd });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.detail || 'Error al restaurar copia de seguridad');
+            this.backupArchivo = null;
+            this.backupPreview = null;
+            this.confirmarRestauracion = false;
+            this.pinRestaurar = '';
+            if (this.$refs.archivoBackup) this.$refs.archivoBackup.value = '';
+            this.notificarOk('✅ Base de datos restaurada con éxito desde el archivo JSON.');
+          } catch (e) {
+            this.error = e.message;
+          } finally {
+            this.restaurando = false;
+          }
+        },
+
+        async ejecutarReset() {
+          this.errorReset = '';
+          this.ejecutandoReset = true;
+          try {
+            const r = await fetch('/api/mantenimiento/reset', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.resetForm),
+            });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.detail || 'No se pudo ejecutar la puesta a cero');
+            this.resetForm = { modo: 'movimientos', confirmar: false, palabra: '', pin: '' };
+            this.acordeonPeligro = false;
+            this.notificarOk(d.mensaje || '✅ Puesta a cero completada.');
+          } catch (e) {
+            this.errorReset = e.message;
+          } finally {
+            this.ejecutandoReset = false;
+          }
+        },
+      };
+    }
+  </script>
+</body>
+</html>

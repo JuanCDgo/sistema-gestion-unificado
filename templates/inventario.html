@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ config.nombre_comercio }} · Productos e Inventario</title>
+
+  <script src="/static/vendor/tailwind.js"></script>
+
+  <style>
+    :root {
+      --color-primario: {{ config.color_primario }};
+      --color-primario-suave: color-mix(in srgb, var(--color-primario) 10%, white);
+      --color-primario-oscuro: color-mix(in srgb, var(--color-primario) 85%, black);
+    }
+    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+    [x-cloak] { display: none !important; }
+    .campo { width:100%; padding:.625rem .75rem; font-size:.875rem; background:#fff; border:1px solid #e5e7eb; border-radius:.5rem; }
+    .campo:focus { outline:none; border-color:var(--color-primario); box-shadow:0 0 0 2px color-mix(in srgb, var(--color-primario) 20%, transparent); }
+    .oculta-scroll::-webkit-scrollbar { display: none; }
+    .oculta-scroll { scrollbar-width: none; }
+  /* ===== Sistema de Campos Táctiles (56px, Radio 16, Etiqueta Flotante) ===== */
+    .campo-flotante { position:relative; width:100%; display:block; }
+    .campo-flotante input:not([type="checkbox"]):not([type="radio"]), .campo-flotante select, .campo-flotante textarea {
+      width:100%; height:3.5rem; min-height:3.5rem; padding:1.25rem 1rem .35rem 1rem; font-size:.9375rem; font-weight:500;
+      line-height:1.25; color:#111827; background-color:#F9FAFB; border:1.5px solid #E5E7EB; border-radius:1rem; outline:none;
+      transition:all .2s cubic-bezier(.4, 0, .2, 1); box-sizing:border-box;
+    }
+    .campo-flotante input[type="checkbox"], .campo-flotante input[type="radio"] {
+      width:1.125rem !important; height:1.125rem !important; min-height:1.125rem !important;
+      padding:0 !important; margin:0 !important; border-radius:0.25rem !important; cursor:pointer !important;
+    }
+    .campo-flotante textarea { height:auto; min-height:5.5rem; padding-top:1.5rem; }
+    .campo-flotante input:focus, .campo-flotante select:focus, .campo-flotante textarea:focus {
+      background-color:#FFFFFF; border-color:var(--color-primario);
+      box-shadow:0 0 0 3px color-mix(in srgb, var(--color-primario) 18%, transparent);
+    }
+    .campo-flotante input.con-prefijo { padding-left:2.25rem; }
+    .campo-flotante .prefijo-moneda { position:absolute; left:1rem; bottom:.55rem; font-size:.9375rem; font-weight:700; color:#9CA3AF; pointer-events:none; }
+    .campo-flotante > label:not(.etiqueta-boton) {
+      position:absolute; top:1.05rem; left:1rem; font-size:.875rem; font-weight:500; color:#6B7280; pointer-events:none;
+      transform-origin:left top; transition:all .2s cubic-bezier(.4, 0, .2, 1);
+    }
+    .campo-flotante input.con-prefijo ~ label:not(.etiqueta-boton) { left:2.25rem; }
+    .campo-flotante input:focus ~ label:not(.etiqueta-boton), .campo-flotante input:not(:placeholder-shown) ~ label:not(.etiqueta-boton),
+    .campo-flotante select ~ label:not(.etiqueta-boton), .campo-flotante textarea:focus ~ label:not(.etiqueta-boton), .campo-flotante textarea:not(:placeholder-shown) ~ label:not(.etiqueta-boton) {
+      transform:translateY(-.65rem) scale(.78); font-weight:600;
+    }
+    .campo-flotante input:focus ~ label:not(.etiqueta-boton), .campo-flotante select:focus ~ label:not(.etiqueta-boton), .campo-flotante textarea:focus ~ label:not(.etiqueta-boton) {
+      color:var(--color-primario);
+    }
+  </style>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'] },
+        colors: {
+          primario: 'var(--color-primario)',
+          'primario-suave': 'var(--color-primario-suave)',
+          'primario-oscuro': 'var(--color-primario-oscuro)',
+          fondo: '#F7F9FA'
+        },
+        boxShadow: { suave: '0 1px 2px rgba(16,24,40,0.04)' }
+      } }
+    }
+  </script>
+
+  <link rel="manifest" href="/manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#2563EB">
+  <script src="/static/js/motor_offline_pwa.js"></script>
+  <script defer src="/static/vendor/alpine.min.js"></script>
+  <script src="/static/vendor/lucide.min.js"></script>
+</head>
+
+<body class="bg-fondo text-gray-900 antialiased min-h-screen"
+      x-data="inventario({{ config | tojson | forceescape }})" x-init="iniciar()" x-cloak>
+
+  <!-- Encabezado -->
+  <header class="bg-white border-b border-gray-200 px-3 sm:px-8 py-2.5 flex flex-wrap items-center justify-between gap-2 sticky top-0 z-20">
+    <div class="flex items-center gap-2 shrink-0 min-w-0">
+      <div data-brand-logo class="w-9 h-9 rounded-lg bg-primario text-white flex items-center justify-center overflow-hidden shrink-0">
+        <i data-lucide="store" class="w-5 h-5"></i>
+      </div>
+      <span data-brand-nombre class="font-semibold text-sm sm:text-lg text-gray-900 truncate max-w-[160px] sm:max-w-[260px]" x-text="config.nombre_comercio"></span>
+    </div>
+    {% set activa = 'inventario' %}{% include '_nav.html' %}
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 sm:px-8 py-6 space-y-6">
+
+    <!-- Título y resumen -->
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="text-xl font-semibold">Gestión de Productos e Inventario</h1>
+        <p class="text-sm text-gray-500">
+          <span x-text="productos.length"></span> productos registrados ·
+          <span :class="criticos.length > 0 ? 'text-amber-700 font-semibold' : ''"
+                x-text="criticos.length + ' en stock crítico'"></span>
+        </p>
+      </div>
+    </div>
+
+    <!-- Barra de sub-pestañas -->
+    <nav class="flex gap-1.5 overflow-x-auto oculta-scroll bg-gray-100 p-1.5 rounded-xl border border-gray-200/80">
+      <button type="button" @click="cambiarTab('catalogo')"
+              :class="tab === 'catalogo' ? 'bg-white text-primario shadow-suave' : 'text-gray-600 hover:text-gray-900'"
+              class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-colors">
+        📋 Catálogo de Productos
+      </button>
+      <button type="button" @click="cambiarTab('nuevo')"
+              :class="tab === 'nuevo' ? 'bg-white text-primario shadow-suave' : 'text-gray-600 hover:text-gray-900'"
+              class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-colors">
+        ➕ Nuevo Producto
+      </button>
+      <button type="button" @click="cambiarTab('critico')"
+              :class="tab === 'critico' ? 'bg-white text-primario shadow-suave' : 'text-gray-600 hover:text-gray-900'"
+              class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-1.5">
+        <span>🚨 Monitor de Stock Crítico</span>
+        <span x-show="criticos.length > 0" x-text="criticos.length"
+              class="px-1.5 py-0.5 text-[11px] font-bold rounded-full bg-red-100 text-red-700"></span>
+      </button>
+      <button type="button" @click="cambiarTab('masiva')"
+              x-show="esAdmin"
+              :class="tab === 'masiva' ? 'bg-white text-primario shadow-suave' : 'text-gray-600 hover:text-gray-900'"
+              class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-colors">
+        📥 Carga Masiva
+      </button>
+    </nav>
+
+    <!-- Mensajes globales -->
+    <p x-show="mensaje" x-text="mensaje" class="text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5"></p>
+    <p x-show="errorGlobal" x-text="errorGlobal" class="text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5"></p>
+
+    <!-- =================================================================== -->
+    <!-- TAB 1: 📋 CATÁLOGO DE PRODUCTOS                                     -->
+    <!-- =================================================================== -->
+    <section x-show="tab === 'catalogo'" class="space-y-5">
+
+      <!-- Acordeón desplegable: 📈 Actualización Masiva de Precios -->
+      <div x-show="esAdmin" class="bg-white border border-gray-200 rounded-xl shadow-suave overflow-hidden">
+        <button type="button" @click="acordeonPrecios = !acordeonPrecios"
+                class="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-gray-50 transition-colors">
+          <span class="font-semibold text-sm flex items-center gap-2">
+            📈 Actualización Masiva de Precios
+          </span>
+          <i :data-lucide="acordeonPrecios ? 'chevron-up' : 'chevron-down'" class="w-4 h-4 text-gray-500"></i>
+        </button>
+
+        <div x-show="acordeonPrecios" x-transition class="border-t border-gray-100 p-5 space-y-4 bg-fondo/50">
+          <p class="text-xs text-gray-500">Aplicá un aumento o descuento porcentual a todos los productos o a una categoría específica.</p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Categoría a actualizar</label>
+              <select x-model="masivo.categoria_id" class="campo">
+                <option value="">Todas las categorías</option>
+                <template x-for="c in catsApi" :key="c.id">
+                  <option :value="c.id" x-text="c.nombre"></option>
+                </template>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Porcentaje de ajuste (%)</label>
+              <input x-model.number="masivo.porcentaje" type="number" step="any" placeholder="Ej: 10 o -5" class="campo">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Redondear a</label>
+              <select x-model.number="masivo.redondeo" class="campo">
+                <option :value="0">Sin redondear</option>
+                <option :value="10">Múltiplo de 10</option>
+                <option :value="50">Múltiplo de 50</option>
+                <option :value="100">Múltiplo de 100</option>
+                <option :value="500">Múltiplo de 500</option>
+                <option :value="1000">Múltiplo de 1000</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button type="button" @click="ejecutarPreciosMasivos(false)" :disabled="masivo.cargando"
+                    class="py-2.5 px-4 rounded-lg bg-white border border-gray-300 hover:bg-gray-50 text-sm font-semibold text-gray-700 transition-colors">
+              🔍 Simular / Previsualizar
+            </button>
+            <button type="button" @click="ejecutarPreciosMasivos(true)" :disabled="masivo.cargando"
+                    class="py-2.5 px-4 rounded-lg bg-primario hover:bg-primario-oscuro text-white text-sm font-semibold transition-colors">
+              ✅ Aplicar Aumento Masivo
+            </button>
+          </div>
+
+          <p x-show="masivo.error" x-text="masivo.error" class="text-xs text-red-600"></p>
+
+          <!-- Tabla de simulación -->
+          <template x-if="masivo.preview.length > 0">
+            <div class="space-y-2 pt-2">
+              <p class="text-xs font-semibold text-gray-700"
+                 x-text="'Previsualización de ' + masivo.preview.length + ' producto(s) a modificar:'"></p>
+              <div class="max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-lg">
+                <table class="w-full text-xs">
+                  <thead class="bg-gray-50 text-gray-500 uppercase">
+                    <tr>
+                      <th class="text-left px-3 py-2">Producto</th>
+                      <th class="text-right px-3 py-2">Precio Actual</th>
+                      <th class="text-right px-3 py-2">Nuevo Precio</th>
+                      <th class="text-right px-3 py-2">Diferencia</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-100">
+                    <template x-for="r in masivo.preview" :key="r.id">
+                      <tr>
+                        <td class="px-3 py-2 font-medium" x-text="r.nombre"></td>
+                        <td class="px-3 py-2 text-right text-gray-600" x-text="fmt(r.precio_actual)"></td>
+                        <td class="px-3 py-2 text-right font-bold text-primario" x-text="fmt(r.precio_nuevo)"></td>
+                        <td class="px-3 py-2 text-right"
+                            :class="r.diferencia >= 0 ? 'text-emerald-700' : 'text-red-600'"
+                            x-text="(r.diferencia >= 0 ? '+' : '') + fmt(r.diferencia)"></td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Barra de herramientas: Buscador, Filtro por Categoría, Vista del Catálogo y Exportar a Excel -->
+      <div class="bg-white border border-gray-200 rounded-xl shadow-suave p-4 grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+        <div class="sm:col-span-4">
+          <label class="block text-xs font-medium text-gray-500 mb-1">🔍 Buscar por nombre o código</label>
+          <input x-model="busqueda" type="text" placeholder="Nombre o #SKU…" class="campo">
+        </div>
+        <div class="sm:col-span-3">
+          <label class="block text-xs font-medium text-gray-500 mb-1">Filtrar por Categoría</label>
+          <select x-model="filtroCategoria" class="campo">
+            <option value="">Todas las categorías</option>
+            <template x-for="c in categoriasNombres" :key="c">
+              <option :value="c" x-text="c"></option>
+            </template>
+          </select>
+        </div>
+        <div class="sm:col-span-3">
+          <label class="block text-xs font-medium text-gray-500 mb-1">Vista del Catálogo</label>
+          <div class="grid grid-cols-3 bg-gray-100 p-0.5 rounded-lg text-xs font-medium">
+            <template x-for="v in ['Compacta', 'Tarjetas', 'Tabla']" :key="v">
+              <button type="button" @click="vistaCatalogo = v"
+                      :class="vistaCatalogo === v ? 'bg-white text-primario shadow-suave' : 'text-gray-600 hover:text-gray-900'"
+                      class="py-1.5 rounded-md transition-colors" x-text="v"></button>
+            </template>
+          </div>
+        </div>
+        <div class="sm:col-span-2" x-show="esAdmin">
+          <a :href="urlExportarExcel()"
+             class="w-full py-2.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-suave">
+            📥 Exportar a Excel
+          </a>
+        </div>
+      </div>
+
+      <p x-show="!filtrados.length" class="py-12 text-center text-sm text-gray-500 bg-white border border-gray-200 rounded-xl">
+        No hay productos que coincidan con el filtro.
+      </p>
+
+      <!-- VISTA COMPACTA -->
+      <div x-show="vistaCatalogo === 'Compacta' && filtrados.length"
+           class="bg-white border border-gray-200 rounded-xl shadow-suave divide-y divide-gray-100">
+        <template x-for="p in filtrados" :key="p.id">
+          <div class="p-3.5 flex flex-wrap sm:flex-nowrap items-center gap-3.5 hover:bg-gray-50/70 transition-colors">
+            <template x-if="p.imagen">
+              <img :src="p.imagen" alt="" loading="lazy" class="w-12 h-12 rounded-lg object-contain p-0.5 bg-white border border-gray-200 shrink-0">
+            </template>
+            <template x-if="!p.imagen">
+              <div class="w-12 h-12 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 shrink-0">
+                <i data-lucide="package" class="w-5 h-5"></i>
+              </div>
+            </template>
+
+            <div class="flex-1 min-w-[180px]">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="font-semibold text-sm text-gray-900" x-text="p.nombre"></span>
+                <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-primario-suave text-primario" x-text="p.categoria"></span>
+                <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-gray-100 text-gray-600" x-text="'#' + (p.codigo || p.id)"></span>
+                <span x-show="p.puntos_canje > 0"
+                      class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300"
+                      x-text="'🎁 ' + p.puntos_canje + ' pts'"></span>
+              </div>
+              <p class="text-xs text-gray-500 mt-0.5"
+                 x-text="'Costo: ' + fmt(p.precio_costo) + ' · Margen: ' + (p.margen_ganancia || 0) + '% · Mínimo: ' + (p.stock_minimo ?? 0)"></p>
+            </div>
+
+            <div class="flex items-center gap-3 ml-auto">
+              <span class="text-xs font-semibold px-2.5 py-1 rounded-full"
+                    :class="claseStock(p)"
+                    x-text="(p.stock <= (p.stock_minimo ?? 0) ? '⚠️ Stock: ' : 'Stock: ') + fmtStock(p)"></span>
+              <span class="text-base font-bold text-gray-900 min-w-[90px] text-right" x-text="fmt(p.precio)"></span>
+              <div class="flex gap-1">
+                <button x-show="esAdmin" @click="irAEditar(p)" title="Editar" class="p-2 rounded-lg text-gray-500 hover:bg-primario-suave hover:text-primario">
+                  <i data-lucide="pencil" class="w-4 h-4"></i>
+                </button>
+                <button @click="irAAjuste(p)" title="Ajustar stock" class="p-2 rounded-lg text-gray-500 hover:bg-primario-suave hover:text-primario">
+                  <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                </button>
+                <button x-show="esAdmin" @click="confirmarEliminar(p)" title="Dar de baja" class="p-2 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- VISTA TARJETAS -->
+      <div x-show="vistaCatalogo === 'Tarjetas' && filtrados.length"
+           class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <template x-for="p in filtrados" :key="p.id">
+          <div class="bg-white border border-gray-200 rounded-xl shadow-suave overflow-hidden flex flex-col justify-between">
+            <div>
+              <div class="h-40 bg-white border-b border-gray-100 p-2 relative overflow-hidden flex items-center justify-center">
+                <template x-if="p.imagen">
+                  <img :src="p.imagen" :alt="p.nombre" class="w-full h-full object-contain">
+                </template>
+                <template x-if="!p.imagen">
+                  <i data-lucide="image" class="w-10 h-10 text-gray-300"></i>
+                </template>
+                <span class="absolute top-2.5 left-2.5 text-xs font-medium px-2.5 py-0.5 rounded-full bg-white/90 text-gray-800 shadow-sm"
+                      x-text="p.categoria"></span>
+                <span x-show="p.puntos_canje > 0"
+                      class="absolute top-2.5 right-2.5 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 shadow-sm"
+                      x-text="'🎁 ' + p.puntos_canje + ' pts'"></span>
+              </div>
+              <div class="p-4 space-y-1.5">
+                <div class="flex items-center justify-between text-xs text-gray-500">
+                  <span class="font-mono" x-text="'#' + (p.codigo || p.id)"></span>
+                  <span class="font-semibold px-2 py-0.5 rounded-full" :class="claseStock(p)"
+                        x-text="'Stock: ' + fmtStock(p) + ' (Mín: ' + fmtStockMin(p) + ')'"></span>
+                </div>
+                <h3 class="font-semibold text-base text-gray-900" x-text="p.nombre"></h3>
+                <p class="text-xl font-bold text-primario" x-text="fmt(p.precio)"></p>
+              </div>
+            </div>
+            <div class="px-4 py-2.5 bg-gray-50 border-t border-gray-100 flex justify-end gap-2">
+              <button x-show="esAdmin" @click="irAEditar(p)" class="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-700 hover:bg-primario-suave hover:text-primario">✏️ Editar</button>
+              <button @click="irAAjuste(p)" class="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-700 hover:bg-primario-suave hover:text-primario">🔄 Stock</button>
+              <button x-show="esAdmin" @click="confirmarEliminar(p)" class="px-3 py-1.5 rounded-lg text-xs font-medium text-red-600 hover:bg-red-50">🗑️</button>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- VISTA TABLA -->
+      <div x-show="vistaCatalogo === 'Tabla' && filtrados.length"
+           class="bg-white border border-gray-200 rounded-xl shadow-suave overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+            <tr>
+              <th class="text-left font-medium px-4 py-3">Código</th>
+              <th class="text-left font-medium px-4 py-3">Producto</th>
+              <th class="text-left font-medium px-3 py-3">Categoría</th>
+              <th class="text-right font-medium px-3 py-3">Costo</th>
+              <th class="text-right font-medium px-3 py-3">Venta</th>
+              <th class="text-right font-medium px-3 py-3">Stock</th>
+              <th class="text-right font-medium px-3 py-3">Premio</th>
+              <th class="text-right font-medium px-4 py-3">Acciones</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <template x-for="p in filtrados" :key="p.id">
+              <tr class="hover:bg-gray-50/70">
+                <td class="px-4 py-3 font-mono text-xs text-gray-600" x-text="'#' + (p.codigo || p.id)"></td>
+                <td class="px-4 py-3 font-medium" x-text="p.nombre"></td>
+                <td class="px-3 py-3">
+                  <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-primario-suave text-primario" x-text="p.categoria"></span>
+                </td>
+                <td class="px-3 py-3 text-right text-gray-600" x-text="fmt(p.precio_costo)"></td>
+                <td class="px-3 py-3 text-right font-bold" x-text="fmt(p.precio)"></td>
+                <td class="px-3 py-3 text-right">
+                  <span class="text-xs font-semibold px-2 py-0.5 rounded-full" :class="claseStock(p)"
+                        x-text="p.stock + ' / mín ' + (p.stock_minimo ?? 0)"></span>
+                </td>
+                <td class="px-3 py-3 text-right">
+                  <span x-show="p.puntos_canje > 0"
+                        class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300"
+                        x-text="'🎁 ' + p.puntos_canje + ' pts'"></span>
+                  <span x-show="!p.puntos_canje" class="text-xs text-gray-400">—</span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <div class="flex justify-end gap-1">
+                    <button x-show="esAdmin" @click="irAEditar(p)" title="Editar" class="p-1.5 rounded-lg text-gray-500 hover:bg-primario-suave hover:text-primario"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+                    <button @click="irAAjuste(p)" title="Ajustar stock" class="p-1.5 rounded-lg text-gray-500 hover:bg-primario-suave hover:text-primario"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
+                    <button x-show="esAdmin" @click="confirmarEliminar(p)" title="Dar de baja" class="p-1.5 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Dados de baja -->
+      <div x-show="esAdmin && bajas.length" class="bg-white border border-gray-200 rounded-xl shadow-suave p-4">
+        <button type="button" @click="bajasAbiertas = !bajasAbiertas"
+                class="w-full flex items-center justify-between text-sm font-semibold text-gray-600">
+          <span x-text="`Dados de baja (${bajas.length})`"></span>
+          <span class="text-xs text-gray-400" x-text="bajasAbiertas ? 'Ocultar' : 'Ver'"></span>
+        </button>
+        <div x-show="bajasAbiertas" x-transition class="mt-3 space-y-2">
+          <template x-for="b in bajas" :key="b.id">
+            <div class="flex items-center justify-between gap-3 border border-gray-200 rounded-lg px-3 py-2">
+              <div class="min-w-0">
+                <p class="text-sm font-medium truncate" x-text="b.nombre"></p>
+                <p class="text-xs text-gray-500" x-text="'Baja: ' + fechaBaja(b.fecha_baja)"></p>
+              </div>
+              <button type="button" @click="reactivar(b)"
+                      class="shrink-0 py-1.5 px-3 rounded-lg border border-gray-200 hover:bg-gray-50 text-xs font-semibold text-gray-700">
+                Reactivar
+              </button>
+            </div>
+          </template>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 2: ➕ NUEVO PRODUCTO                                             -->
+    <!-- =================================================================== -->
+    <section x-show="tab === 'nuevo'" class="bg-white border border-gray-200 rounded-xl shadow-suave p-6 max-w-3xl">
+      <h2 class="text-lg font-semibold mb-1">➕ Registrar Nuevo Producto</h2>
+      <p class="text-xs text-gray-500 mb-5">Completá los datos del artículo. El código SKU se puede autogenerar o escanear.</p>
+
+      <form @submit.prevent="guardarNuevo()" class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="campo-flotante relative">
+            <input x-model="formNuevo.codigo" id="nuevoProdCodigo" type="text" placeholder=" " class="font-mono pr-28 text-gray-900">
+            <label for="nuevoProdCodigo">Código de Barras / SKU</label>
+            <button type="button" @click="generarSkuNuevo()"
+                    class="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1.5 rounded-xl bg-primario-suave text-primario text-xs font-semibold hover:opacity-90">
+              Autogenerar
+            </button>
+          </div>
+          <div class="campo-flotante">
+            <input x-model="formNuevo.nombre" id="nuevoProdNombre" required type="text" placeholder=" " enterkeyhint="next" class="font-medium text-gray-900">
+            <label for="nuevoProdNombre">Nombre del Producto *</label>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="campo-flotante">
+            <input x-model="formNuevo.categoria" id="nuevoProdCat" required list="lista-cats" type="text" placeholder=" " enterkeyhint="next" class="font-medium text-gray-900">
+            <datalist id="lista-cats">
+              <template x-for="c in categoriasNombres" :key="c"><option :value="c"></option></template>
+            </datalist>
+            <label for="nuevoProdCat">Categoría *</label>
+          </div>
+          <div class="campo-flotante">
+            <input x-model.number="formNuevo.puntos_canje" id="nuevoProdPuntos" type="number" min="0" step="1" inputmode="numeric" placeholder=" " class="font-medium text-gray-900">
+            <label for="nuevoProdPuntos">Puntos para Canje (0 = no participa)</label>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-fondo p-4 rounded-2xl border border-gray-200">
+          <div class="campo-flotante">
+            <input x-model.number="formNuevo.precio_costo" id="nuevoProdCosto" @input="recalcularPrecio(formNuevo)" type="number" min="0" step="0.01" inputmode="decimal" placeholder=" " class="con-prefijo font-semibold text-gray-900">
+            <span class="prefijo-moneda text-base" x-text="config.moneda || '$'"></span>
+            <label for="nuevoProdCosto">Precio Costo ($)</label>
+          </div>
+          <div class="campo-flotante">
+            <input x-model.number="formNuevo.margen_ganancia" id="nuevoProdMargen" @input="recalcularPrecio(formNuevo)" type="number" min="0" step="0.5" inputmode="decimal" placeholder=" " class="font-semibold text-gray-900">
+            <label for="nuevoProdMargen">Margen Ganancia (%)</label>
+          </div>
+          <div class="campo-flotante relative">
+            <input x-model.number="formNuevo.precio" id="nuevoProdPrecio" @input="recalcularMargen(formNuevo)" :readonly="!formNuevo.usa_precio_manual" required type="number" min="0.01" step="0.01" inputmode="decimal" placeholder=" "
+                   :class="!formNuevo.usa_precio_manual && 'bg-gray-100 text-gray-700'" class="con-prefijo font-bold text-primario pr-28 text-base">
+            <span class="prefijo-moneda text-base" x-text="config.moneda || '$'"></span>
+            <label for="nuevoProdPrecio">Precio Venta ($) *</label>
+            <label class="etiqueta-boton absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-700 flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-xl border border-gray-200 shadow-sm z-10 select-none hover:bg-gray-50">
+              <input type="checkbox" x-model="formNuevo.usa_precio_manual" @change="recalcularPrecio(formNuevo)" class="w-4 h-4 rounded text-primario focus:ring-0"> <span>Manual</span>
+            </label>
+          </div>
+          <div x-show="Number(formNuevo.precio_costo) > 0" class="sm:col-span-3 text-xs bg-white p-2.5 rounded-xl border border-gray-200 text-gray-600 flex flex-wrap items-center justify-between gap-1 shadow-sm">
+            <span>Costo base: <strong class="text-gray-900" x-text="fmt(formNuevo.precio_costo)"></strong></span>
+            <span>+ Ganancia (<span x-text="Number(formNuevo.margen_ganancia || 0).toLocaleString('es-AR')"></span>%): <strong class="text-emerald-600" x-text="'+ ' + fmt(Math.round(Number(formNuevo.precio_costo || 0) * (Number(formNuevo.margen_ganancia || 0) / 100) * 100) / 100)"></strong></span>
+            <span>= Precio Venta: <strong class="text-primario font-bold text-sm" x-text="fmt(formNuevo.precio)"></strong></span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="campo-flotante">
+            <input x-model.number="formNuevo.stock" id="nuevoProdStock" required type="number" min="0" step="any" inputmode="decimal" placeholder=" " class="font-semibold text-gray-900">
+            <label for="nuevoProdStock">Stock Inicial *</label>
+          </div>
+          <div class="campo-flotante">
+            <input x-model.number="formNuevo.stock_minimo" id="nuevoProdStockMin" required type="number" min="0" step="any" inputmode="decimal" placeholder=" " class="font-semibold text-gray-900">
+            <label for="nuevoProdStockMin">Stock Mínimo (Alerta)</label>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Foto del Producto (opcional)</label>
+          <div class="flex items-center gap-2">
+            <img x-show="formNuevo.imagen" :src="formNuevo.imagen" alt="" class="w-14 h-14 rounded-2xl object-cover border border-gray-200 shrink-0">
+            <input x-model="formNuevo.imagen" type="text" placeholder="/static/uploads/foto.jpg o enlace URL" class="campo flex-1">
+            <label class="h-14 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl text-xs font-semibold cursor-pointer border border-gray-300 shrink-0 flex items-center justify-center">
+              Subir Foto
+              <input type="file" accept="image/*" class="hidden" @change="subirFotoLocal($event, 'nuevo')">
+            </label>
+          </div>
+        </div>
+
+        <p x-show="errorForm" x-text="errorForm" class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl p-3"></p>
+
+        <div class="pt-2 flex justify-end gap-3">
+          <button type="submit" :disabled="guardando"
+                  class="w-full sm:w-auto h-14 px-8 rounded-2xl bg-primario hover:bg-primario-oscuro text-white text-base font-semibold transition-colors disabled:opacity-50 shadow-suave flex items-center justify-center gap-2">
+            <span x-text="guardando ? 'Guardando…' : '💾 Crear Producto'"></span>
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 3: ✏️ EDITAR PRODUCTO                                            -->
+    <!-- =================================================================== -->
+    <section x-show="tab === 'editar'" class="bg-white border border-gray-200 rounded-xl shadow-suave p-6 max-w-3xl space-y-5">
+      <div class="space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="text-lg font-semibold">✏️ Editar o Dar de baja Producto</h2>
+          <button type="button" @click="cambiarTab('catalogo')"
+                  class="px-3.5 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-xs font-semibold text-gray-700 flex items-center gap-1.5 transition-colors">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span>Volver al Catálogo</span>
+          </button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Buscar por nombre o código</label>
+            <input x-model="busquedaEditar" @input="alFiltrarEditar()" type="text" placeholder="Escribí el nombre o código…" class="campo">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Producto seleccionado (orden alfabético)</label>
+            <select x-model.number="editarSeleccionadoId" @change="cargarEnFormularioEditar()" class="campo font-medium">
+              <option :value="0" disabled>Elegí un producto…</option>
+              <template x-for="p in productosFiltradosEditar" :key="p.id">
+                <option :value="p.id" x-text="p.nombre + ' [' + (p.codigo || p.id) + '] — ' + fmt(p.precio)"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <template x-if="formEditar.id">
+        <form @submit.prevent="guardarEdicion()" class="space-y-4 border-t border-gray-100 pt-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="campo-flotante">
+              <input x-model="formEditar.codigo" id="editProdCodigo" required type="text" placeholder=" " class="font-mono text-gray-900">
+              <label for="editProdCodigo">Código de Barras / SKU *</label>
+            </div>
+            <div class="campo-flotante">
+              <input x-model="formEditar.nombre" id="editProdNombre" required type="text" placeholder=" " enterkeyhint="next" class="font-medium text-gray-900">
+              <label for="editProdNombre">Nombre del Producto *</label>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="campo-flotante">
+              <input x-model="formEditar.categoria" id="editProdCat" required list="lista-cats" type="text" placeholder=" " enterkeyhint="next" class="font-medium text-gray-900">
+              <label for="editProdCat">Categoría *</label>
+            </div>
+            <div class="campo-flotante">
+              <select x-model="formEditar.unidad_medida" id="editProdUnidad" class="font-semibold text-gray-900">
+                <option value="unid">📦 Por Unidad (unid)</option>
+                <option value="kg">⚖️ Por Peso / Balanza (kg)</option>
+              </select>
+              <label for="editProdUnidad">Tipo de Venta / Unidad *</label>
+            </div>
+            <div class="campo-flotante">
+              <input x-model.number="formEditar.puntos_canje" id="editProdPuntos" type="number" min="0" step="1" inputmode="numeric" placeholder=" " class="font-medium text-gray-900">
+              <label for="editProdPuntos">Puntos para Canje</label>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-fondo p-4 rounded-2xl border border-gray-200">
+            <div class="campo-flotante">
+              <input x-model.number="formEditar.precio_costo" id="editProdCosto" @input="recalcularPrecio(formEditar)" type="number" min="0" step="0.01" inputmode="decimal" placeholder=" " class="con-prefijo font-semibold text-gray-900">
+              <span class="prefijo-moneda text-base" x-text="config.moneda || '$'"></span>
+              <label for="editProdCosto" x-text="formEditar.unidad_medida === 'kg' ? 'Precio Costo (por Kg)' : 'Precio Costo ($)'"></label>
+            </div>
+            <div class="campo-flotante">
+              <input x-model.number="formEditar.margen_ganancia" id="editProdMargen" @input="recalcularPrecio(formEditar)" type="number" min="0" step="0.5" inputmode="decimal" placeholder=" " class="font-semibold text-gray-900">
+              <label for="editProdMargen">Margen (%)</label>
+            </div>
+            <div class="campo-flotante relative">
+              <input x-model.number="formEditar.precio" id="editProdPrecio" @input="recalcularMargen(formEditar)" :readonly="!formEditar.usa_precio_manual" required type="number" min="0.01" step="0.01" inputmode="decimal" placeholder=" "
+                     :class="!formEditar.usa_precio_manual && 'bg-gray-100 text-gray-700'" class="con-prefijo font-bold text-primario pr-28 text-base">
+              <span class="prefijo-moneda text-base" x-text="config.moneda || '$'"></span>
+              <label for="editProdPrecio" x-text="formEditar.unidad_medida === 'kg' ? 'Precio Venta (por Kg) *' : 'Precio Venta ($) *'"></label>
+              <label class="etiqueta-boton absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-700 flex items-center gap-1.5 cursor-pointer bg-white px-2.5 py-1.5 rounded-xl border border-gray-200 shadow-sm z-10 select-none hover:bg-gray-50">
+                <input type="checkbox" x-model="formEditar.usa_precio_manual" @change="recalcularPrecio(formEditar)" class="w-4 h-4 rounded text-primario focus:ring-0"> <span>Manual</span>
+              </label>
+            </div>
+          <div x-show="Number(formEditar.precio_costo) > 0" class="sm:col-span-3 text-xs bg-white p-2.5 rounded-xl border border-gray-200 text-gray-600 flex flex-wrap items-center justify-between gap-1 shadow-sm">
+            <span>Costo base: <strong class="text-gray-900" x-text="fmt(formEditar.precio_costo)"></strong></span>
+            <span>+ Ganancia (<span x-text="Number(formEditar.margen_ganancia || 0).toLocaleString('es-AR')"></span>%): <strong class="text-emerald-600" x-text="'+ ' + fmt(Math.round(Number(formEditar.precio_costo || 0) * (Number(formEditar.margen_ganancia || 0) / 100) * 100) / 100)"></strong></span>
+            <span>= Precio Venta: <strong class="text-primario font-bold text-sm" x-text="fmt(formEditar.precio)"></strong></span>
+          </div>
+          </div>
+
+          <div class="space-y-2">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="campo-flotante">
+                <input x-model.number="formEditar.stock" id="editProdStock" required type="number" min="0" step="any" inputmode="decimal" placeholder=" " class="font-semibold text-gray-900">
+                <label for="editProdStock" x-text="formEditar.unidad_medida === 'kg' ? 'Stock Actual (en Kilos) *' : 'Stock Actual *'"></label>
+              </div>
+              <div class="campo-flotante">
+                <input x-model.number="formEditar.stock_minimo" id="editProdStockMin" required type="number" min="0" step="any" inputmode="decimal" placeholder=" " class="font-semibold text-gray-900">
+                <label for="editProdStockMin" x-text="formEditar.unidad_medida === 'kg' ? 'Stock Mínimo en Kilos *' : 'Stock Mínimo *'"></label>
+              </div>
+            </div>
+            <div x-show="formEditar.unidad_medida === 'kg'" class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 font-medium">
+              ⚖️ Stock en Kilos: Podés ingresar el peso total exacto (ej: 13.5 kg para barras o piezas).
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Foto del Producto (opcional)</label>
+            <div class="flex flex-wrap items-center gap-2">
+              <img x-show="formEditar.imagen && !formEditar.eliminar_imagen" :src="formEditar.imagen" alt="" class="w-14 h-14 rounded-2xl object-cover border border-gray-200 shrink-0">
+              <input x-model="formEditar.imagen" type="text" placeholder="/static/uploads/foto.jpg o enlace URL" class="campo flex-1">
+              <label class="h-14 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl text-xs font-semibold cursor-pointer border border-gray-300 shrink-0 flex items-center justify-center">
+                Cambiar Foto
+                <input type="file" accept="image/*" class="hidden" @change="subirFotoLocal($event, 'editar')">
+              </label>
+              <label x-show="formEditar.imagen" class="text-xs text-red-600 flex items-center gap-1 cursor-pointer">
+                <input type="checkbox" x-model="formEditar.eliminar_imagen"> Quitar foto actual
+              </label>
+            </div>
+          </div>
+
+          <p x-show="errorForm" x-text="errorForm" class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl p-3"></p>
+
+          <div class="pt-3 flex flex-wrap justify-between gap-3 border-t border-gray-100">
+            <button x-show="esAdmin" type="button" @click="confirmarEliminar(formEditar)"
+                    class="h-14 px-5 rounded-2xl border border-red-200 text-red-600 hover:bg-red-50 text-sm font-semibold transition-colors flex items-center gap-1.5">
+              🗑️ Dar de baja Producto
+            </button>
+            <button type="submit" :disabled="guardando"
+                    class="h-14 px-8 rounded-2xl bg-primario hover:bg-primario-oscuro text-white text-base font-semibold disabled:opacity-50 shadow-suave flex items-center justify-center gap-2">
+              <span x-text="guardando ? 'Guardando…' : '💾 Guardar Cambios'"></span>
+            </button>
+          </div>
+        </form>
+      </template>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 4: 🔄 AJUSTE DE STOCK                                            -->
+    <!-- =================================================================== -->
+    <section x-show="tab === 'ajuste'" class="space-y-5 max-w-4xl">
+      <div class="bg-white border border-gray-200 rounded-xl shadow-suave p-5 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h2 class="text-lg font-semibold">🔄 Ajuste Rápido de Stock en Almacén</h2>
+          <button type="button" @click="cambiarTab('catalogo')"
+                  class="px-3.5 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-xs font-semibold text-gray-700 flex items-center gap-1.5 transition-colors">
+            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            <span>Volver al Catálogo</span>
+          </button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Buscar por nombre o código</label>
+            <input x-model="busquedaAjuste" @input="alFiltrarAjuste()" type="text" placeholder="Escribí el nombre o código…" class="campo">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Producto seleccionado (orden alfabético)</label>
+            <select x-model.number="ajuste.producto_id" @change="alCambiarProductoAjuste()" class="campo font-medium">
+              <option :value="0" disabled>Elegí un producto…</option>
+              <template x-for="p in productosFiltradosAjuste" :key="p.id">
+                <option :value="p.id" x-text="p.nombre + ' [' + (p.codigo || p.id) + '] (Stock: ' + p.stock + ' | Mín: ' + (p.stock_minimo ?? 0) + ')'"></option>
+              </template>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <template x-if="productoAjuste">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <!-- Ajustar cantidad -->
+          <div class="bg-white border border-gray-200 rounded-xl shadow-suave p-5 space-y-4">
+            <h3 class="font-semibold text-sm">📦 Ajustar Cantidad en Almacén</h3>
+            <div class="grid grid-cols-3 gap-1.5 bg-gray-100 p-1 rounded-lg text-xs font-medium">
+              <button type="button" @click="ajuste.modo = 'establecer'; ajuste.cantidad = productoAjuste.stock"
+                      :class="ajuste.modo === 'establecer' ? 'bg-white text-primario shadow-suave' : 'text-gray-600'"
+                      class="py-1.5 rounded-md">Conteo Exacto</button>
+              <button type="button" @click="ajuste.modo = 'sumar'; ajuste.cantidad = 10"
+                      :class="ajuste.modo === 'sumar' ? 'bg-white text-primario shadow-suave' : 'text-gray-600'"
+                      class="py-1.5 rounded-md">+ Ingreso</button>
+              <button type="button" @click="ajuste.modo = 'restar'; ajuste.cantidad = 1"
+                      :class="ajuste.modo === 'restar' ? 'bg-white text-primario shadow-suave' : 'text-gray-600'"
+                      class="py-1.5 rounded-md">− Salida / Merma</button>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1"
+                     x-text="ajuste.modo === 'establecer' ? 'Nuevo Stock Total' : (ajuste.modo === 'sumar' ? 'Cantidad a sumar' : 'Cantidad a descontar')"></label>
+              <input x-model.number="ajuste.cantidad" type="number" min="0" step="any" class="campo font-semibold">
+              <p class="text-xs text-gray-500 mt-1.5">
+                Stock actual: <strong x-text="productoAjuste.stock"></strong> →
+                Resultante: <strong class="text-primario" x-text="stockResultanteAjuste"></strong> unid.
+              </p>
+            </div>
+
+            <button type="button" @click="guardarAjusteStock()"
+                    class="w-full py-2.5 rounded-lg bg-primario hover:bg-primario-oscuro text-white text-sm font-semibold">
+              Guardar Stock Actual
+            </button>
+          </div>
+
+          <!-- Umbral de Stock Mínimo -->
+          <div class="bg-white border border-gray-200 rounded-xl shadow-suave p-5 space-y-4 flex flex-col justify-between">
+            <div class="space-y-3">
+              <h3 class="font-semibold text-sm">⚙️ Umbral de Stock Mínimo</h3>
+              <p class="text-xs text-gray-500">Define a partir de qué cantidad el sistema alerta reposición inmediata.</p>
+              <div>
+                <label class="block text-xs font-medium text-gray-500 mb-1">Stock Mínimo Personalizado</label>
+                <input x-model.number="ajuste.stock_minimo" type="number" min="0" step="any" class="campo font-semibold">
+              </div>
+            </div>
+            <button type="button" @click="guardarStockMinimo()"
+                    class="w-full py-2.5 rounded-lg border border-gray-300 hover:bg-gray-50 text-sm font-semibold text-gray-800">
+              Guardar Stock Mínimo
+            </button>
+          </div>
+        </div>
+      </template>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 5: 🚨 MONITOR DE STOCK CRÍTICO                                   -->
+    <!-- =================================================================== -->
+    <section x-show="tab === 'critico'" class="space-y-4">
+      <div x-show="criticos.length === 0" class="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-6 text-sm font-medium">
+        🎉 ¡Excelente! No hay productos con stock igual o inferior a su mínimo configurado.
+      </div>
+
+      <template x-if="criticos.length > 0">
+        <div class="space-y-3">
+          <div class="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3 text-sm">
+            ⚠️ Se encontraron <strong x-text="criticos.length"></strong> artículos con necesidad de reposición inmediata.
+          </div>
+
+          <div class="bg-white border border-gray-200 rounded-xl shadow-suave overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
+                <tr>
+                  <th class="text-left font-medium px-4 py-3">Código</th>
+                  <th class="text-left font-medium px-4 py-3">Producto</th>
+                  <th class="text-left font-medium px-3 py-3">Categoría</th>
+                  <th class="text-right font-medium px-3 py-3">Stock Actual</th>
+                  <th class="text-right font-medium px-3 py-3">Stock Mínimo</th>
+                  <th class="text-right font-medium px-3 py-3">Déficit / Faltante</th>
+                  <th class="text-right font-medium px-4 py-3">Acción</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                <template x-for="p in criticos" :key="p.id">
+                  <tr class="hover:bg-red-50/30">
+                    <td class="px-4 py-3 font-mono text-xs text-gray-600" x-text="'#' + (p.codigo || p.id)"></td>
+                    <td class="px-4 py-3 font-semibold" x-text="p.nombre"></td>
+                    <td class="px-3 py-3 text-gray-600" x-text="p.categoria"></td>
+                    <td class="px-3 py-3 text-right font-bold text-red-600" x-text="p.stock"></td>
+                    <td class="px-3 py-3 text-right text-gray-600" x-text="p.stock_minimo"></td>
+                    <td class="px-3 py-3 text-right font-semibold text-amber-700" x-text="p.deficit"></td>
+                    <td class="px-4 py-3 text-right">
+                      <button @click="irAAjuste(p)" class="px-3 py-1 rounded-lg bg-primario-suave text-primario text-xs font-semibold hover:opacity-80">
+                        🔄 Reponer
+                      </button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </template>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- TAB 6: 📥 CARGA MASIVA                                               -->
+    <!-- =================================================================== -->
+    <section x-show="tab === 'masiva'" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div class="bg-white border border-gray-200 rounded-xl shadow-suave p-6 space-y-4 flex flex-col justify-between">
+        <div class="space-y-2">
+          <h3 class="font-semibold text-base">📄 Paso 1: Descargar Plantilla de Ejemplo</h3>
+          <p class="text-xs text-gray-500">
+            Descargá la planilla modelo con las columnas requeridas:<br>
+            <code class="text-[11px] bg-gray-100 px-1.5 py-0.5 rounded">codigo, nombre, categoria, precio_costo, precio_venta, stock, stock_minimo, puntos_canje</code>
+          </p>
+        </div>
+        <a href="/api/inventario/plantilla-excel"
+           class="w-full py-2.5 px-4 rounded-lg border border-gray-300 hover:bg-gray-50 text-sm font-semibold text-gray-800 flex items-center justify-center gap-2">
+          📥 Descargar Plantilla Excel (.xlsx)
+        </a>
+      </div>
+
+      <form @submit.prevent="importarArchivo()" class="bg-white border border-gray-200 rounded-xl shadow-suave p-6 space-y-4">
+        <h3 class="font-semibold text-base">📤 Paso 2: Subir Planilla (.xlsx o .csv)</h3>
+        <p class="text-xs text-gray-500">Si el código ya existe se actualiza; si no existe se crea automáticamente junto con su categoría.</p>
+        <input x-ref="archivoImportar" type="file" accept=".xlsx,.xlsm,.csv" required
+               class="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0
+                      file:text-xs file:font-semibold file:bg-primario-suave file:text-primario">
+        <button type="submit" :disabled="importacion.cargando"
+                class="w-full py-2.5 px-4 rounded-lg bg-primario hover:bg-primario-oscuro text-white text-sm font-semibold disabled:opacity-50"
+                x-text="importacion.cargando ? 'Procesando archivo…' : '🚀 Procesar e Importar Productos'"></button>
+
+        <template x-if="importacion.resultado">
+          <div class="bg-fondo border border-gray-200 rounded-lg p-3 text-xs space-y-1">
+            <p class="font-semibold text-emerald-700"
+               x-text="'✅ Procesados: ' + importacion.resultado.total + ' (Creados: ' + importacion.resultado.creados + ' · Actualizados: ' + importacion.resultado.actualizados + ' · Categorías nuevas: ' + importacion.resultado.categorias_creadas + ')'"></p>
+            <template x-if="importacion.resultado.errores && importacion.resultado.errores.length">
+              <ul class="text-red-600 list-disc pl-4 pt-1 space-y-0.5">
+                <template x-for="err in importacion.resultado.errores" :key="err">
+                  <li x-text="err"></li>
+                </template>
+              </ul>
+            </template>
+          </div>
+        </template>
+      </form>
+    </section>
+  </main>
+
+  <!-- Confirmación de eliminación -->
+  <div x-show="aEliminar" x-transition.opacity class="fixed inset-0 z-40 flex items-center justify-center p-4 bg-gray-900/40">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4" @click.outside="aEliminar = null">
+      <h3 class="font-semibold text-lg">Dar de baja el producto</h3>
+      <p class="text-sm text-gray-600">¿Dar de baja <strong x-text="aEliminar && aEliminar.nombre"></strong>? Deja de aparecer en el catálogo y en el POS, pero se conserva su historial y lo podés reactivar desde Dados de baja.</p>
+      <div class="flex gap-3">
+        <button @click="aEliminar = null" class="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
+        <button @click="eliminar()" class="flex-1 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-semibold">Dar de baja</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function inventario(config) {
+      config = window.obtenerConfigComercio ? window.obtenerConfigComercio(config) : config;
+      const formVacio = () => ({
+        id: null, codigo: '', nombre: '', categoria: '',
+        unidad_medida: 'unid',
+        precio_costo: '', margen_ganancia: 30, usa_precio_manual: false,
+        precio: '', stock: 0, stock_minimo: 5, puntos_canje: 0,
+        imagen: '', eliminar_imagen: false,
+      });
+
+      return {
+        async subirFotoLocal(event, destino) {
+          const file = event.target.files[0];
+          if (!file) return;
+          const fd = new FormData();
+          fd.append('archivo', file);
+          try {
+            const res = await fetch('/api/archivos/subir-imagen', { method: 'POST', body: fd });
+            const data = await res.json();
+            if (res.ok && data.url) {
+              if (destino === 'nuevo') this.formNuevo.imagen = data.url;
+              else if (destino === 'editar') {
+                this.formEditar.imagen = data.url;
+                this.formEditar.eliminar_imagen = false;
+              }
+            } else {
+              alert(data.detail || 'Error al subir la imagen');
+            }
+          } catch (e) {
+            alert('Error al subir la imagen');
+          }
+        },
+
+        config,
+        tab: 'catalogo',
+        vistaCatalogo: 'Compacta',
+        acordeonPrecios: false,
+        esAdmin: false,
+
+        productos: [],
+        catsApi: [],
+        criticos: [],
+
+        busqueda: '',
+        filtroCategoria: '',
+        mensaje: '',
+        errorGlobal: '',
+        errorForm: '',
+        guardando: false,
+
+        // Nuevo y Editar
+        formNuevo: formVacio(),
+        archivoNuevoObj: null,
+        vistaPreviaNuevo: '',
+
+        editarSeleccionadoId: 0,
+        busquedaEditar: '',
+        formEditar: formVacio(),
+        archivoEditarObj: null,
+        vistaPreviaEditar: '',
+
+        // Ajuste de stock
+        busquedaAjuste: '',
+        ajuste: { producto_id: 0, modo: 'establecer', cantidad: 0, stock_minimo: 0 },
+
+        // Actualización masiva de precios
+        masivo: { categoria_id: '', porcentaje: 0, redondeo: 0, cargando: false, error: '', preview: [] },
+
+        // Carga masiva Excel/CSV
+        importacion: { cargando: false, resultado: null },
+
+        aEliminar: null,
+        bajas: [],
+        bajasAbiertas: false,
+
+        async iniciar() {
+          try {
+            const ses = await fetch('/api/estado-barra').then(r => r.json());
+            this.esAdmin = (ses.rol === 'admin');
+          } catch (_) {}
+          const urlTab = new URLSearchParams(window.location.search).get('tab');
+          if (urlTab && ['catalogo', 'nuevo', 'editar', 'critico', 'ajuste', 'masivo', 'masiva'].includes(urlTab)) {
+            if ((urlTab === 'masivo' || urlTab === 'masiva') && !this.esAdmin) {
+              this.tab = 'catalogo';
+            } else {
+              this.tab = urlTab === 'masivo' ? 'masiva' : urlTab;
+            }
+          }
+          let pendiente = false;
+          new MutationObserver(() => {
+            if (pendiente || !document.querySelector('i[data-lucide]')) return;  // solo iconos nuevos: lucide deja data-lucide en el <svg> y sin esto se redibuja en bucle
+            pendiente = true;
+            requestAnimationFrame(() => { window.lucide && lucide.createIcons(); pendiente = false; });
+          }).observe(document.body, { childList: true, subtree: true });
+
+          await this.cargar();
+          await this.generarSkuNuevo();
+        },
+
+        async cargar() {
+          const [p, c, cr, bj] = await Promise.all([
+            fetch('/api/productos').then(r => r.json()),
+            fetch('/api/categorias').then(r => r.json()),
+            fetch('/api/inventario/stock-critico').then(r => r.json()),
+            fetch('/api/bajas/productos').then(r => r.json()),
+          ]);
+          this.bajas = bj;
+          this.productos = p;
+          this.catsApi = c;
+          this.criticos = cr;
+
+          if (this.productos.length) {
+            const primeroId = this.productosOrdenados[0].id;
+            if (!this.editarSeleccionadoId || !this.productos.some(x => x.id === this.editarSeleccionadoId)) {
+              this.editarSeleccionadoId = primeroId;
+            }
+            this.cargarEnFormularioEditar();
+
+            if (!this.ajuste.producto_id || !this.productos.some(x => x.id === this.ajuste.producto_id)) {
+              this.ajuste.producto_id = primeroId;
+            }
+            this.alCambiarProductoAjuste();
+          }
+        },
+
+        avisar(txt) {
+          this.mensaje = txt;
+          this.errorGlobal = '';
+          setTimeout(() => { if (this.mensaje === txt) this.mensaje = ''; }, 4000);
+        },
+
+        cambiarTab(t) {
+          if ((t === 'masivo' || t === 'masiva') && !this.esAdmin) return;
+          this.tab = t;
+          this.errorForm = '';
+          this.errorGlobal = '';
+        },
+
+        get categoriasNombres() {
+          return [...new Set([...this.catsApi.map(c => c.nombre), ...this.productos.map(p => p.categoria)])];
+        },
+
+        get filtrados() {
+          const q = this.busqueda.trim().toLowerCase();
+          return this.productos.filter(p =>
+            (!this.filtroCategoria || p.categoria === this.filtroCategoria) &&
+            (!q || p.nombre.toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q) || p.categoria.toLowerCase().includes(q))
+          );
+        },
+
+        fmt(n) {
+          return (this.config.moneda || '$') + ' ' + Number(n || 0).toLocaleString('es-AR', {
+            minimumFractionDigits: 2, maximumFractionDigits: 2,
+          });
+        },
+        fmtStock(p) {
+          const s = Number(p.stock || 0);
+          if (p.unidad_medida === 'kg') {
+            return s.toLocaleString('es-AR', { minimumFractionDigits: 3, maximumFractionDigits: 3 }) + ' kg';
+          }
+          return s.toLocaleString('es-AR') + ' unid.';
+        },
+        fmtStockMin(p) {
+          const s = Number(p.stock_minimo ?? 0);
+          if (p.unidad_medida === 'kg') {
+            return s.toLocaleString('es-AR', { minimumFractionDigits: 3, maximumFractionDigits: 3 }) + ' kg';
+          }
+          return s.toLocaleString('es-AR') + ' unid.';
+        },
+
+        claseStock(p) {
+          if (p.stock <= 0) return 'bg-red-50 text-red-600';
+          if (p.stock <= (p.stock_minimo ?? 0)) return 'bg-amber-50 text-amber-700';
+          return 'bg-emerald-50 text-emerald-700';
+        },
+
+        urlExportarExcel() {
+          const params = new URLSearchParams();
+          if (this.busqueda.trim()) params.set('q', this.busqueda.trim());
+          if (this.filtroCategoria) {
+            const cat = this.catsApi.find(c => c.nombre === this.filtroCategoria);
+            if (cat) params.set('categoria_id', cat.id);
+          }
+          const qs = params.toString();
+          return '/api/inventario/exportar-excel' + (qs ? '?' + qs : '');
+        },
+
+        // ===== Cálculo de precio y SKU =====
+        recalcularPrecio(f) {
+          if (!f.usa_precio_manual) {
+            const c = Number(f.precio_costo) || 0;
+            const m = Number(f.margen_ganancia) || 0;
+            f.precio = Math.round(c * (1 + m / 100) * 100) / 100;
+          }
+        },
+
+        recalcularMargen(f) {
+          if (f.usa_precio_manual) {
+            const c = Number(f.precio_costo) || 0;
+            const p = Number(f.precio) || 0;
+            if (c > 0 && p >= 0) {
+              f.margen_ganancia = Math.round(((p - c) / c) * 100 * 10) / 10;
+            }
+          }
+        },
+
+        async generarSkuNuevo() {
+          try {
+            const r = await fetch('/api/inventario/siguiente-codigo').then(x => x.json());
+            if (r.codigo) this.formNuevo.codigo = r.codigo;
+          } catch (e) {}
+        },
+
+        armarFormData(f) {
+          const fd = new FormData();
+          fd.append('codigo', f.codigo || '');
+          fd.append('nombre', f.nombre);
+          fd.append('categoria', f.categoria);
+          fd.append('precio_costo', f.precio_costo || 0);
+          fd.append('margen_ganancia', f.margen_ganancia || 0);
+          fd.append('usa_precio_manual', f.usa_precio_manual ? 'true' : 'false');
+          fd.append('precio', f.precio || 0);
+          fd.append('stock', f.stock || 0);
+          fd.append('stock_minimo', f.stock_minimo || 0);
+          fd.append('unidad_medida', f.unidad_medida || 'unid');
+          fd.append('puntos_canje', f.puntos_canje || 0);
+          fd.append('imagen_url', f.imagen || '');
+          if (f.eliminar_imagen) fd.append('eliminar_imagen', 'true');
+          return fd;
+        },
+
+        async guardarNuevo() {
+          this.guardando = true; this.errorForm = '';
+          try {
+            const fd = this.armarFormData(this.formNuevo);
+            const r = await fetch('/api/inventario/productos', { method: 'POST', body: fd });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.detail || 'No se pudo crear el producto');
+            this.formNuevo = formVacio();
+            await this.cargar();
+            await this.generarSkuNuevo();
+            this.avisar(`Producto '${d.nombre}' creado con éxito.`);
+            this.tab = 'catalogo';
+          } catch (e) { this.errorForm = e.message; }
+          this.guardando = false;
+        },
+
+        // ===== Editar =====
+        get productosOrdenados() {
+          return [...this.productos].sort((a, b) => (a.nombre || '').localeCompare(b.nombre || '', 'es', { sensitivity: 'base' }));
+        },
+        get productosFiltradosEditar() {
+          const q = (this.busquedaEditar || '').trim().toLowerCase();
+          if (!q) return this.productosOrdenados;
+          return this.productosOrdenados.filter(p =>
+            (p.nombre || '').toLowerCase().includes(q) ||
+            String(p.codigo || p.id || '').toLowerCase().includes(q)
+          );
+        },
+        alFiltrarEditar() {
+          const lista = this.productosFiltradosEditar;
+          if (lista.length > 0 && !lista.some(p => p.id === Number(this.editarSeleccionadoId))) {
+            this.editarSeleccionadoId = lista[0].id;
+            this.cargarEnFormularioEditar();
+          }
+        },
+        irAEditar(p) {
+          this.busquedaEditar = '';
+          this.editarSeleccionadoId = p.id;
+          this.cargarEnFormularioEditar();
+          this.tab = 'editar';
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+
+        cargarEnFormularioEditar() {
+          const p = this.productos.find(x => x.id === Number(this.editarSeleccionadoId));
+          if (!p) return;
+          this.formEditar = { ...p, eliminar_imagen: false };
+        },
+
+        async guardarEdicion() {
+          this.guardando = true; this.errorForm = '';
+          try {
+            const fd = this.armarFormData(this.formEditar);
+            const r = await fetch(`/api/inventario/productos/${this.formEditar.id}`, { method: 'PUT', body: fd });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.detail || 'No se pudo actualizar');
+            await this.cargar();
+            this.avisar(`Producto '${d.nombre}' actualizado.`);
+            this.tab = 'catalogo';
+          } catch (e) { this.errorForm = e.message; }
+          this.guardando = false;
+        },
+
+        // ===== Dar de baja / reactivar =====
+        fechaBaja(iso) {
+          return iso ? new Date(iso).toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+        },
+        async reactivar(b) {
+          if (!this.esAdmin) return;
+          try {
+            const r = await fetch(`/api/inventario/productos/${b.id}/reactivar`, { method: 'POST' });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.detail || 'No se pudo reactivar');
+            await this.cargar();
+            this.avisar(`Producto "${b.nombre}" reactivado.`);
+          } catch (e) { this.errorGlobal = e.message; }
+        },
+        confirmarEliminar(p) { if (!this.esAdmin) return; this.aEliminar = p; },
+        async eliminar() {
+          try {
+            const r = await fetch(`/api/inventario/productos/${this.aEliminar.id}`, { method: 'DELETE' });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.detail || 'No se pudo dar de baja');
+            this.aEliminar = null;
+            await this.cargar();
+            this.avisar('Producto dado de baja.');
+          } catch (e) {
+            this.errorGlobal = e.message;
+            this.aEliminar = null;
+          }
+        },
+
+        // ===== Ajuste de Stock =====
+        get productosFiltradosAjuste() {
+          const q = (this.busquedaAjuste || '').trim().toLowerCase();
+          if (!q) return this.productosOrdenados;
+          return this.productosOrdenados.filter(p =>
+            (p.nombre || '').toLowerCase().includes(q) ||
+            String(p.codigo || p.id || '').toLowerCase().includes(q)
+          );
+        },
+        alFiltrarAjuste() {
+          const lista = this.productosFiltradosAjuste;
+          if (lista.length > 0 && !lista.some(p => p.id === Number(this.ajuste.producto_id))) {
+            this.ajuste.producto_id = lista[0].id;
+            this.alCambiarProductoAjuste();
+          }
+        },
+        get productoAjuste() {
+          return this.productos.find(p => p.id === Number(this.ajuste.producto_id)) || null;
+        },
+        get stockResultanteAjuste() {
+          const p = this.productoAjuste;
+          if (!p) return 0;
+          const c = Number(this.ajuste.cantidad) || 0;
+          if (this.ajuste.modo === 'establecer') return Math.max(0, c);
+          if (this.ajuste.modo === 'sumar') return Math.round((p.stock + c) * 1000) / 1000;
+          return Math.max(0, Math.round((p.stock - c) * 1000) / 1000);
+        },
+        irAAjuste(p) {
+          this.busquedaAjuste = '';
+          this.ajuste.producto_id = p.id;
+          this.alCambiarProductoAjuste();
+          this.tab = 'ajuste';
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
+        alCambiarProductoAjuste() {
+          const p = this.productoAjuste;
+          if (!p) return;
+          this.ajuste.modo = 'establecer';
+          this.ajuste.cantidad = p.stock;
+          this.ajuste.stock_minimo = p.stock_minimo ?? 0;
+        },
+        async guardarAjusteStock() {
+          const p = this.productoAjuste;
+          if (!p) return;
+          try {
+            const r = await fetch(`/api/inventario/productos/${p.id}/ajuste-stock`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ modo: this.ajuste.modo, cantidad: Number(this.ajuste.cantidad) || 0 }),
+            });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.detail || 'Error al ajustar stock');
+            await this.cargar();
+            this.avisar(`✅ Stock de '${d.nombre}' actualizado a ${d.stock} unidades.`);
+          } catch (e) { this.errorGlobal = e.message; }
+        },
+        async guardarStockMinimo() {
+          const p = this.productoAjuste;
+          if (!p) return;
+          try {
+            const r = await fetch(`/api/inventario/productos/${p.id}/stock-minimo`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ stock_minimo: Number(this.ajuste.stock_minimo) || 0 }),
+            });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.detail || 'Error al actualizar stock mínimo');
+            await this.cargar();
+            this.avisar(`✅ Stock mínimo actualizado a ${d.stock_minimo}.`);
+          } catch (e) { this.errorGlobal = e.message; }
+        },
+
+        // ===== Actualización Masiva de Precios =====
+        async ejecutarPreciosMasivos(aplicar) {
+          this.masivo.error = '';
+          if (!this.masivo.porcentaje || Number(this.masivo.porcentaje) === 0) {
+            this.masivo.error = 'El porcentaje de ajuste no puede ser 0.';
+            return;
+          }
+          this.masivo.cargando = true;
+          try {
+            const r = await fetch('/api/inventario/precios-masivos', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                categoria_id: this.masivo.categoria_id ? Number(this.masivo.categoria_id) : null,
+                porcentaje: Number(this.masivo.porcentaje),
+                redondeo: Number(this.masivo.redondeo) || 0,
+                aplicar: Boolean(aplicar),
+              }),
+            });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.detail || 'Error en ajuste masivo');
+            this.masivo.preview = d.productos || [];
+            if (aplicar) {
+              await this.cargar();
+              this.avisar(`✅ ¡Aumento masivo aplicado con éxito! Se actualizaron ${d.actualizados} productos.`);
+            }
+          } catch (e) { this.masivo.error = e.message; }
+          this.masivo.cargando = false;
+        },
+
+        // ===== Carga Masiva =====
+        async importarArchivo() {
+          const file = this.$refs.archivoImportar && this.$refs.archivoImportar.files[0];
+          if (!file) return;
+          this.importacion.cargando = true;
+          this.importacion.resultado = null;
+          this.errorGlobal = '';
+          try {
+            const fd = new FormData();
+            fd.append('archivo', file);
+            const r = await fetch('/api/inventario/importar', { method: 'POST', body: fd });
+            const d = await r.json();
+            if (!r.ok) throw new Error(d.detail || 'Error al importar archivo');
+            this.importacion.resultado = d;
+            await this.cargar();
+            this.avisar(`✅ Importación completada: ${d.creados} creados y ${d.actualizados} actualizados.`);
+          } catch (e) { this.errorGlobal = e.message; }
+          this.importacion.cargando = false;
+        },
+      };
+    }
+  </script>
+</body>
+</html>

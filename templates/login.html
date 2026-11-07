@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ config.nombre_comercio }} · Ingresar</title>
+
+  <script src="/static/vendor/tailwind.js"></script>
+
+  <style>
+    :root {
+      --color-primario: {{ config.color_primario }};
+      --color-primario-suave: color-mix(in srgb, var(--color-primario) 10%, white);
+      --color-primario-oscuro: color-mix(in srgb, var(--color-primario) 85%, black);
+    }
+    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+    [x-cloak] { display: none !important; }
+    .campo { width:100%; height:3.5rem; min-height:3.5rem; padding:.75rem 1rem; font-size:.9375rem; font-weight:500; background:#F9FAFB; border:1.5px solid #E5E7EB; border-radius:1rem; transition:all .2s; }
+    .campo:focus { outline:none; background:#fff; border-color:var(--color-primario); box-shadow:0 0 0 3px color-mix(in srgb, var(--color-primario) 18%, transparent); }
+
+    /* ===== Sistema de Campos Táctiles (56px, Radio 16, Etiqueta Flotante) ===== */
+    .campo-flotante { position:relative; width:100%; display:block; }
+    .campo-flotante input, .campo-flotante select, .campo-flotante textarea {
+      width:100%; height:3.5rem; min-height:3.5rem; padding:1.25rem 1rem .35rem 1rem; font-size:.9375rem; font-weight:500;
+      line-height:1.25; color:#111827; background-color:#F9FAFB; border:1.5px solid #E5E7EB; border-radius:1rem; outline:none;
+      transition:all .2s cubic-bezier(.4, 0, .2, 1); box-sizing:border-box;
+    }
+    .campo-flotante textarea { height:auto; min-height:5.5rem; padding-top:1.5rem; }
+    .campo-flotante input:focus, .campo-flotante select:focus, .campo-flotante textarea:focus {
+      background-color:#FFFFFF; border-color:var(--color-primario);
+      box-shadow:0 0 0 3px color-mix(in srgb, var(--color-primario) 18%, transparent);
+    }
+    .campo-flotante input.con-prefijo { padding-left:2.25rem; }
+    .campo-flotante .prefijo-moneda { position:absolute; left:1rem; bottom:.55rem; font-size:.9375rem; font-weight:700; color:#9CA3AF; pointer-events:none; }
+    .campo-flotante label {
+      position:absolute; top:1.05rem; left:1rem; font-size:.875rem; font-weight:500; color:#6B7280; pointer-events:none;
+      transform-origin:left top; transition:all .2s cubic-bezier(.4, 0, .2, 1);
+    }
+    .campo-flotante input.con-prefijo ~ label { left:2.25rem; }
+    .campo-flotante input:focus ~ label, .campo-flotante input:not(:placeholder-shown) ~ label,
+    .campo-flotante select ~ label, .campo-flotante textarea:focus ~ label, .campo-flotante textarea:not(:placeholder-shown) ~ label {
+      transform:translateY(-.65rem) scale(.78); font-weight:600;
+    }
+    .campo-flotante input:focus ~ label, .campo-flotante select:focus ~ label, .campo-flotante textarea:focus ~ label {
+      color:var(--color-primario);
+    }
+  
+    /* ===== Efecto 1: Boton Tactil 3D (Skeuomorphism) - Inspirado en Ania Kubow ===== */
+    .btn-tactil-3d {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: #ffffff !important;
+      background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-primario) 88%, white 12%) 0%,
+        var(--color-primario) 48%,
+        color-mix(in srgb, var(--color-primario) 88%, black 12%) 100%
+      ) !important;
+      border: 1px solid color-mix(in srgb, var(--color-primario) 70%, black 30%);
+      border-radius: 1rem;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.45),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.25),
+        0 2px 4px rgba(0, 0, 0, 0.15),
+        0 8px 20px -4px color-mix(in srgb, var(--color-primario) 45%, transparent);
+      transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+      user-select: none;
+      cursor: pointer;
+    }
+
+    .btn-tactil-3d:hover:not(:disabled) {
+      filter: brightness(1.05);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.25),
+        0 4px 8px rgba(0, 0, 0, 0.2),
+        0 12px 24px -4px color-mix(in srgb, var(--color-primario) 60%, transparent);
+    }
+
+    .btn-tactil-3d:active:not(:disabled) {
+      transform: translateY(2px);
+      box-shadow:
+        inset 0 2px 4px rgba(0, 0, 0, 0.35),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.1),
+        0 1px 2px rgba(0, 0, 0, 0.15);
+    }
+
+    .btn-tactil-3d:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+      filter: grayscale(0.2);
+    }
+
+    /* ===== Efecto 2: Borde Resplandeciente Giratorio (@property + conic-gradient) ===== */
+    @property --glow-angle {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
+
+    @keyframes girarGlow {
+      0% { --glow-angle: 0deg; }
+      100% { --glow-angle: 360deg; }
+    }
+
+    .glow-giratorio {
+      position: relative;
+      z-index: 1;
+    }
+
+    .glow-giratorio::before {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: inherit;
+      background: conic-gradient(
+        from var(--glow-angle),
+        transparent 0deg,
+        var(--color-primario) 60deg,
+        color-mix(in srgb, var(--color-primario) 50%, white 50%) 90deg,
+        var(--color-primario) 120deg,
+        transparent 180deg,
+        transparent 360deg
+      );
+      z-index: -1;
+      animation: girarGlow 3.5s linear infinite;
+    }
+
+    .glow-giratorio::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: inherit;
+      background: conic-gradient(
+        from var(--glow-angle),
+        transparent 0deg,
+        var(--color-primario) 60deg,
+        color-mix(in srgb, var(--color-primario) 50%, white 50%) 90deg,
+        var(--color-primario) 120deg,
+        transparent 180deg,
+        transparent 360deg
+      );
+      z-index: -2;
+      filter: blur(8px);
+      opacity: 0.55;
+      animation: girarGlow 3.5s linear infinite;
+    }
+
+  </style>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'] },
+        colors: {
+          primario: 'var(--color-primario)',
+          'primario-suave': 'var(--color-primario-suave)',
+          'primario-oscuro': 'var(--color-primario-oscuro)',
+          fondo: '#F7F9FA'
+        },
+        boxShadow: { suave: '0 1px 2px rgba(16,24,40,0.04)' }
+      } }
+    }
+  </script>
+
+  <link rel="manifest" href="/manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#2563EB">
+  <script src="/static/js/motor_offline_pwa.js"></script>
+  <script defer src="/static/vendor/alpine.min.js"></script>
+  <script src="/static/vendor/lucide.min.js"></script>
+</head>
+
+<body class="bg-fondo text-gray-900 antialiased min-h-screen flex items-center justify-center p-4"
+      x-data="login()" x-init="init(); window.lucide && lucide.createIcons()" x-cloak>
+
+  <main class="w-full max-w-sm bg-white border border-gray-200/80 rounded-2xl shadow-xl p-7 space-y-6">
+    <div class="flex flex-col items-center gap-3 text-center">
+      <div data-brand-logo class="w-16 h-16 rounded-2xl bg-primario text-white flex items-center justify-center overflow-hidden shadow-suave">
+        <i data-lucide="store" class="w-7 h-7"></i>
+      </div>
+      <div>
+        <h1 data-brand-nombre class="text-xl font-bold text-gray-900 tracking-tight">{{ config.nombre_comercio }}</h1>
+        <p class="text-xs text-gray-500 mt-0.5">Ingresá tu PIN para continuar</p>
+      </div>
+    </div>
+
+    <form @submit.prevent="ingresar()" class="space-y-4">
+      <div class="campo-flotante">
+        <select x-model.number="usuarioId" id="loginUsuario" required class="font-semibold text-gray-900">
+          <template x-for="u in usuarios" :key="u.id">
+            <option :value="u.id" x-text="u.nombre"></option>
+          </template>
+        </select>
+        <label for="loginUsuario">Usuario</label>
+      </div>
+
+      <div class="campo-flotante">
+        <input x-ref="inputPin" x-model="pin" id="loginPin" required inputmode="numeric" pattern="\d{4}" maxlength="4" autocomplete="current-password"
+               type="password" placeholder=" " autofocus enterkeyhint="done" class="tracking-widest font-bold text-lg">
+        <label for="loginPin">PIN de seguridad (4 números)</label>
+      </div>
+
+      <p x-show="error" x-text="error" role="alert" class="text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-xl px-3.5 py-2.5"></p>
+
+      <button type="submit" :disabled="cargando"
+              class="w-full h-14 btn-tactil-3d text-base tracking-wide flex items-center justify-center gap-2">
+        <span x-text="cargando ? 'Ingresando…' : 'Ingresar al Sistema'"></span>
+      </button>
+    </form>
+  </main>
+
+  <script>
+    function login() {
+      return {
+        usuarios: [], usuarioId: '', pin: '', error: '', cargando: false,
+        async init() {
+          try {
+            const r = await fetch('/api/usuarios-login');
+            if (r.ok) {
+              this.usuarios = await r.json();
+              const ultimoId = Number(localStorage.getItem('POS_ULTIMO_USUARIO_ID') || 0);
+              const enc = this.usuarios.find(u => u.id === ultimoId);
+              if (enc) this.usuarioId = enc.id;
+              else if (this.usuarios.length) this.usuarioId = this.usuarios[0].id;
+            }
+          } catch (e) {}
+          if (!this.usuarios.length) this.error = 'No se pudo cargar la lista de usuarios.';
+          this.$nextTick(() => this.$refs.inputPin && this.$refs.inputPin.focus());
+        },
+        async ingresar() {
+          this.cargando = true; this.error = '';
+          try {
+            const r = await fetch('/api/login', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ usuario_id: Number(this.usuarioId), pin: this.pin })
+            });
+            if (r.status === 401 || r.status === 422) {
+              const d = await r.json().catch(() => ({}));
+              this.error = r.status === 401 ? (d.detail || 'PIN incorrecto.') : 'El PIN tiene que ser de 4 números.';
+              this.pin = '';
+              this.$nextTick(() => this.$refs.inputPin && this.$refs.inputPin.focus());
+              return;
+            }
+            if (!r.ok) throw new Error();
+            const d = await r.json();
+            try {
+              localStorage.setItem('POS_ULTIMO_USUARIO_ID', String(this.usuarioId));
+              sessionStorage.setItem('POS_NAVEGANDO_INTERNO', String(Date.now()));
+              sessionStorage.removeItem('POS_BLOQUEAR_PIN');
+            } catch (_) {}
+            const destino = d.debe_cambiar_pin ? '/configuracion#seguridad' : (sessionStorage.getItem('POS_REDIRECT_DESPUES_LOGIN') || '/');
+            try { sessionStorage.removeItem('POS_REDIRECT_DESPUES_LOGIN'); } catch (_) {}
+            window.location.href = destino;
+          } catch (e) { this.error = this.error || 'No se pudo conectar. Intentá de nuevo.'; }
+          finally { this.cargando = false; }
+        }
+      };
+    }
+  </script>
+</body>
+</html>

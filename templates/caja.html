@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ config.nombre_comercio }} · Arqueo de Caja y Control Diario</title>
+
+  <script src="/static/vendor/tailwind.js"></script>
+
+  <style>
+    :root {
+      --color-primario: {{ config.color_primario }};
+      --color-primario-suave: color-mix(in srgb, var(--color-primario) 10%, white);
+      --color-primario-oscuro: color-mix(in srgb, var(--color-primario) 85%, black);
+    }
+    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+    [x-cloak] { display: none !important; }
+    .campo { width:100%; height:3.5rem; min-height:3.5rem; padding:.75rem 1rem; font-size:.9375rem; font-weight:500; background:#F9FAFB; border:1.5px solid #E5E7EB; border-radius:1rem; transition:all .2s; }
+    .campo:focus { outline:none; background:#fff; border-color:var(--color-primario); box-shadow:0 0 0 3px color-mix(in srgb, var(--color-primario) 18%, transparent); }
+
+    /* ===== Sistema de Campos Táctiles (56px, Radio 16, Etiqueta Flotante) ===== */
+    .campo-flotante { position:relative; width:100%; display:block; }
+    .campo-flotante input, .campo-flotante select, .campo-flotante textarea {
+      width:100%; height:3.5rem; min-height:3.5rem; padding:1.25rem 1rem .35rem 1rem; font-size:.9375rem; font-weight:500;
+      line-height:1.25; color:#111827; background-color:#F9FAFB; border:1.5px solid #E5E7EB; border-radius:1rem; outline:none;
+      transition:all .2s cubic-bezier(.4, 0, .2, 1); box-sizing:border-box;
+    }
+    .campo-flotante textarea { height:auto; min-height:5.5rem; padding-top:1.5rem; }
+    .campo-flotante input:focus, .campo-flotante select:focus, .campo-flotante textarea:focus {
+      background-color:#FFFFFF; border-color:var(--color-primario);
+      box-shadow:0 0 0 3px color-mix(in srgb, var(--color-primario) 18%, transparent);
+    }
+    .campo-flotante input.con-prefijo { padding-left:2.25rem; }
+    .campo-flotante .prefijo-moneda { position:absolute; left:1rem; bottom:.55rem; font-size:.9375rem; font-weight:700; color:#9CA3AF; pointer-events:none; }
+    .campo-flotante label {
+      position:absolute; top:1.05rem; left:1rem; font-size:.875rem; font-weight:500; color:#6B7280; pointer-events:none;
+      transform-origin:left top; transition:all .2s cubic-bezier(.4, 0, .2, 1);
+    }
+    .campo-flotante input.con-prefijo ~ label { left:2.25rem; }
+    .campo-flotante input:focus ~ label, .campo-flotante input:not(:placeholder-shown) ~ label,
+    .campo-flotante select ~ label, .campo-flotante textarea:focus ~ label, .campo-flotante textarea:not(:placeholder-shown) ~ label {
+      transform:translateY(-.65rem) scale(.78); font-weight:600;
+    }
+    .campo-flotante input:focus ~ label, .campo-flotante select:focus ~ label, .campo-flotante textarea:focus ~ label {
+      color:var(--color-primario);
+    }
+  </style>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'] },
+        colors: {
+          primario: 'var(--color-primario)',
+          'primario-suave': 'var(--color-primario-suave)',
+          'primario-oscuro': 'var(--color-primario-oscuro)',
+          fondo: '#F7F9FA'
+        },
+        boxShadow: { suave: '0 1px 2px rgba(16,24,40,0.04)' }
+      } }
+    }
+  </script>
+
+  <link rel="manifest" href="/manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#2563EB">
+  <script src="/static/js/motor_offline_pwa.js"></script>
+  <script defer src="/static/vendor/alpine.min.js"></script>
+  <script src="/static/vendor/lucide.min.js"></script>
+</head>
+
+<body class="bg-fondo text-gray-900 antialiased min-h-screen"
+      x-data="arqueoCaja({{ config | tojson | forceescape }})" x-init="iniciar()" x-cloak>
+
+  <!-- ENCABEZADO GLOBAL -->
+  <header class="bg-white border-b border-gray-200 px-3 sm:px-8 py-2.5 flex flex-wrap items-center justify-between gap-2 sticky top-0 z-20">
+    <div class="flex items-center gap-2 shrink-0 min-w-0">
+      <div data-brand-logo class="w-9 h-9 rounded-lg bg-primario text-white flex items-center justify-center overflow-hidden shrink-0">
+        {% if config.logo_imagen %}
+        <img src="{{ config.logo_imagen }}" alt="Logo" class="w-full h-full object-contain p-0.5 bg-white">
+        {% else %}
+        <i data-lucide="store" class="w-5 h-5"></i>
+        {% endif %}
+      </div>
+      <span data-brand-nombre class="font-semibold text-sm sm:text-lg text-gray-900 truncate max-w-[160px] sm:max-w-[260px]" x-text="config.nombre_comercio"></span>
+    </div>
+    {% set activa = 'caja' %}{% include '_nav.html' %}
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 sm:px-8 py-8 space-y-6">
+
+    <!-- 1. TÍTULO Y FILTRO POR FECHA DE CONSULTA -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-gray-200 rounded-xl p-5 shadow-suave">
+      <div>
+        <h1 class="text-xl font-bold">📊 Control Diario y Cierre de Caja</h1>
+        <p class="text-sm text-gray-500">Arqueo de efectivo, movimientos de caja chica, ganancias y reporte oficial de cierre.</p>
+      </div>
+      <div class="flex items-center gap-2.5">
+        <label class="text-xs font-semibold text-gray-600 whitespace-nowrap">📅 Fecha de consulta:</label>
+        <input type="date" x-model="fechaConsulta" @change="cambiarFecha()" class="campo !w-auto font-medium">
+        <button type="button" @click="irAHoy()"
+                class="px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-xs font-semibold text-gray-700 whitespace-nowrap">
+          Hoy
+        </button>
+      </div>
+    </div>
+
+    <!-- Aviso global -->
+    <div x-show="aviso.texto" x-transition
+         class="rounded-xl px-4 py-3 text-sm font-medium flex items-center justify-between border"
+         :class="aviso.tipo === 'error' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'">
+      <span x-text="aviso.texto"></span>
+      <button type="button" @click="aviso.texto = ''" class="text-xs font-bold opacity-70 hover:opacity-100">✕</button>
+    </div>
+
+    <!-- 1.5 ESTADO Y APERTURA DE CAJA (SALDO INICIAL DEL DÍA) -->
+    <section class="bg-white border border-gray-200 rounded-xl p-5 shadow-suave">
+      <div x-show="!resumen.caja_abierta" class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+            <i data-lucide="lock" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="font-bold text-sm sm:text-base text-gray-900">Caja Cerrada — Registrar Saldo Inicial</h2>
+              <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800">Sin abrir</span>
+            </div>
+            <p class="text-xs text-gray-500 mt-0.5">
+              Ingresá el dinero físico con el que arranca el cajón hoy para habilitar las ventas en el Punto de Venta.
+            </p>
+          </div>
+        </div>
+                <form @submit.prevent="abrirCajaDesdeControl()" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          <div class="campo-flotante sm:w-64">
+            <input type="number" x-model="formMontoInicial" id="cajaAperturaMonto" min="0" step="0.01" required placeholder=" "
+                   inputmode="decimal" enterkeyhint="done" class="con-prefijo font-bold text-base text-gray-900">
+            <span class="prefijo-moneda text-base" x-text="config.moneda || '$'"></span>
+            <label for="cajaAperturaMonto">Saldo inicial de apertura *</label>
+          </div>
+          <button type="submit" :disabled="procesandoApertura"
+                  class="h-14 px-6 rounded-2xl bg-primario hover:bg-primario-oscuro text-white text-sm font-semibold whitespace-nowrap transition-colors shadow-suave disabled:opacity-50 flex items-center justify-center">
+            <span x-text="procesandoApertura ? 'Abriendo…' : 'Abrir Caja del Día'"></span>
+          </button>
+        </form>
+      </div>
+
+      <div x-show="resumen.caja_abierta" class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="flex items-start gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+            <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="flex items-center flex-wrap gap-2">
+              <h2 class="font-bold text-sm sm:text-base text-gray-900">Caja Abierta y Habilitada para Vender</h2>
+              <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800"
+                    x-text="resumen.apertura_hora ? ('Abierta a las ' + resumen.apertura_hora + ' hs') : 'Turno activo'"></span>
+            </div>
+            <p class="text-xs text-gray-600 mt-0.5">
+              Saldo inicial registrado en apertura: <strong class="text-gray-900" x-text="fmt(resumen.saldo_inicial)"></strong>
+            </p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <a href="/" class="px-3.5 py-2 rounded-lg bg-primario-suave text-primario hover:opacity-90 text-xs font-semibold whitespace-nowrap">
+            Ir a Vender (POS)
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. REGISTRO DE CAJA CHICA (EFECTIVO) -->
+    <section class="bg-white border border-gray-200 rounded-xl shadow-suave overflow-hidden">
+      <button type="button" @click="acordeonCajaChica = !acordeonCajaChica"
+              class="w-full px-5 py-4 flex items-center justify-between text-left hover:bg-gray-50/80 transition-colors">
+        <div class="flex items-center gap-2.5">
+          <span class="text-base">➕</span>
+          <div>
+            <h2 class="font-semibold text-sm sm:text-base">Registrar Ingreso Extra / Egreso Manual (Caja Chica)</h2>
+            <p class="text-xs text-gray-500">Asentá pagos a proveedores, gastos operativos o ingresos manuales de efectivo</p>
+          </div>
+        </div>
+        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform"
+           :class="acordeonCajaChica ? 'rotate-180 text-primario' : ''"></i>
+      </button>
+
+      <div x-show="acordeonCajaChica" x-transition class="px-5 pb-5 pt-3 border-t border-gray-100 space-y-4 bg-fondo/40">
+                <form @submit.prevent="registrarMovimiento()" class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+          <div class="campo-flotante sm:col-span-3">
+            <select x-model="formMov.tipo" id="movTipo" class="font-semibold text-gray-900">
+              <option value="egreso">🔴 Egreso (Gasto / Retiro)</option>
+              <option value="ingreso_extra">🟢 Ingreso (Efectivo Extra)</option>
+            </select>
+            <label for="movTipo">Tipo de Movimiento</label>
+          </div>
+          <div class="campo-flotante sm:col-span-2">
+            <input type="number" x-model.number="formMov.monto" id="movMonto" min="0.01" step="0.01" required placeholder=" "
+                   inputmode="decimal" enterkeyhint="next" class="con-prefijo font-bold text-gray-900">
+            <span class="prefijo-moneda text-base" x-text="config.moneda || '$'"></span>
+            <label for="movMonto">Monto ($) *</label>
+          </div>
+          <div class="campo-flotante sm:col-span-4">
+            <input type="text" x-model="formMov.concepto" id="movConcepto" required maxlength="200" placeholder=" "
+                   enterkeyhint="done" class="font-medium text-gray-900">
+            <label for="movConcepto">Concepto / Motivo *</label>
+          </div>
+          <div class="sm:col-span-3">
+            <button type="submit" :disabled="guardandoMov"
+                    class="w-full h-14 rounded-2xl bg-primario hover:bg-primario-oscuro text-white text-sm font-semibold transition-colors disabled:opacity-50 whitespace-nowrap flex items-center justify-center gap-1.5 shadow-suave">
+              <span x-text="guardandoMov ? 'Guardando…' : '✅ Registrar Movimiento'"></span>
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Tabla de movimientos de caja chica del día (si existen) -->
+      <div x-show="resumen.movimientos_caja && resumen.movimientos_caja.length > 0" class="border-t border-gray-100 px-5 py-4 space-y-2.5">
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500">📝 Movimientos Manuales de Caja Chica de la Fecha</h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+              <tr>
+                <th class="text-left font-medium px-3 py-2">Hora</th>
+                <th class="text-left font-medium px-3 py-2">Tipo</th>
+                <th class="text-left font-medium px-3 py-2">Concepto</th>
+                <th class="text-right font-medium px-3 py-2">Monto</th>
+                <th class="text-right font-medium px-3 py-2">Responsable</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <template x-for="m in resumen.movimientos_caja" :key="m.id">
+                <tr>
+                  <td class="px-3 py-2 text-gray-500 text-xs" x-text="m.hora"></td>
+                  <td class="px-3 py-2">
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded-full"
+                          :class="m.tipo === 'egreso' ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'"
+                          x-text="m.tipo === 'egreso' ? '🔴 Egreso' : '🟢 Ingreso'"></span>
+                  </td>
+                  <td class="px-3 py-2 font-medium text-gray-800" x-text="m.concepto"></td>
+                  <td class="px-3 py-2 text-right font-semibold"
+                      :class="m.tipo === 'egreso' ? 'text-red-600' : 'text-emerald-600'"
+                      x-text="(m.tipo === 'egreso' ? '- ' : '+ ') + fmt(m.monto)"></td>
+                  <td class="px-3 py-2 text-right text-xs text-gray-500" x-text="m.usuario_nombre"></td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. BALANCE DEL DÍA (4 TARJETAS KPI) -->
+    <section class="space-y-3">
+      <h2 class="font-semibold text-base">📊 Balance del Día (<span x-text="resumen.fecha_formateada"></span>)</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-suave">
+          <p class="text-xs font-semibold text-gray-500">💰 Total Ventas</p>
+          <p class="text-2xl font-bold mt-1.5 text-gray-900" x-text="fmt(resumen.total_vendido)"></p>
+          <p class="text-xs text-gray-400 mt-1">Facturación total del día</p>
+        </div>
+        <div class="bg-primario-suave border border-primario/20 rounded-xl p-5 shadow-suave">
+          <p class="text-xs font-semibold text-primario">💵 Efectivo Esperado</p>
+          <p class="text-2xl font-bold mt-1.5 text-primario" x-text="fmt(resumen.total_efectivo_esperado)"></p>
+          <p class="text-xs text-gray-600 mt-1">Saldo físico esperado en cajón</p>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-suave">
+          <p class="text-xs font-semibold text-gray-500">📈 Ganancia Estimada</p>
+          <p class="text-2xl font-bold mt-1.5 text-emerald-600" x-text="fmt(resumen.ganancia_estimada)"></p>
+          <p class="text-xs text-gray-400 mt-1">Precio de venta vs. costo</p>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl p-5 shadow-suave">
+          <p class="text-xs font-semibold text-gray-500">🧾 Tickets</p>
+          <p class="text-2xl font-bold mt-1.5 text-gray-900" x-text="resumen.total_operaciones"></p>
+          <p class="text-xs text-gray-400 mt-1">Operaciones registradas</p>
+        </div>
+      </div>
+
+      <!-- 4. ACORDEÓN: VER DESGLOSE DE EFECTIVO ESPERADO -->
+      <div class="bg-white border border-gray-200 rounded-xl shadow-suave overflow-hidden">
+        <button type="button" @click="acordeonDesglose = !acordeonDesglose"
+                class="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-gray-50 transition-colors">
+          <span class="font-semibold text-sm text-gray-800">🔍 Ver Desglose de Efectivo Esperado</span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 transition-transform"
+             :class="acordeonDesglose ? 'rotate-180 text-primario' : ''"></i>
+        </button>
+        <div x-show="acordeonDesglose" x-transition class="px-5 pb-4 pt-2 border-t border-gray-100 space-y-2 text-sm">
+          <div class="flex items-center justify-between py-1">
+            <span class="text-gray-600">+ Saldo Inicial de Caja (Apertura):</span>
+            <span class="font-semibold text-gray-900" x-text="fmt(resumen.saldo_inicial)"></span>
+          </div>
+          <div class="flex items-center justify-between py-1">
+            <span class="text-gray-600">+ Ventas en Efectivo:</span>
+            <span class="font-semibold text-gray-900" x-text="fmt(resumen.ventas_efectivo)"></span>
+          </div>
+          <div class="flex items-center justify-between py-1">
+            <span class="text-gray-600">+ Cobros de Cuenta Corriente (Efectivo):</span>
+            <span class="font-semibold text-emerald-700" x-text="fmt(resumen.cobros_cta_cte_efectivo)"></span>
+          </div>
+          <div class="flex items-center justify-between py-1">
+            <span class="text-gray-600">+ Ingresos Extras (Manual):</span>
+            <span class="font-semibold text-emerald-700" x-text="fmt(resumen.ingresos_extras)"></span>
+          </div>
+          <div class="flex items-center justify-between py-1">
+            <span class="text-gray-600">- Egresos (Gastos / Retiros):</span>
+            <span class="font-semibold text-red-600" x-text="fmt(resumen.egresos)"></span>
+          </div>
+          <div class="flex items-center justify-between pt-2.5 border-t border-gray-200 font-bold text-base text-primario">
+            <span>= EFECTIVO ESPERADO EN CAJA:</span>
+            <span x-text="fmt(resumen.total_efectivo_esperado)"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. CIERRE OFICIAL DE CAJA DIARIO -->
+    <section class="bg-white border border-gray-200 rounded-xl p-5 shadow-suave space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h2 class="font-semibold text-base">🔒 Cierre Oficial de Caja Diario</h2>
+          <p class="text-xs text-gray-500">Generá el reporte PDF formal, compartilo por WhatsApp y despachalo automáticamente por correo.</p>
+        </div>
+        <button type="button" @click="abrirModalCierre()" :disabled="procesandoCierre"
+                class="px-5 py-3 rounded-xl bg-primario hover:bg-primario-oscuro text-white text-sm font-semibold transition-colors shadow-suave disabled:opacity-50 whitespace-nowrap">
+          <span x-text="procesandoCierre ? 'Procesando Cierre…' : '🔒 Realizar Cierre de Caja del Día'"></span>
+        </button>
+      </div>
+
+      <!-- Banner y Acciones del Cierre Procesado -->
+      <div x-show="cierreProcesado" x-transition class="bg-emerald-50/70 border border-emerald-200 rounded-xl p-4 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <p class="text-sm font-bold text-emerald-800"
+             x-text="'🎉 Cierre de Caja procesado para el día ' + resumen.fecha_formateada"></p>
+          <div x-show="resumen.monto_real !== null" class="text-xs font-bold px-3 py-1 rounded-full border shrink-0"
+               :class="Number(resumen.diferencia || 0) === 0 ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                     : Number(resumen.diferencia || 0) > 0 ? 'bg-blue-100 text-blue-800 border-blue-300'
+                     : 'bg-red-100 text-red-800 border-red-300'"
+               x-text="'Contado: ' + fmt(resumen.monto_real) + ' | ' + (Number(resumen.diferencia || 0) === 0 ? 'Exacto' : (Number(resumen.diferencia || 0) > 0 ? 'Sobrante +' + fmt(resumen.diferencia) : 'Faltante ' + fmt(resumen.diferencia)))"></div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-stretch">
+          <!-- 1. Descargar PDF -->
+          <a :href="'/api/caja/cierre.pdf?fecha=' + fechaConsulta" target="_blank"
+             class="flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-primario hover:bg-primario-oscuro text-white text-xs sm:text-sm font-semibold text-center transition-colors shadow-suave">
+            <i data-lucide="file-text" class="w-4 h-4"></i>
+            <span>Descargar PDF del Cierre</span>
+          </a>
+
+          <!-- 2. Compartir por WhatsApp -->
+          <a :href="resumen.whatsapp_url" target="_blank" rel="noopener"
+             class="flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold text-center transition-colors shadow-suave">
+            <i data-lucide="message-circle" class="w-4 h-4"></i>
+            <span>Compartir por WhatsApp</span>
+          </a>
+
+          <!-- 3. Envío por Correo SMTP -->
+          <div class="h-full">
+            <template x-if="resumen.smtp_configurado">
+              <button type="button" @click="reenviarEmail()" :disabled="enviandoEmail"
+                      class="w-full h-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-white border border-gray-300 hover:bg-gray-50 text-gray-800 text-xs sm:text-sm font-semibold transition-colors disabled:opacity-50 shadow-suave">
+                <i data-lucide="mail" class="w-4 h-4 text-blue-600"></i>
+                <span x-text="enviandoEmail ? 'Enviando correo…' : 'Enviar Cierre por Email'"></span>
+              </button>
+            </template>
+            <template x-if="!resumen.smtp_configurado">
+              <a href="/configuracion"
+                 class="w-full h-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-white border border-gray-300 hover:border-primario hover:bg-primario-suave/30 text-gray-700 hover:text-primario text-xs sm:text-sm font-semibold text-center transition-colors shadow-suave"
+                 title="Habilitá el envío automático completando los datos de correo en Configuración">
+                <i data-lucide="mail" class="w-4 h-4 text-gray-400"></i>
+                <span>Configurar Envío por Email</span>
+              </a>
+            </template>
+          </div>
+        </div>
+
+        <p x-show="!resumen.smtp_configurado" class="text-[11px] text-gray-500 flex items-center gap-1.5 pt-0.5">
+          <i data-lucide="info" class="w-3.5 h-3.5 text-gray-400 shrink-0"></i>
+          <span>El cierre puede enviarse automáticamente por correo si cargás los datos de tu email en <strong>Configuración</strong>.</span>
+        </p>
+
+        <p x-show="estadoEmailTexto" x-text="estadoEmailTexto"
+           :class="estadoEmailError ? 'text-red-600' : 'text-emerald-700'"
+           class="text-xs font-medium"></p>
+      </div>
+    </section>
+
+    <!-- 6. SECCIÓN INFERIOR A 2 COLUMNAS: VENTAS POR FORMA DE PAGO + DETALLE DE TICKETS -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- Columna Izquierda: Ventas por Forma de Pago + Gráfico de Barras -->
+      <section class="lg:col-span-5 bg-white border border-gray-200 rounded-xl p-5 shadow-suave space-y-4">
+        <h2 class="font-semibold text-base">💳 Ventas por Forma de Pago</h2>
+
+        <template x-if="resumen.desglose_por_forma_pago && resumen.desglose_por_forma_pago.length > 0">
+          <div class="space-y-5">
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+                  <tr>
+                    <th class="text-left font-medium px-3 py-2.5">Forma de Pago</th>
+                    <th class="text-right font-medium px-3 py-2.5">Total ($)</th>
+                    <th class="text-right font-medium px-3 py-2.5">Operaciones</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <template x-for="dp in resumen.desglose_por_forma_pago" :key="dp.forma_pago">
+                    <tr>
+                      <td class="px-3 py-2.5 font-medium text-gray-900" x-text="dp.forma_pago"></td>
+                      <td class="px-3 py-2.5 text-right font-semibold text-gray-900" x-text="fmt(dp.total)"></td>
+                      <td class="px-3 py-2.5 text-right text-gray-600" x-text="dp.operaciones"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Gráfico de barras visual con --color-primario -->
+            <div class="pt-2 border-t border-gray-100 space-y-3">
+              <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">Participación por Medio de Pago</p>
+              <template x-for="dp in resumen.desglose_por_forma_pago" :key="'bar-' + dp.forma_pago">
+                <div class="space-y-1">
+                  <div class="flex justify-between text-xs font-medium">
+                    <span class="text-gray-700" x-text="dp.forma_pago"></span>
+                    <span class="text-gray-900 font-semibold" x-text="fmt(dp.total) + ' (' + porcentajePago(dp.total) + '%)'"></span>
+                  </div>
+                  <div class="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+                    <div class="h-full bg-primario rounded-full transition-all duration-300"
+                         :style="{ width: Math.max(4, porcentajePago(dp.total)) + '%' }"></div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+
+        <p x-show="!resumen.desglose_por_forma_pago || !resumen.desglose_por_forma_pago.length"
+           class="py-8 text-center text-sm text-gray-500">
+          No hay ventas registradas en esta fecha.
+        </p>
+      </section>
+
+      <!-- Columna Derecha: Detalle de Ventas Registradas (Acordeones por Ticket) -->
+      <section class="lg:col-span-7 bg-white border border-gray-200 rounded-xl p-5 shadow-suave space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="font-semibold text-base">📜 Detalle de Ventas Registradas</h2>
+          <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-primario-suave text-primario"
+                x-text="(resumen.ventas ? resumen.ventas.length : 0) + ' tickets'"></span>
+        </div>
+
+        <div class="space-y-2.5" x-show="resumen.ventas && resumen.ventas.length > 0">
+          <template x-for="v in resumen.ventas" :key="v.id">
+            <div class="border border-gray-200 rounded-xl overflow-hidden transition-colors"
+                 :class="ticketAbiertoId === v.id ? 'border-primario/50 bg-primario-suave/10' : 'bg-white'">
+              <!-- Cabecera del acordeón del ticket -->
+              <button type="button" @click="ticketAbiertoId = (ticketAbiertoId === v.id ? null : v.id)"
+                      class="w-full px-4 py-3 flex items-center justify-between gap-3 text-left hover:bg-gray-50 transition-colors">
+                <div class="min-w-0">
+                  <p class="text-sm font-semibold text-gray-900 truncate"
+                     x-text="'Ticket #' + v.id + ' - ' + v.hora + ' | ' + fmt(v.total_venta) + ' (' + v.forma_pago + ')'"></p>
+                  <p class="text-xs text-gray-500 truncate"
+                     x-text="'Cliente: ' + (v.cliente_nombre || 'Consumidor Final')"></p>
+                </div>
+                <i data-lucide="chevron-down" class="w-4 h-4 text-gray-400 shrink-0 transition-transform"
+                   :class="ticketAbiertoId === v.id ? 'rotate-180 text-primario' : ''"></i>
+              </button>
+
+              <!-- Detalle desplegable del ticket -->
+              <div x-show="ticketAbiertoId === v.id" x-transition class="px-4 pb-4 pt-2 border-t border-gray-100 bg-white space-y-3">
+                <div class="overflow-x-auto">
+                  <table class="w-full text-xs sm:text-sm">
+                    <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+                      <tr>
+                        <th class="text-left font-medium px-2.5 py-2">Código</th>
+                        <th class="text-left font-medium px-2.5 py-2">Producto</th>
+                        <th class="text-right font-medium px-2.5 py-2">Cant.</th>
+                        <th class="text-right font-medium px-2.5 py-2">Precio Unit.</th>
+                        <th class="text-right font-medium px-2.5 py-2">Subtotal</th>
+                        <th class="text-right font-medium px-2.5 py-2">Devolución</th>
+                      </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                      <template x-for="(it, idx) in v.items" :key="it.detalle_id || idx">
+                        <tr>
+                          <td class="px-2.5 py-2 text-gray-500 font-mono text-xs" x-text="it.codigo"></td>
+                          <td class="px-2.5 py-2 font-medium text-gray-900" x-text="it.nombre"></td>
+                          <td class="px-2.5 py-2 text-right" x-text="it.cantidad"></td>
+                          <td class="px-2.5 py-2 text-right" x-text="fmt(it.precio_unitario)"></td>
+                          <td class="px-2.5 py-2 text-right font-semibold" x-text="fmt(it.subtotal)"></td>
+                          <td class="px-2.5 py-2 text-right whitespace-nowrap">
+                            <div class="inline-flex items-center gap-1">
+                              <template x-if="it.cantidad > 1">
+                                <button type="button" @click="devolverItemTicket(v, it, 1)" :disabled="procesandoDevolucion"
+                                        title="Devolver 1 unidad al stock y descontar del ticket"
+                                        class="px-2 py-1 rounded bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[11px] font-semibold transition-colors disabled:opacity-50">
+                                  Devolver 1
+                                </button>
+                              </template>
+                              <button type="button" @click="devolverItemTicket(v, it, it.cantidad)" :disabled="procesandoDevolucion"
+                                      title="Devolver todo este renglón al stock"
+                                      class="px-2 py-1 rounded bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-[11px] font-semibold transition-colors disabled:opacity-50"
+                                      x-text="it.cantidad > 1 ? 'Todo (' + it.cantidad + ')' : 'Devolver'">
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-gray-100">
+                  <span class="text-xs text-gray-500" x-text="'Total del comprobante: ' + fmt(v.total_venta)"></span>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <button type="button" @click="anularTicketCompleto(v)" :disabled="procesandoDevolucion"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-semibold transition-colors disabled:opacity-50">
+                      Anular Ticket Completo
+                    </button>
+                    <a :href="'/api/ventas/' + v.id + '/ticket.pdf'" target="_blank"
+                       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primario hover:bg-primario-oscuro text-white text-xs font-semibold transition-colors">
+                      📄 Reimprimir Ticket PDF (80mm)
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <p x-show="!resumen.ventas || !resumen.ventas.length"
+           class="py-8 text-center text-sm text-gray-500">
+          Sin registros de tickets para la fecha seleccionada.
+        </p>
+      </section>
+
+    </div>
+    <!-- Modal de Conteo de Efectivo Real (Arqueo Físico) al Cerrar Caja -->
+    <div x-show="modalCierreAbierto" x-transition.opacity
+         class="fixed inset-0 z-50 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-white border border-gray-200 rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-5">
+        <div class="flex items-start gap-3.5">
+          <div class="w-12 h-12 rounded-xl bg-primario-suave text-primario flex items-center justify-center shrink-0">
+            <i data-lucide="lock" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h2 class="text-lg font-bold text-gray-900">Cierre Oficial de Caja del Día</h2>
+            <p class="text-xs text-gray-500 mt-0.5">
+              Ingresá el efectivo físico que contaste en el cajón para verificar si la caja está exacta, o si hay sobrante o faltante.
+            </p>
+          </div>
+        </div>
+
+        <div class="bg-fondo border border-gray-200 rounded-xl p-4 space-y-2 text-sm">
+          <div class="flex items-center justify-between text-gray-600">
+            <span>Efectivo Esperado por Sistema:</span>
+            <span class="font-bold text-gray-900" x-text="fmt(resumen.total_efectivo_esperado)"></span>
+          </div>
+        </div>
+
+        <div class="space-y-3">
+                    <div class="campo-flotante">
+            <input x-model.number="montoRealCierre" id="cierreEfectivo" type="number" min="0" step="any" required placeholder=" "
+                   inputmode="decimal" enterkeyhint="done" class="con-prefijo font-bold text-xl text-gray-900">
+            <span class="prefijo-moneda text-lg" x-text="config.moneda || '$'"></span>
+            <label for="cierreEfectivo">Efectivo Real Contado en el Cajón ($) *</label>
+          </div>
+
+          <!-- Indicador en vivo de diferencia -->
+          <div class="p-3 rounded-xl border flex items-center justify-between text-xs font-semibold"
+               :class="diferenciaCierre === 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                     : diferenciaCierre > 0 ? 'bg-blue-50 border-blue-200 text-blue-800'
+                     : 'bg-red-50 border-red-200 text-red-800'">
+            <span>Diferencia en Caja:</span>
+            <span class="text-sm font-bold"
+                  x-text="diferenciaCierre === 0 ? '✅ Caja Exacta ($ 0,00)'
+                        : diferenciaCierre > 0 ? '🔵 Sobrante: +' + fmt(diferenciaCierre)
+                        : '🔴 Faltante: ' + fmt(diferenciaCierre)"></span>
+          </div>
+
+          <template x-if="resumen.smtp_configurado">
+            <label class="flex items-center gap-2 text-xs font-medium text-gray-700 pt-1 cursor-pointer">
+              <input type="checkbox" x-model="enviarCorreoCierre" class="rounded border-gray-300 text-primario focus:ring-primario">
+              <span>Enviar reporte PDF automáticamente por correo electrónico</span>
+            </label>
+          </template>
+        </div>
+
+                <div class="flex items-center gap-2.5 pt-2">
+          <button type="button" @click="modalCierreAbierto = false" :disabled="procesandoCierre"
+                  class="flex-1 h-14 px-4 rounded-2xl border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold transition-colors disabled:opacity-50">
+            Cancelar
+          </button>
+          <button type="button" @click="confirmarCierreDiarioConMonto()" :disabled="procesandoCierre"
+                  class="flex-1 h-14 px-4 rounded-2xl bg-primario hover:bg-primario-oscuro text-white text-sm font-semibold transition-colors shadow-suave disabled:opacity-50 flex items-center justify-center">
+            <span x-text="procesandoCierre ? 'Cerrando caja…' : '🔒 Confirmar y Cerrar'"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    function arqueoCaja(config) {
+      config = window.obtenerConfigComercio ? window.obtenerConfigComercio(config) : config;
+      const hoyISO = () => {
+        const d = new Date();
+        const off = d.getTimezoneOffset();
+        const local = new Date(d.getTime() - off * 60000);
+        return local.toISOString().slice(0, 10);
+      };
+
+      return {
+        config,
+        fechaConsulta: hoyISO(),
+        acordeonCajaChica: false,
+        acordeonDesglose: false,
+        ticketAbiertoId: null,
+        cierreProcesado: false,
+        procesandoCierre: false,
+        modalCierreAbierto: false,
+        montoRealCierre: 0,
+        enviarCorreoCierre: true,
+        enviandoEmail: false,
+        estadoEmailTexto: '',
+        estadoEmailError: false,
+        guardandoMov: false,
+        procesandoApertura: false,
+        procesandoDevolucion: false,
+        formMontoInicial: '',
+        aviso: { texto: '', tipo: 'ok' },
+        formMov: { tipo: 'egreso', monto: '', concepto: '' },
+        resumen: {
+          fecha: hoyISO(),
+          fecha_formateada: '',
+          caja_abierta: false,
+          saldo_inicial: 0,
+          apertura_hora: '',
+          total_vendido: 0,
+          ganancia_estimada: 0,
+          total_operaciones: 0,
+          ventas_efectivo: 0,
+          cobros_cta_cte_efectivo: 0,
+          ingresos_extras: 0,
+          egresos: 0,
+          total_efectivo_esperado: 0,
+          desglose_por_forma_pago: [],
+          ventas: [],
+          movimientos_caja: [],
+          whatsapp_url: '#',
+          smtp_configurado: false,
+          email_destinatario: ''
+        },
+
+        async iniciar() {
+          let pendiente = false;
+          new MutationObserver(() => {
+            if (pendiente || !document.querySelector('i[data-lucide]')) return;
+            pendiente = true;
+            requestAnimationFrame(() => { window.lucide && lucide.createIcons(); pendiente = false; });
+          }).observe(document.body, { childList: true, subtree: true });
+
+          const params = new URLSearchParams(window.location.search);
+          const tid = Number(params.get('ticket') || 0);
+          await this.cargarArqueo();
+          if (tid > 0) {
+            this.ticketAbiertoId = tid;
+          }
+          this.iconos();
+        },
+        iconos() { this.$nextTick(() => window.lucide && lucide.createIcons()); },
+
+        mostrarAviso(texto, tipo = 'ok') {
+          this.aviso = { texto, tipo };
+          if (tipo === 'ok') {
+            setTimeout(() => { if (this.aviso.texto === texto) this.aviso.texto = ''; }, 4000);
+          }
+        },
+
+        fmt(n) {
+          return (this.config.moneda || '$') + ' ' + Number(n || 0).toLocaleString('es-AR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          });
+        },
+
+        porcentajePago(monto) {
+          const tot = Number(this.resumen.total_vendido || 0);
+          if (tot <= 0) return 0;
+          return Math.round((Number(monto || 0) / tot) * 1000) / 10;
+        },
+
+        async cargarArqueo() {
+          try {
+            const r = await fetch(`/api/caja/arqueo?fecha=${encodeURIComponent(this.fechaConsulta)}`);
+            if (r.status === 401) { window.location.href = '/login'; return; }
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.detail || 'No se pudo cargar el arqueo');
+            this.resumen = data;
+            this.iconos();
+          } catch (e) {
+            this.mostrarAviso(e.message, 'error');
+          }
+        },
+
+        async cambiarFecha() {
+          this.cierreProcesado = false;
+          this.estadoEmailTexto = '';
+          this.ticketAbiertoId = null;
+          await this.cargarArqueo();
+        },
+
+        async irAHoy() {
+          this.fechaConsulta = hoyISO();
+          await this.cambiarFecha();
+        },
+
+        async abrirCajaDesdeControl() {
+          const monto = Number(this.formMontoInicial);
+          if (this.formMontoInicial === '' || isNaN(monto) || monto < 0) {
+            this.mostrarAviso('Ingresá un saldo inicial válido (0 o mayor).', 'error');
+            return;
+          }
+          this.procesandoApertura = true;
+          try {
+            const r = await fetch('/api/caja/abrir', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ monto_inicial: monto })
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.detail || 'No se pudo abrir la caja');
+            this.formMontoInicial = '';
+            await this.cargarArqueo();
+            this.mostrarAviso('Caja abierta correctamente con saldo inicial de ' + this.fmt(monto));
+          } catch (e) {
+            this.mostrarAviso(e.message, 'error');
+          } finally {
+            this.procesandoApertura = false;
+          }
+        },
+
+        async registrarMovimiento() {
+          if (!this.formMov.monto || Number(this.formMov.monto) <= 0) return;
+          this.guardandoMov = true;
+          try {
+            const r = await fetch('/api/caja/movimientos', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                tipo: this.formMov.tipo,
+                monto: Number(this.formMov.monto),
+                concepto: (this.formMov.concepto || '').trim()
+              })
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.detail || 'No se pudo registrar el movimiento');
+            this.formMov.monto = '';
+            this.formMov.concepto = '';
+            await this.cargarArqueo();
+            this.mostrarAviso('Movimiento de caja chica registrado con éxito.');
+          } catch (e) {
+            this.mostrarAviso(e.message, 'error');
+          } finally {
+            this.guardandoMov = false;
+          }
+        },
+
+        get diferenciaCierre() {
+          const esperado = Number(this.resumen.total_efectivo_esperado || 0);
+          const real = Number(this.montoRealCierre || 0);
+          return Math.round((real - esperado) * 100) / 100;
+        },
+
+        abrirModalCierre() {
+          this.montoRealCierre = Number(this.resumen.total_efectivo_esperado || 0);
+          this.enviarCorreoCierre = Boolean(this.resumen.smtp_configurado);
+          this.modalCierreAbierto = true;
+        },
+
+        async confirmarCierreDiarioConMonto() {
+          this.procesandoCierre = true;
+          this.estadoEmailTexto = '';
+          this.estadoEmailError = false;
+          try {
+            const r = await fetch('/api/caja/cierre-diario', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                fecha: this.fechaConsulta,
+                monto_real: Number(this.montoRealCierre || 0),
+                enviar_correo: this.enviarCorreoCierre
+              })
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.detail || 'No se pudo procesar el cierre');
+            this.modalCierreAbierto = false;
+            this.cierreProcesado = true;
+            await this.cargarArqueo();
+            if (data.smtp_configurado && data.email_mensaje) {
+              this.estadoEmailTexto = (data.email_enviado ? '📧 Correo automático: ' : '⚠️ Correo automático: ') + data.email_mensaje;
+              this.estadoEmailError = !data.email_enviado;
+            }
+          } catch (e) {
+            this.mostrarAviso(e.message, 'error');
+          } finally {
+            this.procesandoCierre = false;
+          }
+        },
+
+        async reenviarEmail() {
+          this.enviandoEmail = true;
+          this.estadoEmailTexto = '';
+          this.estadoEmailError = false;
+          try {
+            const r = await fetch('/api/caja/enviar-email', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fecha: this.fechaConsulta })
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.detail || 'No se pudo enviar el correo');
+            this.estadoEmailTexto = '📧 ' + data.mensaje;
+            this.estadoEmailError = false;
+          } catch (e) {
+            this.estadoEmailTexto = '⚠️ ' + e.message;
+            this.estadoEmailError = true;
+          } finally {
+            this.enviandoEmail = false;
+          }
+        },
+
+        async devolverItemTicket(v, it, cant) {
+          const msg = cant < it.cantidad
+            ? `¿Confirmás devolver ${cant} unidad(es) de "${it.nombre}" del Ticket #${v.id}?
+
+Se sumará al stock y se descontará del total (y de la Cuenta Corriente si corresponde).`
+            : `¿Confirmás quitar "${it.nombre}" (${it.cantidad} unid.) del Ticket #${v.id}?
+
+Se sumará al stock y se descontará del total (y de la Cuenta Corriente si corresponde).`;
+          if (!confirm(msg)) return;
+          this.procesandoDevolucion = true;
+          try {
+            const r = await fetch(`/api/ventas/${v.id}/devolver-item`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ detalle_id: it.detalle_id, cantidad: Number(cant) })
+            });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.detail || 'No se pudo procesar la devolución');
+            if (data.ticket_anulado) {
+              this.ticketAbiertoId = null;
+              this.mostrarAviso(`Se devolvió "${data.producto_nombre}" y el Ticket #${v.id} quedó anulado por completo.`);
+            } else {
+              this.mostrarAviso(`Devolución registrada: ${data.cantidad_devuelta}x ${data.producto_nombre} (-${this.fmt(data.monto_devuelto)}). Stock y saldos actualizados.`);
+            }
+            await this.cargarArqueo();
+          } catch (e) {
+            this.mostrarAviso(e.message, 'error');
+          } finally {
+            this.procesandoDevolucion = false;
+          }
+        },
+
+        async anularTicketCompleto(v) {
+          if (!confirm(`¿Seguro que querés ANULAR por completo el Ticket #${v.id} por ${this.fmt(v.total_venta)}?
+
+Se devolverán todos los productos al stock y se revertirá el saldo en Caja / Cuenta Corriente.`)) return;
+          this.procesandoDevolucion = true;
+          try {
+            const r = await fetch(`/api/ventas/${v.id}/anular`, { method: 'POST' });
+            const data = await r.json();
+            if (!r.ok) throw new Error(data.detail || 'No se pudo anular el ticket');
+            this.ticketAbiertoId = null;
+            await this.cargarArqueo();
+            this.mostrarAviso(`Ticket #${v.id} anulado correctamente. Stock y saldos restaurados.`);
+          } catch (e) {
+            this.mostrarAviso(e.message, 'error');
+          } finally {
+            this.procesandoDevolucion = false;
+          }
+        }
+      };
+    }
+  </script>
+</body>
+</html>

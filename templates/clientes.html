@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ config.nombre_comercio }} · Padrón de Clientes y Cuenta Corriente</title>
+
+  <script src="/static/vendor/tailwind.js"></script>
+
+  <style>
+    :root {
+      --color-primario: {{ config.color_primario }};
+      --color-primario-suave: color-mix(in srgb, var(--color-primario) 10%, white);
+      --color-primario-oscuro: color-mix(in srgb, var(--color-primario) 85%, black);
+    }
+    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+    [x-cloak] { display: none !important; }
+    .campo { width:100%; padding:.625rem .75rem; font-size:.875rem; background:#fff; border:1px solid #e5e7eb; border-radius:.5rem; }
+    .campo:focus { outline:none; border-color:var(--color-primario); box-shadow:0 0 0 2px color-mix(in srgb, var(--color-primario) 20%, transparent); }
+    .scroll-fino::-webkit-scrollbar { width: 6px; }
+    .scroll-fino::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 9999px; }
+  /* ===== Sistema de Campos Táctiles (56px, Radio 16, Etiqueta Flotante) ===== */
+    .campo-flotante { position:relative; width:100%; display:block; }
+    .campo-flotante input, .campo-flotante select, .campo-flotante textarea {
+      width:100%; height:3.5rem; min-height:3.5rem; padding:1.25rem 1rem .35rem 1rem; font-size:.9375rem; font-weight:500;
+      line-height:1.25; color:#111827; background-color:#F9FAFB; border:1.5px solid #E5E7EB; border-radius:1rem; outline:none;
+      transition:all .2s cubic-bezier(.4, 0, .2, 1); box-sizing:border-box;
+    }
+    .campo-flotante textarea { height:auto; min-height:5.5rem; padding-top:1.5rem; }
+    .campo-flotante input:focus, .campo-flotante select:focus, .campo-flotante textarea:focus {
+      background-color:#FFFFFF; border-color:var(--color-primario);
+      box-shadow:0 0 0 3px color-mix(in srgb, var(--color-primario) 18%, transparent);
+    }
+    .campo-flotante input.con-prefijo { padding-left:2.25rem; }
+    .campo-flotante .prefijo-moneda { position:absolute; left:1rem; bottom:.55rem; font-size:.9375rem; font-weight:700; color:#9CA3AF; pointer-events:none; }
+    .campo-flotante label {
+      position:absolute; top:1.05rem; left:1rem; font-size:.875rem; font-weight:500; color:#6B7280; pointer-events:none;
+      transform-origin:left top; transition:all .2s cubic-bezier(.4, 0, .2, 1);
+    }
+    .campo-flotante input.con-prefijo ~ label { left:2.25rem; }
+    .campo-flotante input:focus ~ label, .campo-flotante input:not(:placeholder-shown) ~ label,
+    .campo-flotante select ~ label, .campo-flotante textarea:focus ~ label, .campo-flotante textarea:not(:placeholder-shown) ~ label {
+      transform:translateY(-.65rem) scale(.78); font-weight:600;
+    }
+    .campo-flotante input:focus ~ label, .campo-flotante select:focus ~ label, .campo-flotante textarea:focus ~ label {
+      color:var(--color-primario);
+    }
+  </style>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'] },
+        colors: {
+          primario: 'var(--color-primario)',
+          'primario-suave': 'var(--color-primario-suave)',
+          'primario-oscuro': 'var(--color-primario-oscuro)',
+          fondo: '#F7F9FA'
+        },
+        boxShadow: { suave: '0 1px 2px rgba(16,24,40,0.04)' }
+      } }
+    }
+  </script>
+
+  <link rel="manifest" href="/manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#2563EB">
+  <script src="/static/js/motor_offline_pwa.js"></script>
+  <script defer src="/static/vendor/alpine.min.js"></script>
+  <script src="/static/vendor/lucide.min.js"></script>
+</head>
+
+<body class="bg-fondo text-gray-900 antialiased min-h-screen"
+      x-data="clientes({{ config | tojson | forceescape }})" x-init="iniciar()" x-cloak>
+
+  <header class="bg-white border-b border-gray-200 px-3 sm:px-8 py-2.5 flex flex-wrap items-center justify-between gap-2 sticky top-0 z-20">
+    <div class="flex items-center gap-2 shrink-0 min-w-0">
+      <div data-brand-logo class="w-9 h-9 rounded-lg bg-primario text-white flex items-center justify-center overflow-hidden shrink-0">
+        <i data-lucide="store" class="w-5 h-5"></i>
+      </div>
+      <span data-brand-nombre class="font-semibold text-sm sm:text-lg text-gray-900 truncate max-w-[160px] sm:max-w-[260px]" x-text="config.nombre_comercio"></span>
+    </div>
+    {% set activa = 'clientes' %}{% include '_nav.html' %}
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-8 py-8 space-y-6">
+    <div>
+      <h1 class="text-xl font-semibold">📒 Padrón de Clientes, Cuentas Corrientes y Fidelización</h1>
+      <p class="text-sm text-gray-500">Administración de clientes, límites de crédito, cobros de Cuenta Corriente y Club de Puntos.</p>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- 3 TARJETAS KPI SUPERIORES                                           -->
+    <!-- =================================================================== -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="bg-white border border-gray-200 rounded-xl shadow-suave p-5">
+        <p class="text-xs font-medium text-gray-500">💸 Saldo Total en Cuentas Corrientes</p>
+        <p class="text-2xl font-bold mt-1" :class="deudaTotal > 0 ? 'text-red-600' : 'text-emerald-600'" x-text="fmt(deudaTotal)"></p>
+        <p class="text-[11px] text-gray-400 mt-0.5">Suma de saldos pendientes de cobro</p>
+      </div>
+
+      <div class="bg-white border border-gray-200 rounded-xl shadow-suave p-5">
+        <p class="text-xs font-medium text-gray-500">⚠️ Clientes con Saldo Deudor</p>
+        <p class="text-2xl font-bold mt-1" :class="cantidadDeudores > 0 ? 'text-amber-600' : 'text-emerald-600'" x-text="cantidadDeudores"></p>
+        <p class="text-[11px] text-gray-400 mt-0.5" x-text="cantidadDeudores === 1 ? 'Cliente con saldo pendiente' : 'Clientes con saldo pendiente'"></p>
+      </div>
+
+      <div class="bg-white border border-gray-200 rounded-xl shadow-suave p-5">
+        <p class="text-xs font-medium text-gray-500">👤 Clientes Registrados</p>
+        <p class="text-2xl font-bold mt-1 text-gray-900" x-text="lista.length"></p>
+        <p class="text-[11px] text-gray-400 mt-0.5" x-text="'Puntos en circulación: ' + fmtPts(puntosTotal) + ' pts'"></p>
+      </div>
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- BARRA DE 6 SUB-PESTAÑAS INTERNAS                                    -->
+    <!-- =================================================================== -->
+    <div class="flex flex-wrap gap-1.5 bg-white border border-gray-200 rounded-xl p-1.5 shadow-suave">
+      <button @click="cambiarTab('padron')"
+              :class="tab === 'padron' ? 'bg-primario text-white shadow-suave' : 'text-gray-600 hover:bg-gray-100'"
+              class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors">
+        📋 Padrón de Clientes
+      </button>
+      <button @click="cambiarTab('nuevo')"
+              :class="tab === 'nuevo' ? 'bg-primario text-white shadow-suave' : 'text-gray-600 hover:bg-gray-100'"
+              class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors">
+        ➕ Nuevo Cliente
+      </button>
+      <button @click="cambiarTab('pago')"
+              :class="tab === 'pago' ? 'bg-primario text-white shadow-suave' : 'text-gray-600 hover:bg-gray-100'"
+              class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors">
+        💵 Registrar Abono / Pago
+      </button>
+      <button @click="cambiarTab('historial')"
+              :class="tab === 'historial' ? 'bg-primario text-white shadow-suave' : 'text-gray-600 hover:bg-gray-100'"
+              class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors">
+        Ficha e Historial de Movimientos
+      </button>
+      <button @click="cambiarTab('editar')"
+              :class="tab === 'editar' ? 'bg-primario text-white shadow-suave' : 'text-gray-600 hover:bg-gray-100'"
+              class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors">
+        ✏️ Modificar / Dar de baja Cliente
+      </button>
+      <button @click="cambiarTab('fidelizacion')"
+              :class="tab === 'fidelizacion' ? 'bg-primario text-white shadow-suave' : 'text-gray-600 hover:bg-gray-100'"
+              class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors">
+        🎁 Fidelización y Catálogo de Premios
+      </button>
+    </div>
+
+    <!-- Avisos globales -->
+    <p x-show="mensaje" x-transition x-text="mensaje" class="text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2.5 font-medium"></p>
+    <p x-show="errorGlobal" x-transition x-text="errorGlobal" class="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2.5 font-medium"></p>
+
+    <!-- =================================================================== -->
+    <!-- SUB-PESTAÑA 1: 📋 PADRÓN DE CLIENTES                                -->
+    <!-- =================================================================== -->
+    <section x-show="tab === 'padron'" class="space-y-4">
+      <div class="flex flex-wrap items-center gap-3 bg-white border border-gray-200 rounded-xl p-4 shadow-suave">
+        <div class="relative flex-1 min-w-[240px]">
+          <i data-lucide="search" class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+          <input x-model="busqueda" type="text" placeholder="🔍 Buscar por nombre, teléfono o email…" class="campo pl-9">
+        </div>
+        <label class="flex items-center gap-2 text-xs sm:text-sm font-medium text-gray-700 bg-fondo border border-gray-200 rounded-lg px-3.5 py-2 cursor-pointer">
+          <input type="checkbox" x-model="soloDeudores" class="rounded text-primario">
+          <span>Solo con saldo deudor</span>
+        </label>
+        <button @click="cambiarTab('nuevo')"
+                class="px-4 py-2 rounded-lg bg-primario hover:bg-primario-oscuro text-white text-xs sm:text-sm font-semibold transition-colors">
+          ➕ Nuevo Cliente
+        </button>
+      </div>
+
+      <p x-show="cargando" class="py-12 text-center text-sm text-gray-400">Cargando Padrón de Clientes…</p>
+      <p x-show="!cargando && !filtrados.length" class="py-12 text-center text-sm text-gray-500 bg-white border border-gray-200 rounded-xl">
+        No se encontraron clientes con ese criterio.
+      </p>
+
+      <!-- Tarjetas anchas por cliente -->
+      <div class="space-y-3">
+        <template x-for="c in filtrados" :key="c.id">
+          <div class="bg-white border border-gray-200 rounded-xl shadow-suave p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:border-gray-300 transition-colors">
+            <!-- Datos principales -->
+            <div class="space-y-1.5 flex-1 min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <h3 class="text-base font-bold text-gray-900" x-text="c.nombre"></h3>
+                <span class="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-0.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200">
+                  🏷️ Puntos: <span x-text="fmtPts(c.puntos)"></span>
+                </span>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-600">
+                <span class="flex items-center gap-1">
+                  📞 Teléfono:
+                  <strong class="text-gray-800" x-text="c.telefono || 'No especificado'"></strong>
+                  <template x-if="c.telefono">
+                    <a :href="linkWhatsApp(c)" target="_blank" rel="noopener"
+                       class="ml-1 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#25D366]/15 text-emerald-700 hover:bg-[#25D366]/25 font-semibold">
+                      📲 WhatsApp
+                    </a>
+                  </template>
+                </span>
+                <span>✉️ Email: <strong class="text-gray-800" x-text="c.email || 'No especificado'"></strong></span>
+                <span>
+                  Límite de Crédito:
+                  <strong class="text-gray-900"
+                          x-text="Number(c.limite_credito) > 0 ? fmt(c.limite_credito) : fmt(0) + ' (Solo Fidelización)'"></strong>
+                </span>
+              </div>
+            </div>
+
+            <!-- Semáforo de Cuenta Corriente + Acciones rápidas -->
+            <div class="flex flex-wrap items-center justify-between lg:justify-end gap-3 pt-3 lg:pt-0 border-t lg:border-t-0 border-gray-100">
+              <div class="text-left lg:text-right">
+                <span x-show="c.saldo > 0"
+                      class="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold px-3 py-1.5 rounded-xl border bg-red-50 text-red-700 border-red-200"
+                      x-text="'Debe ' + fmt(c.saldo)"></span>
+              </div>
+
+              <div class="flex items-center gap-1.5">
+                <button @click="irAPago(c)" :disabled="c.saldo <= 0"
+                        class="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-primario-suave hover:text-primario hover:border-primario text-xs font-semibold disabled:opacity-30 disabled:pointer-events-none transition-colors">
+                  Abonar
+                </button>
+                <button @click="irAHistorial(c)"
+                        class="px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-xs font-semibold text-gray-700 transition-colors">
+                  Ficha
+                </button>
+                <button @click="irAEditar(c)"
+                        class="p-1.5 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600" title="Modificar / Dar de baja">
+                  <i data-lucide="pencil" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- SUB-PESTAÑA 2: ➕ NUEVO CLIENTE                                     -->
+    <!-- =================================================================== -->
+    <section x-show="tab === 'nuevo'" class="bg-white border border-gray-200 rounded-xl shadow-suave p-6 max-w-2xl">
+      <h2 class="text-lg font-semibold mb-1">➕ Registrar Nuevo Cliente</h2>
+      <p class="text-xs text-gray-500 mb-5">
+        Ingresá los datos del cliente. Si dejás el <strong>Límite de Crédito ($) en 0</strong>, el cliente participará únicamente del Club de Fidelización y no tendrá habilitada la Cuenta Corriente en el Punto de Venta.
+      </p>
+
+      <form @submit.prevent="crearCliente()" class="space-y-4">
+        <div class="campo-flotante">
+          <input x-model="formNuevo.nombre" id="nuevoCliNombre" required maxlength="120" type="text" placeholder=" " enterkeyhint="next" class="font-medium text-gray-900">
+          <label for="nuevoCliNombre">Nombre y Apellido *</label>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="campo-flotante">
+            <input x-model="formNuevo.telefono" id="nuevoCliTel" maxlength="30" type="tel" inputmode="tel" placeholder=" " enterkeyhint="next" class="font-medium text-gray-900">
+            <label for="nuevoCliTel">Teléfono / WhatsApp</label>
+          </div>
+          <div class="campo-flotante">
+            <input x-model="formNuevo.email" id="nuevoCliEmail" maxlength="120" type="email" inputmode="email" placeholder=" " enterkeyhint="next" class="font-medium text-gray-900">
+            <label for="nuevoCliEmail">Email (Opcional)</label>
+          </div>
+        </div>
+
+        <div class="bg-fondo border border-gray-200 rounded-2xl p-4 space-y-2">
+          <div class="campo-flotante">
+            <input x-model.number="formNuevo.limite_credito" id="nuevoCliLimite" type="number" min="0" step="100" inputmode="decimal" placeholder=" " class="con-prefijo font-bold text-gray-900">
+            <span class="prefijo-moneda text-base" x-text="config.moneda || '$'"></span>
+            <label for="nuevoCliLimite">Límite de Crédito para Cuenta Corriente ($)</label>
+          </div>
+          <p class="text-xs text-gray-500 pl-1"
+             x-text="Number(formNuevo.limite_credito) > 0
+               ? 'Habilitado para operar en Cuenta Corriente hasta ' + fmt(formNuevo.limite_credito) + '.'
+               : 'Valor 0: Solo participa en el Club de Puntos / Fidelización (sin Cuenta Corriente).'"></p>
+        </div>
+
+        <p x-show="errorFormNuevo" x-text="errorFormNuevo" class="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3.5 py-2.5"></p>
+
+        <button type="submit" :disabled="guardando"
+                class="w-full sm:w-auto h-14 px-8 rounded-2xl bg-primario hover:bg-primario-oscuro text-white text-base font-semibold disabled:opacity-50 shadow-suave flex items-center justify-center gap-2">
+          <span x-text="guardando ? 'Registrando…' : '💾 Guardar Nuevo Cliente'"></span>
+        </button>
+      </form>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- SUB-PESTAÑA 3: 💵 REGISTRAR ABONO / PAGO                            -->
+    <!-- =================================================================== -->
+    <section x-show="tab === 'pago'" class="bg-white border border-gray-200 rounded-xl shadow-suave p-6 max-w-2xl space-y-5">
+      <div>
+        <h2 class="text-lg font-semibold">💵 Registrar Abono / Pago de Cuenta Corriente</h2>
+        <p class="text-xs text-gray-500">Seleccioná el cliente para descontar una entrega parcial o total de su saldo pendiente.</p>
+      </div>
+
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Seleccionar Cliente</label>
+        <select x-model.number="pagoForm.cliente_id" @change="alCambiarClientePago()" class="campo">
+          <option :value="0">Elegí un cliente del padrón…</option>
+          <template x-for="c in lista" :key="c.id">
+            <option :value="c.id" x-text="c.nombre + ' — ' + (c.saldo > 0 ? 'Debe ' + fmt(c.saldo) : 'Al día ($ 0,00)')"></option>
+          </template>
+        </select>
+      </div>
+
+      <template x-if="clientePagoActual">
+        <div class="space-y-4">
+          <!-- Resumen de deuda actual -->
+          <div class="p-4 rounded-xl border flex flex-wrap items-center justify-between gap-3"
+               :class="clientePagoActual.saldo > 0 ? 'bg-red-50/70 border-red-200' : 'bg-emerald-50/70 border-emerald-200'">
+            <div>
+              <p class="text-xs font-medium text-gray-600">Cliente seleccionado</p>
+              <p class="text-base font-bold text-gray-900" x-text="clientePagoActual.nombre"></p>
+            </div>
+            <div class="text-right">
+              <p class="text-xs font-medium text-gray-600">Saldo Deudor Actual</p>
+              <p class="text-xl font-bold" :class="clientePagoActual.saldo > 0 ? 'text-red-700' : 'text-emerald-700'"
+                 x-text="fmt(clientePagoActual.saldo)"></p>
+            </div>
+          </div>
+
+          <template x-if="clientePagoActual.saldo <= 0">
+            <p class="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg p-3 font-medium">
+              🟢 Este cliente se encuentra al día y no registra deuda pendiente en Cuenta Corriente.
+            </p>
+          </template>
+
+          <template x-if="clientePagoActual.saldo > 0">
+            <form @submit.prevent="confirmarPagoTab()" class="space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="campo-flotante relative">
+                  <input x-model.number="pagoForm.monto" id="pagoMonto" type="number" min="0.01" :max="clientePagoActual.saldo" step="0.01" required placeholder=" "
+                         inputmode="decimal" enterkeyhint="next" class="con-prefijo font-bold text-lg text-gray-900 pr-24">
+                  <span class="prefijo-moneda text-base" x-text="config.moneda || '$'"></span>
+                  <label for="pagoMonto">Monto que entrega ($) *</label>
+                  <button type="button" @click="pagoForm.monto = clientePagoActual.saldo"
+                          class="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 rounded-xl bg-primario-suave text-primario text-xs font-bold hover:opacity-90">
+                    Total
+                  </button>
+                </div>
+
+                <div class="campo-flotante">
+                  <select x-model="pagoForm.metodo" id="pagoMetodo" class="font-semibold text-gray-900">
+                    <option value="efectivo">💵 Efectivo (Impacta en Caja)</option>
+                    <option value="transferencia">🏦 Transferencia</option>
+                    <option value="mercado_pago">📱 Mercado Pago</option>
+                    <option value="tarjeta">💳 Tarjeta</option>
+                  </select>
+                  <label for="pagoMetodo">Medio de Pago *</label>
+                </div>
+              </div>
+
+              <!-- Cálculo en vivo de Nuevo saldo restante -->
+              <div class="bg-fondo border border-gray-200 rounded-2xl p-4 flex items-center justify-between text-sm">
+                <span class="text-gray-600 font-medium">Nuevo saldo restante luego del pago:</span>
+                <span class="font-bold text-base"
+                      :class="nuevoSaldoPago > 0 ? 'text-amber-700' : 'text-emerald-700'"
+                      x-text="fmt(nuevoSaldoPago)"></span>
+              </div>
+
+              <div class="campo-flotante">
+                <input x-model="pagoForm.descripcion" id="pagoDesc" maxlength="200" type="text" placeholder=" " enterkeyhint="done" class="font-medium text-gray-900">
+                <label for="pagoDesc">Observación / Nota (Opcional)</label>
+              </div>
+
+              <p x-show="errorPagoTab" x-text="errorPagoTab" class="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3.5 py-2.5"></p>
+
+              <button type="submit" :disabled="enviandoPagoTab || !pagoForm.monto || pagoForm.monto <= 0"
+                      class="w-full sm:w-auto h-14 px-8 rounded-2xl bg-primario hover:bg-primario-oscuro text-white text-base font-semibold disabled:opacity-40 shadow-suave flex items-center justify-center gap-2">
+                <span x-text="enviandoPagoTab ? 'Procesando cobro…' : '✅ Confirmar Pago'"></span>
+              </button>
+            </form>
+          </template>
+        </div>
+      </template>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- SUB-PESTAÑA 4: 📜 FICHA E HISTORIAL DE MOVIMIENTOS                  -->
+    <!-- =================================================================== -->
+    <section x-show="tab === 'historial'" class="space-y-5">
+      <div class="bg-white border border-gray-200 rounded-xl shadow-suave p-5 max-w-2xl">
+        <label class="block text-xs font-medium text-gray-500 mb-1">Seleccionar Cliente para consultar su Ficha</label>
+        <select x-model.number="historial.cliente_id" @change="cargarHistorialCliente()" class="campo">
+          <option :value="0">Elegí un cliente…</option>
+          <template x-for="c in lista" :key="c.id">
+            <option :value="c.id" x-text="c.nombre + ' (' + (c.saldo > 0 ? 'Debe ' + fmt(c.saldo) : 'Al día') + ')'"></option>
+          </template>
+        </select>
+      </div>
+
+      <template x-if="historial.cliente">
+        <div class="space-y-4">
+          <!-- Tarjeta de resumen del cliente -->
+          <div class="bg-white border border-gray-200 rounded-xl shadow-suave p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+            <div>
+              <p class="text-xs text-gray-500">Teléfono / Contacto</p>
+              <p class="font-semibold mt-0.5" x-text="historial.cliente.telefono || 'No registrado'"></p>
+            </div>
+            <div>
+              <p class="text-xs text-gray-500">Email</p>
+              <p class="font-semibold mt-0.5" x-text="historial.cliente.email || 'No registrado'"></p>
+            </div>
+            <div>
+              <p class="text-xs text-gray-500">Límite de Crédito</p>
+              <p class="font-semibold mt-0.5"
+                 x-text="Number(historial.cliente.limite_credito) > 0 ? fmt(historial.cliente.limite_credito) : fmt(0) + ' (Solo Fidelización)'"></p>
+            </div>
+            <div>
+              <p class="text-xs text-gray-500">Saldo Actual Cta. Cte.</p>
+              <p class="text-lg font-bold mt-0.5"
+                 :class="historial.cliente.saldo > 0 ? 'text-red-600' : 'text-emerald-600'"
+                 x-text="historial.cliente.saldo > 0 ? 'Debe ' + fmt(historial.cliente.saldo) : 'Al día (' + fmt(0) + ')'"></p>
+            </div>
+          </div>
+
+          <!-- Tabla cronológica de movimientos -->
+          <div class="bg-white border border-gray-200 rounded-xl shadow-suave overflow-hidden">
+            <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+              <h3 class="font-semibold text-sm">📜 Historial Cronológico de Movimientos de Cuenta Corriente</h3>
+              <span class="text-xs text-gray-400" x-text="historial.movimientos.length + ' registros'"></span>
+            </div>
+
+            <p x-show="historial.cargando" class="py-10 text-center text-sm text-gray-400">Cargando movimientos…</p>
+            <p x-show="!historial.cargando && !historial.movimientos.length" class="py-10 text-center text-sm text-gray-500">
+              Este cliente no registra movimientos en su Cuenta Corriente.
+            </p>
+
+            <div x-show="!historial.cargando && historial.movimientos.length" class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+                  <tr>
+                    <th class="text-left px-4 py-3 font-medium">Fecha y Hora</th>
+                    <th class="text-left px-4 py-3 font-medium">Tipo</th>
+                    <th class="text-left px-4 py-3 font-medium">Detalle / Concepto</th>
+                    <th class="text-right px-4 py-3 font-medium">Monto</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <template x-for="m in historial.movimientos" :key="m.id">
+                    <tr class="hover:bg-gray-50/70">
+                      <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap" x-text="fecha(m.fecha)"></td>
+                      <td class="px-4 py-3">
+                        <span class="inline-block text-xs font-bold px-2.5 py-0.5 rounded-full"
+                              :class="m.tipo === 'PAGO' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'"
+                              x-text="m.tipo === 'PAGO' ? '🟢 PAGO / ENTREGA' : '🔴 CARGO COMPRA'"></span>
+                      </td>
+                      <td class="px-4 py-3 text-gray-800" x-text="m.descripcion || (m.tipo === 'PAGO' ? 'Pago en Cuenta Corriente' : 'Compra en Cuenta Corriente')"></td>
+                      <td class="px-4 py-3 text-right font-bold whitespace-nowrap"
+                          :class="m.tipo === 'PAGO' ? 'text-emerald-600' : 'text-red-600'"
+                          x-text="(m.tipo === 'PAGO' ? '− ' : '+ ') + fmt(m.monto)"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </template>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- SUB-PESTAÑA 5: ✏️ MODIFICAR / ELIMINAR CLIENTE                      -->
+    <!-- =================================================================== -->
+    <section x-show="tab === 'editar'" class="space-y-5 max-w-2xl">
+      <div class="bg-white border border-gray-200 rounded-xl shadow-suave p-6 space-y-4">
+        <div>
+          <h2 class="text-lg font-semibold">✏️ Modificar / Dar de baja Cliente</h2>
+          <p class="text-xs text-gray-500">Seleccioná un cliente del padrón para actualizar sus datos o límite de crédito.</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Seleccionar Cliente</label>
+          <select x-model.number="editarId" @change="cargarClienteEnEditar()" class="campo">
+            <option :value="0">Elegí un cliente…</option>
+            <template x-for="c in lista" :key="c.id">
+              <option :value="c.id" x-text="c.nombre + ' (' + (c.telefono || 'Sin tel.') + ')'"></option>
+            </template>
+          </select>
+        </div>
+
+        <template x-if="formEditar.id">
+          <form @submit.prevent="guardarEdicionCliente()" class="space-y-4 pt-2 border-t border-gray-100">
+            <div class="campo-flotante">
+              <input x-model="formEditar.nombre" id="editarCliNombre" required maxlength="120" type="text" placeholder=" " enterkeyhint="next" class="font-medium text-gray-900">
+              <label for="editarCliNombre">Nombre y Apellido *</label>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="campo-flotante">
+                <input x-model="formEditar.telefono" id="editarCliTel" maxlength="30" type="tel" inputmode="tel" placeholder=" " enterkeyhint="next" class="font-medium text-gray-900">
+                <label for="editarCliTel">Teléfono / WhatsApp</label>
+              </div>
+              <div class="campo-flotante">
+                <input x-model="formEditar.email" id="editarCliEmail" maxlength="120" type="email" inputmode="email" placeholder=" " enterkeyhint="next" class="font-medium text-gray-900">
+                <label for="editarCliEmail">Email (Opcional)</label>
+              </div>
+            </div>
+
+            <div class="bg-fondo border border-gray-200 rounded-2xl p-4 space-y-2">
+              <div class="campo-flotante">
+                <input x-model.number="formEditar.limite_credito" id="editarCliLimite" type="number" min="0" step="100" inputmode="decimal" placeholder=" " class="con-prefijo font-bold text-gray-900">
+                <span class="prefijo-moneda text-base" x-text="config.moneda || '$'"></span>
+                <label for="editarCliLimite">Límite de Crédito para Cuenta Corriente ($)</label>
+              </div>
+              <p class="text-xs text-gray-500 pl-1"
+                 x-text="Number(formEditar.limite_credito) > 0
+                   ? 'Habilitado para operar en Cuenta Corriente hasta ' + fmt(formEditar.limite_credito) + '.'
+                   : 'Valor 0: Solo participa en Fidelización (sin Cuenta Corriente).'"></p>
+            </div>
+
+            <p x-show="errorFormEditar" x-text="errorFormEditar" class="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3.5 py-2.5"></p>
+
+            <button type="submit" :disabled="guardando"
+                    class="w-full sm:w-auto h-14 px-8 rounded-2xl bg-primario hover:bg-primario-oscuro text-white text-base font-semibold disabled:opacity-50 shadow-suave flex items-center justify-center gap-2">
+              <span x-text="guardando ? 'Guardando…' : '💾 Guardar Cambios'"></span>
+            </button>
+          </form>
+        </template>
+      </div>
+
+      <!-- Acordeón inferior para eliminar cliente -->
+      <template x-if="formEditar.id">
+        <div x-show="esAdmin" class="bg-white border border-red-200 rounded-xl shadow-suave overflow-hidden">
+          <button type="button" @click="acordeonEliminar = !acordeonEliminar"
+                  class="w-full px-5 py-3.5 flex items-center justify-between text-left bg-red-50/60 hover:bg-red-50 transition-colors">
+            <span class="text-xs font-semibold text-red-700">🗑️ Dar de baja a este cliente</span>
+            <i :data-lucide="acordeonEliminar ? 'chevron-up' : 'chevron-down'" class="w-4 h-4 text-red-600"></i>
+          </button>
+
+          <div x-show="acordeonEliminar" x-transition class="p-5 space-y-3 border-t border-red-100 text-xs">
+            <template x-if="clienteEditarActual && clienteEditarActual.saldo > 0">
+              <p class="text-red-700 bg-red-50 border border-red-200 rounded-lg p-3 font-medium">
+                ⚠️ No se puede dar de baja a <strong x-text="clienteEditarActual.nombre"></strong> porque registra un saldo pendiente de <strong x-text="fmt(clienteEditarActual.saldo)"></strong> en Cuenta Corriente. Registrá primero la cancelación de su deuda.
+              </p>
+            </template>
+
+            <template x-if="clienteEditarActual && clienteEditarActual.saldo <= 0">
+              <div class="space-y-3">
+                <p class="text-gray-600">
+                  Esta acción dará de baja a <strong x-text="clienteEditarActual.nombre"></strong> del Padrón de Clientes. Se conserva su historial y lo podés reactivar desde Dados de baja.
+                </p>
+                <p x-show="errorEliminar" x-text="errorEliminar" class="text-red-600 font-medium"></p>
+                <button type="button" @click="eliminarClienteSeleccionado()"
+                        class="px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold">
+                  🗑️ Confirmar baja
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+      </template>
+
+      <!-- Dados de baja -->
+      <div x-show="esAdmin && bajas.length" class="bg-white border border-gray-200 rounded-xl shadow-suave p-4">
+        <button type="button" @click="bajasAbiertas = !bajasAbiertas"
+                class="w-full flex items-center justify-between text-sm font-semibold text-gray-600">
+          <span x-text="`Dados de baja (${bajas.length})`"></span>
+          <span class="text-xs text-gray-400" x-text="bajasAbiertas ? 'Ocultar' : 'Ver'"></span>
+        </button>
+        <div x-show="bajasAbiertas" x-transition class="mt-3 space-y-2">
+          <template x-for="b in bajas" :key="b.id">
+            <div class="flex items-center justify-between gap-3 border border-gray-200 rounded-lg px-3 py-2">
+              <div class="min-w-0">
+                <p class="text-sm font-medium truncate" x-text="b.nombre"></p>
+                <p class="text-xs text-gray-500" x-text="'Baja: ' + fecha(b.fecha_baja)"></p>
+              </div>
+              <button type="button" @click="reactivar(b)"
+                      class="shrink-0 py-1.5 px-3 rounded-lg border border-gray-200 hover:bg-gray-50 text-xs font-semibold text-gray-700">
+                Reactivar
+              </button>
+            </div>
+          </template>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- SUB-PESTAÑA 6: 🎁 FIDELIZACIÓN Y CATÁLOGO DE PREMIOS                -->
+    <!-- =================================================================== -->
+    <section x-show="tab === 'fidelizacion'" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Columna izquierda: regla y canje rápido -->
+      <div class="space-y-6">
+        <div class="bg-white border border-gray-200 rounded-xl shadow-suave p-5 space-y-3">
+          <h2 class="font-semibold flex items-center gap-2"><i data-lucide="coins" class="w-4 h-4 text-primario"></i> Regla de Puntos</h2>
+          <p class="text-xs text-gray-500">Cuántos pesos de compra equivalen a 1 punto. Se acredita automáticamente cuando la venta tiene un cliente registrado.</p>
+          <form @submit.prevent="guardarRegla()" class="flex gap-2 items-end">
+            <div class="flex-1">
+              <label class="block text-xs font-medium text-gray-500 mb-1">{{ config.moneda }} por cada 1 punto</label>
+              <input x-model.number="pesosPorPunto" type="number" min="1" step="any" required class="campo">
+            </div>
+            <button type="submit" class="px-4 py-2.5 rounded-lg bg-primario hover:bg-primario-oscuro text-white text-sm font-semibold">Guardar</button>
+          </form>
+          <p class="text-xs text-gray-500" x-text="'Ejemplo: una compra de ' + fmt(5000) + ' suma ' + (Math.round(5000 / (pesosPorPunto || 1) * 100) / 100) + ' pts.'"></p>
+        </div>
+
+        <div class="bg-white border border-gray-200 rounded-xl shadow-suave p-5 space-y-3">
+          <h2 class="font-semibold flex items-center gap-2"><i data-lucide="gift" class="w-4 h-4 text-primario"></i> Canje Rápido de Premios</h2>
+          <form @submit.prevent="canjear()" class="space-y-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Cliente</label>
+              <select x-model.number="canje.cliente_id" required class="campo">
+                <option :value="0" disabled>Elegí un cliente…</option>
+                <template x-for="c in lista" :key="c.id">
+                  <option :value="c.id" x-text="c.nombre + ' — ' + fmtPts(c.puntos) + ' pts'"></option>
+                </template>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Premio</label>
+              <select x-model.number="canje.premio_id" required class="campo">
+                <option :value="0" disabled>Elegí un premio…</option>
+                <template x-for="p in premios" :key="p.id">
+                  <option :value="p.id" :disabled="p.stock <= 0" x-text="p.nombre + ' — ' + p.puntos_canje + ' pts' + (p.stock <= 0 ? ' (sin stock)' : '')"></option>
+                </template>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Cantidad</label>
+              <input x-model.number="canje.cantidad" type="number" min="1" step="1" required class="campo">
+            </div>
+            <p class="text-xs text-gray-500" x-show="resumenCanje" x-text="resumenCanje"></p>
+            <p x-show="errorCanje" x-text="errorCanje" class="text-xs text-red-600"></p>
+            <button type="submit" :disabled="canjeando || !canje.cliente_id || !canje.premio_id"
+                    class="w-full py-2.5 rounded-lg bg-primario hover:bg-primario-oscuro text-white text-sm font-semibold disabled:opacity-40"
+                    x-text="canjeando ? 'Canjeando…' : '🎁 Confirmar Canje'"></button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Columna derecha: catálogo de premios -->
+      <div class="lg:col-span-2 bg-white border border-gray-200 rounded-xl shadow-suave p-5 space-y-4">
+        <div class="flex flex-wrap items-center gap-3">
+          <h2 class="font-semibold flex items-center gap-2 mr-auto"><i data-lucide="award" class="w-4 h-4 text-primario"></i> Catálogo de Premios</h2>
+          <button @click="abrirPremio()" class="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-primario hover:bg-primario-oscuro text-white text-xs sm:text-sm font-semibold">
+            <i data-lucide="plus" class="w-4 h-4"></i> Agregar Premio
+          </button>
+        </div>
+        <p class="text-xs text-gray-500">Un premio es un artículo del inventario con puntos de canje asignados. Al canjearse se descuenta automáticamente de su stock físico.</p>
+
+        <ul class="divide-y divide-gray-100 border-y border-gray-100">
+          <template x-for="p in premios" :key="p.id">
+            <li class="py-3 flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0"><i data-lucide="gift" class="w-5 h-5"></i></div>
+              <div class="flex-1 min-w-0">
+                <p class="font-medium truncate" x-text="p.nombre"></p>
+                <p class="text-xs text-gray-500" x-text="'Stock disponible: ' + p.stock"></p>
+              </div>
+              <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 whitespace-nowrap" x-text="p.puntos_canje + ' pts'"></span>
+              <button @click="abrirPremio(p)" title="Editar puntos/stock" class="p-2 rounded-lg text-gray-500 hover:bg-primario-suave hover:text-primario"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+              <button @click="quitarPremio(p)" title="Quitar del catálogo" class="p-2 rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            </li>
+          </template>
+        </ul>
+        <p x-show="!premios.length" class="py-8 text-center text-sm text-gray-500">Todavía no hay premios configurados en el catálogo.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================== Modal Premio ===================== -->
+  <div x-show="premioForm.abierto" x-transition.opacity class="fixed inset-0 z-40 flex items-center justify-center p-4 bg-gray-900/40" @keydown.escape.window="premioForm.abierto = false">
+    <form @submit.prevent="guardarPremio()" class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4" @click.outside="premioForm.abierto = false">
+      <h3 class="font-semibold text-lg" x-text="premioForm.id ? 'Editar Premio' : 'Agregar Premio'"></h3>
+      <div x-show="!premioForm.id">
+        <label class="block text-xs font-medium text-gray-500 mb-1">Producto del Inventario</label>
+        <select x-model.number="premioForm.producto_id" class="campo">
+          <option :value="0" disabled>Elegí un producto…</option>
+          <template x-for="p in productosDisponibles" :key="p.id">
+            <option :value="p.id" x-text="p.nombre + ' (stock ' + p.stock + ')'"></option>
+          </template>
+        </select>
+      </div>
+      <p x-show="premioForm.id" class="text-sm font-medium" x-text="premioForm.nombre"></p>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Puntos Requeridos</label>
+        <input x-model.number="premioForm.puntos_canje" type="number" min="1" step="1" required class="campo">
+      </div>
+      <div x-show="premioForm.id">
+        <label class="block text-xs font-medium text-gray-500 mb-1">Stock</label>
+        <input x-model.number="premioForm.stock" type="number" min="0" step="any" class="campo">
+      </div>
+      <p x-show="premioForm.error" x-text="premioForm.error" class="text-sm text-red-600"></p>
+      <div class="flex gap-3">
+        <button type="button" @click="premioForm.abierto = false" class="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50">Cancelar</button>
+        <button type="submit" class="flex-1 py-2.5 rounded-lg bg-primario hover:bg-primario-oscuro text-white text-sm font-semibold">Guardar</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    function clientes(config) {
+      config = window.obtenerConfigComercio ? window.obtenerConfigComercio(config) : config;
+      const VACIO = () => ({ id: null, nombre: '', telefono: '', email: '', limite_credito: 0 });
+      return {
+        config,
+        tab: 'padron',
+        esAdmin: false,
+        cargando: true,
+        lista: [],
+        premios: [],
+        productos: [],
+        busqueda: '',
+        soloDeudores: false,
+        mensaje: '',
+        errorGlobal: '',
+        guardando: false,
+
+        // Sub-pestaña 2: Nuevo Cliente
+        formNuevo: VACIO(),
+        errorFormNuevo: '',
+
+        // Sub-pestaña 3: Registrar Abono / Pago
+        pagoForm: { cliente_id: 0, monto: null, metodo: 'efectivo', descripcion: '' },
+        enviandoPagoTab: false,
+        errorPagoTab: '',
+
+        // Sub-pestaña 4: Ficha e Historial
+        historial: { cliente_id: 0, cliente: null, movimientos: [], cargando: false },
+
+        // Sub-pestaña 5: Modificar / Eliminar
+        editarId: 0,
+        formEditar: VACIO(),
+        errorFormEditar: '',
+        acordeonEliminar: false,
+        bajas: [],
+        bajasAbiertas: false,
+        errorEliminar: '',
+
+        // Sub-pestaña 6: Fidelización
+        pesosPorPunto: 100,
+        premioForm: { abierto: false, id: null, nombre: '', producto_id: 0, puntos_canje: null, stock: null, error: '' },
+        canje: { cliente_id: 0, premio_id: 0, cantidad: 1 },
+        canjeando: false,
+        errorCanje: '',
+
+        async iniciar() {
+          try {
+            const ses = await fetch('/api/estado-barra').then(r => r.json());
+            this.esAdmin = (ses.rol === 'admin');
+          } catch (_) {}
+          let pendiente = false;
+          new MutationObserver(() => {
+            if (pendiente || !document.querySelector('i[data-lucide]')) return;  // solo iconos nuevos: lucide deja data-lucide en el <svg> y sin esto se redibuja en bucle
+            pendiente = true;
+            requestAnimationFrame(() => { window.lucide && lucide.createIcons(); pendiente = false; });
+          }).observe(document.body, { childList: true, subtree: true });
+          await this.cargar();
+        },
+
+        cambiarTab(t) {
+          this.tab = t;
+          this.errorGlobal = '';
+          this.errorFormNuevo = '';
+          this.errorFormEditar = '';
+          this.errorPagoTab = '';
+          this.errorEliminar = '';
+        },
+
+        async api(url, opciones = {}) {
+          const res = await fetch(url, {
+            headers: opciones.body ? { 'Content-Type': 'application/json' } : {},
+            ...opciones,
+          });
+          if (res.status === 401) { window.location.href = '/login'; throw new Error('Sesión expirada'); }
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            const d = data.detail;
+            throw new Error(typeof d === 'string' ? d : 'No se pudo completar la operación');
+          }
+          return data;
+        },
+
+        async cargar() {
+          this.cargando = true;
+          this.errorGlobal = '';
+          try {
+            const [cs, ps, cfg, prods, bj] = await Promise.all([
+              this.api('/api/clientes'),
+              this.api('/api/premios'),
+              this.api('/api/fidelizacion/config'),
+              this.api('/api/productos'),
+              this.api('/api/bajas/clientes'),
+            ]);
+            this.bajas = bj;
+            this.lista = cs.filter(c => c.id !== 0);
+            this.premios = ps;
+            this.pesosPorPunto = cfg.pesos_por_punto;
+            this.productos = prods;
+
+            if (this.lista.length) {
+              if (!this.editarId || !this.lista.some(x => x.id === this.editarId)) {
+                this.editarId = this.lista[0].id;
+              }
+              this.cargarClienteEnEditar();
+
+              if (!this.pagoForm.cliente_id || !this.lista.some(x => x.id === this.pagoForm.cliente_id)) {
+                const deudor = this.lista.find(x => x.saldo > 0);
+                this.pagoForm.cliente_id = deudor ? deudor.id : this.lista[0].id;
+              }
+            }
+          } catch (e) { this.errorGlobal = e.message; }
+          this.cargando = false;
+        },
+
+        avisar(texto) {
+          this.mensaje = texto;
+          setTimeout(() => { if (this.mensaje === texto) this.mensaje = ''; }, 4500);
+        },
+
+        fmtPts(n) { return Number(n || 0).toLocaleString('es-AR', { maximumFractionDigits: 2 }); },
+        fmt(n) {
+          return (this.config.moneda || '$') + ' ' + Number(n || 0).toLocaleString('es-AR', {
+            minimumFractionDigits: 2, maximumFractionDigits: 2,
+          });
+        },
+        fecha(iso) {
+          if (!iso) return '';
+          const d = new Date(iso);
+          return isNaN(d) ? iso : d.toLocaleString('es-AR', { dateStyle: 'short', timeStyle: 'short' });
+        },
+
+        // ----- KPIs y Filtros -----
+        get filtrados() {
+          const q = this.busqueda.trim().toLowerCase();
+          return this.lista.filter(c =>
+            (!this.soloDeudores || c.saldo > 0) &&
+            (!q || c.nombre.toLowerCase().includes(q) || (c.telefono || '').includes(q) || (c.email || '').toLowerCase().includes(q))
+          );
+        },
+        get deudaTotal() { return this.lista.reduce((s, c) => s + (Number(c.saldo) || 0), 0); },
+        get cantidadDeudores() { return this.lista.filter(c => (Number(c.saldo) || 0) > 0).length; },
+        get puntosTotal() { return this.lista.reduce((s, c) => s + (Number(c.puntos) || 0), 0); },
+
+        formatArgentineWhatsApp(telefono) {
+          let d = String(telefono || '').replace(/\D/g, '');
+          if (d.startsWith('54')) {
+            d = d.slice(2);
+            if (d.length === 11 && d.startsWith('9')) d = d.slice(1);
+          }
+          d = d.replace(/^0+/, '');
+          if (d.length === 12) {
+            for (let area of [2, 3, 4]) {
+              if (d.slice(area, area + 2) === '15') {
+                d = d.slice(0, area) + d.slice(area + 2);
+                break;
+              }
+            }
+          }
+          return d.length === 10 ? '549' + d : d;
+        },
+
+        linkWhatsApp(c) {
+          const lineas = [
+            '*' + (this.config.nombre_comercio || 'Mi Comercio') + '*',
+            'Hola ' + c.nombre + '! Te enviamos el estado de tu cuenta corriente:',
+            '',
+            c.saldo > 0 ? '• *Saldo pendiente:* ' + this.fmt(c.saldo) : '• Tu cuenta corriente no registra saldo pendiente.',
+          ];
+          if (c.saldo > 0) {
+            if (this.config.alias) lineas.push('• *Alias para transferencia:* ' + this.config.alias);
+            if (this.config.cbu) lineas.push('• *CBU:* ' + this.config.cbu);
+          }
+          if (Number(c.puntos) > 0) {
+            lineas.push('• *Puntos acumulados:* ' + this.fmtPts(c.puntos) + ' pts');
+          }
+          lineas.push('');
+          lineas.push('Muchas gracias!');
+          const tel = this.formatArgentineWhatsApp(c.telefono);
+          const texto = encodeURIComponent(lineas.join('\n'));
+          return tel ? 'https://api.whatsapp.com/send?phone=' + tel + '&text=' + texto : 'https://api.whatsapp.com/send?text=' + texto;
+        },
+
+        // ----- Sub-pestaña 2: Crear Cliente -----
+        async crearCliente() {
+          this.guardando = true;
+          this.errorFormNuevo = '';
+          try {
+            const cuerpo = {
+              nombre: this.formNuevo.nombre,
+              telefono: this.formNuevo.telefono || '',
+              email: this.formNuevo.email || '',
+              limite_credito: Number(this.formNuevo.limite_credito) || 0,
+            };
+            const creado = await this.api('/api/clientes', { method: 'POST', body: JSON.stringify(cuerpo) });
+            this.formNuevo = VACIO();
+            await this.cargar();
+            this.avisar(`✅ Cliente '${creado.nombre}' registrado en el Padrón.`);
+            this.tab = 'padron';
+          } catch (e) { this.errorFormNuevo = e.message; }
+          this.guardando = false;
+        },
+
+        // ----- Sub-pestaña 3: Abono / Pago -----
+        get clientePagoActual() {
+          return this.lista.find(c => c.id === Number(this.pagoForm.cliente_id)) || null;
+        },
+        get nuevoSaldoPago() {
+          const c = this.clientePagoActual;
+          if (!c) return 0;
+          return Math.max(0, Math.round((c.saldo - (Number(this.pagoForm.monto) || 0)) * 100) / 100);
+        },
+        alCambiarClientePago() {
+          this.pagoForm.monto = null;
+          this.pagoForm.descripcion = '';
+          this.errorPagoTab = '';
+        },
+        irAPago(c) {
+          this.pagoForm = { cliente_id: c.id, monto: c.saldo, metodo: 'efectivo', descripcion: '' };
+          this.cambiarTab('pago');
+        },
+        async confirmarPagoTab() {
+          const c = this.clientePagoActual;
+          if (!c) return;
+          this.enviandoPagoTab = true;
+          this.errorPagoTab = '';
+          try {
+            await this.api('/api/clientes/' + c.id + '/pago-cta-cte', {
+              method: 'POST',
+              body: JSON.stringify({
+                monto: Number(this.pagoForm.monto),
+                metodo_pago: this.pagoForm.metodo,
+                descripcion: this.pagoForm.descripcion,
+              }),
+            });
+            const nombre = c.nombre;
+            this.pagoForm.monto = null;
+            this.pagoForm.descripcion = '';
+            await this.cargar();
+            this.avisar(`✅ Pago de ${nombre} registrado en Cuenta Corriente.`);
+          } catch (e) { this.errorPagoTab = e.message; }
+          this.enviandoPagoTab = false;
+        },
+
+        // ----- Sub-pestaña 4: Ficha e Historial -----
+        irAHistorial(c) {
+          this.historial.cliente_id = c.id;
+          this.cambiarTab('historial');
+          this.cargarHistorialCliente();
+        },
+        async cargarHistorialCliente() {
+          const id = Number(this.historial.cliente_id);
+          if (!id) { this.historial.cliente = null; this.historial.movimientos = []; return; }
+          this.historial.cargando = true;
+          try {
+            const d = await this.api('/api/clientes/' + id + '/movimientos');
+            this.historial.cliente = d.cliente;
+            this.historial.movimientos = d.movimientos;
+          } catch (e) { this.errorGlobal = e.message; }
+          this.historial.cargando = false;
+        },
+
+        // ----- Sub-pestaña 5: Modificar / Eliminar -----
+        get clienteEditarActual() {
+          return this.lista.find(c => c.id === Number(this.editarId)) || null;
+        },
+        irAEditar(c) {
+          this.editarId = c.id;
+          this.cargarClienteEnEditar();
+          this.cambiarTab('editar');
+        },
+        cargarClienteEnEditar() {
+          const c = this.clienteEditarActual;
+          if (!c) { this.formEditar = VACIO(); return; }
+          this.formEditar = {
+            id: c.id,
+            nombre: c.nombre,
+            telefono: c.telefono || '',
+            email: c.email || '',
+            limite_credito: Number(c.limite_credito) || 0,
+          };
+          this.acordeonEliminar = false;
+          this.errorFormEditar = '';
+          this.errorEliminar = '';
+        },
+        async guardarEdicionCliente() {
+          if (!this.formEditar.id) return;
+          this.guardando = true;
+          this.errorFormEditar = '';
+          try {
+            const cuerpo = {
+              nombre: this.formEditar.nombre,
+              telefono: this.formEditar.telefono || '',
+              email: this.formEditar.email || '',
+              limite_credito: Number(this.formEditar.limite_credito) || 0,
+            };
+            await this.api('/api/clientes/' + this.formEditar.id, { method: 'PUT', body: JSON.stringify(cuerpo) });
+            await this.cargar();
+            this.avisar('✅ Datos del cliente actualizados.');
+          } catch (e) { this.errorFormEditar = e.message; }
+          this.guardando = false;
+        },
+        async reactivar(b) {
+          if (!this.esAdmin) return;
+          this.errorGlobal = '';
+          try {
+            await this.api(`/api/clientes/${b.id}/reactivar`, { method: 'POST' });
+            await this.cargar();
+            this.avisar(`Cliente "${b.nombre}" reactivado.`);
+          } catch (e) { this.errorGlobal = e.message; }
+        },
+        async eliminarClienteSeleccionado() {
+          if (!this.esAdmin) return;
+          if (!this.formEditar.id) return;
+          this.errorEliminar = '';
+          try {
+            await this.api('/api/clientes/' + this.formEditar.id, { method: 'DELETE' });
+            this.editarId = 0;
+            this.formEditar = VACIO();
+            await this.cargar();
+            this.avisar('Cliente dado de baja.');
+            this.tab = 'padron';
+          } catch (e) { this.errorEliminar = e.message; }
+        },
+
+        // ----- Sub-pestaña 6: Fidelización -----
+        async guardarRegla() {
+          this.errorGlobal = '';
+          try {
+            await this.api('/api/fidelizacion/config', {
+              method: 'PUT',
+              body: JSON.stringify({ pesos_por_punto: Number(this.pesosPorPunto) }),
+            });
+            this.avisar('✅ Regla de puntos actualizada.');
+          } catch (e) { this.errorGlobal = e.message; }
+        },
+        get productosDisponibles() {
+          const ya = new Set(this.premios.map(p => p.id));
+          return this.productos.filter(p => !ya.has(p.id));
+        },
+        abrirPremio(p = null) {
+          this.premioForm = p
+            ? { abierto: true, id: p.id, nombre: p.nombre, producto_id: p.id, puntos_canje: p.puntos_canje, stock: p.stock, error: '' }
+            : { abierto: true, id: null, nombre: '', producto_id: 0, puntos_canje: null, stock: null, error: '' };
+        },
+        async guardarPremio() {
+          const f = this.premioForm;
+          f.error = '';
+          try {
+            if (f.id) {
+              await this.api('/api/premios/' + f.id, {
+                method: 'PUT',
+                body: JSON.stringify({
+                  puntos_canje: Number(f.puntos_canje),
+                  stock: f.stock === '' || f.stock === null ? null : Number(f.stock),
+                }),
+              });
+            } else {
+              if (!f.producto_id) throw new Error('Elegí un producto');
+              await this.api('/api/premios', {
+                method: 'POST',
+                body: JSON.stringify({ producto_id: f.producto_id, puntos_canje: Number(f.puntos_canje) }),
+              });
+            }
+            f.abierto = false;
+            this.avisar('✅ Premio guardado en el catálogo.');
+            await this.cargar();
+          } catch (e) { f.error = e.message; }
+        },
+        async quitarPremio(p) {
+          if (!confirm('¿Quitar "' + p.nombre + '" del catálogo de premios? El producto seguirá en el inventario.')) return;
+          try {
+            await this.api('/api/premios/' + p.id, { method: 'DELETE' });
+            this.avisar('Premio quitado del catálogo.');
+            await this.cargar();
+          } catch (e) { this.errorGlobal = e.message; }
+        },
+        get resumenCanje() {
+          const c = this.lista.find(x => x.id === this.canje.cliente_id);
+          const p = this.premios.find(x => x.id === this.canje.premio_id);
+          if (!c || !p) return '';
+          const total = p.puntos_canje * (Number(this.canje.cantidad) || 1);
+          return 'Requiere ' + this.fmtPts(total) + ' pts · ' + c.nombre + ' tiene ' + this.fmtPts(c.puntos) + ' pts' + (c.puntos < total ? ' (insuficientes)' : '.');
+        },
+        async canjear() {
+          this.canjeando = true;
+          this.errorCanje = '';
+          try {
+            const r = await this.api('/api/clientes/' + this.canje.cliente_id + '/canjear-premio', {
+              method: 'POST',
+              body: JSON.stringify({ premio_id: this.canje.premio_id, cantidad: Number(this.canje.cantidad) || 1 }),
+            });
+            this.avisar('✅ Canje realizado: ' + r.cantidad + ' × ' + r.premio + '. Puntos restantes: ' + this.fmtPts(r.puntos_restantes) + '.');
+            this.canje = { cliente_id: 0, premio_id: 0, cantidad: 1 };
+            await this.cargar();
+          } catch (e) { this.errorCanje = e.message; }
+          this.canjeando = false;
+        },
+      };
+    }
+  </script>
+</body>
+</html>

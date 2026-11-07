@@ -1,0 +1,1358 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ config.nombre_comercio }} · Punto de Venta</title>
+
+  
+  <!-- Tailwind CSS (CDN) -->
+  <script src="/static/vendor/tailwind.js"></script>
+
+  <!-- ===== MARCA BLANCA ===== -->
+  <style>
+    :root {
+      --color-primario: {{ config.color_primario }};
+      --color-primario-suave: color-mix(in srgb, var(--color-primario) 10%, white);
+      --color-primario-oscuro: color-mix(in srgb, var(--color-primario) 85%, black);
+    }
+    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+    [x-cloak] { display: none !important; }
+    .scroll-fino::-webkit-scrollbar { width: 6px; height: 6px; }
+    .scroll-fino::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 9999px; }
+    .oculta-scroll::-webkit-scrollbar { display: none; }
+    .oculta-scroll { scrollbar-width: none; }
+    .campo { width:100%; padding:.6rem .75rem; font-size:.875rem; background:#fff; border:1px solid #e5e7eb; border-radius:.5rem; }
+    .campo:focus { outline:none; border-color:var(--color-primario); box-shadow:0 0 0 2px color-mix(in srgb, var(--color-primario) 20%, transparent); }
+  /* ===== Sistema de Campos Táctiles (56px, Radio 16, Etiqueta Flotante) ===== */
+    .campo-flotante { position:relative; width:100%; display:block; }
+    .campo-flotante input, .campo-flotante select, .campo-flotante textarea {
+      width:100%; height:3.5rem; min-height:3.5rem; padding:1.25rem 1rem .35rem 1rem; font-size:.9375rem; font-weight:500;
+      line-height:1.25; color:#111827; background-color:#F9FAFB; border:1.5px solid #E5E7EB; border-radius:1rem; outline:none;
+      transition:all .2s cubic-bezier(.4, 0, .2, 1); box-sizing:border-box;
+    }
+    .campo-flotante textarea { height:auto; min-height:5.5rem; padding-top:1.5rem; }
+    .campo-flotante input:focus, .campo-flotante select:focus, .campo-flotante textarea:focus {
+      background-color:#FFFFFF; border-color:var(--color-primario);
+      box-shadow:0 0 0 3px color-mix(in srgb, var(--color-primario) 18%, transparent);
+    }
+    .campo-flotante input.con-prefijo { padding-left:2.25rem; }
+    .campo-flotante .prefijo-moneda { position:absolute; left:1rem; bottom:.55rem; font-size:.9375rem; font-weight:700; color:#9CA3AF; pointer-events:none; }
+    .campo-flotante label {
+      position:absolute; top:1.05rem; left:1rem; font-size:.875rem; font-weight:500; color:#6B7280; pointer-events:none;
+      transform-origin:left top; transition:all .2s cubic-bezier(.4, 0, .2, 1);
+    }
+    .campo-flotante input.con-prefijo ~ label { left:2.25rem; }
+    .campo-flotante input:focus ~ label, .campo-flotante input:not(:placeholder-shown) ~ label,
+    .campo-flotante select ~ label, .campo-flotante textarea:focus ~ label, .campo-flotante textarea:not(:placeholder-shown) ~ label {
+      transform:translateY(-.65rem) scale(.78); font-weight:600;
+    }
+    .campo-flotante input:focus ~ label, .campo-flotante select:focus ~ label, .campo-flotante textarea:focus ~ label {
+      color:var(--color-primario);
+    }
+  </style>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'] },
+          colors: {
+            primario: 'var(--color-primario)',
+            'primario-suave': 'var(--color-primario-suave)',
+            'primario-oscuro': 'var(--color-primario-oscuro)',
+            fondo: '#F7F9FA'
+          },
+          boxShadow: { suave: '0 1px 2px rgba(16,24,40,0.04)' }
+        }
+      }
+    }
+  </script>
+
+  <!-- Alpine.js y Lucide (CDN) -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#2563EB">
+  <script src="/static/js/motor_offline_pwa.js"></script>
+  <script defer src="/static/vendor/alpine.min.js"></script>
+  <script src="/static/vendor/lucide.min.js"></script>
+</head>
+
+<body class="bg-white text-gray-900 antialiased overflow-hidden"
+      x-data="pos({{ config | tojson | forceescape }})" x-init="iniciar()" @keydown.window="alApretarTecla($event)" x-cloak>
+
+<div class="h-screen flex flex-col">
+
+  <!-- ===================== ENCABEZADO SUPERIOR ===================== -->
+  <header class="bg-white border-b border-gray-200 px-3 sm:px-8 py-2.5 flex flex-wrap items-center justify-between gap-2 shrink-0 z-20">
+    <div class="flex items-center gap-2 shrink-0 min-w-0">
+      <div data-brand-logo class="w-9 h-9 rounded-lg bg-primario text-white flex items-center justify-center overflow-hidden shrink-0">
+        <i data-lucide="store" class="w-5 h-5"></i>
+      </div>
+      <span data-brand-nombre class="font-semibold text-sm sm:text-lg text-gray-900 truncate max-w-[160px] sm:max-w-[260px]" x-text="config.nombre_comercio"></span>
+    </div>
+    {% set activa = 'pos' %}{% include '_nav.html' %}
+  </header>
+
+  <div class="flex-1 flex min-h-0">
+
+    <!-- ===================== COLUMNA IZQUIERDA: ESCÁNER + SELECCIÓN MANUAL + CATÁLOGO ===================== -->
+    <main class="flex-1 lg:w-[63%] flex flex-col bg-fondo min-w-0">
+
+      <!-- 1. Bloque Superior de Escaneo Rápido -->
+      <div class="bg-white border-b border-gray-200 px-4 sm:px-8 py-3.5 space-y-2.5">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-2.5">
+          <div class="relative flex-1">
+            <i data-lucide="scan-barcode" class="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+            <input x-ref="escaner" x-model="codigoEscaneo" type="text" autofocus autocomplete="off"
+                   @keydown.enter.prevent="cargarPorCodigo()"
+                   placeholder="Escanear Código de Barras [F2] y presionar Enter…"
+                   class="w-full pl-10 pr-14 py-2.5 text-sm bg-white border border-gray-200 rounded-lg shadow-suave
+                          focus:outline-none focus:border-primario focus:ring-2 focus:ring-primario/20">
+            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 border border-gray-200">F2</span>
+          </div>
+          <button type="button" @click="cargarPorCodigo()"
+                  class="px-4 py-2.5 rounded-lg bg-primario hover:bg-primario-oscuro text-white text-sm font-semibold transition-colors whitespace-nowrap shadow-suave">
+            ⚡ Cargar por Código
+          </button>
+          <button type="button" @click="abrirCamaraEscaner()"
+                  class="px-3.5 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-900 text-white text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap shadow-suave transition-colors">
+            <i data-lucide="camera" class="w-4 h-4"></i>
+            <span>Escanear con Cámara</span>
+          </button>
+          <a href="/caja" title="Ver estado y arqueo de caja"
+             class="px-3.5 py-2.5 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 whitespace-nowrap transition-colors"
+             :class="cajaAbierta ? 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100' : 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100'">
+            <i data-lucide="wallet" class="w-4 h-4"></i>
+            <span x-text="cajaAbierta ? ('Caja Abierta · Inicial: ' + fmt(montoInicialCaja)) : 'Caja Cerrada'"></span>
+          </a>
+        </div>
+        <p x-show="avisoEscaneo" x-text="avisoEscaneo"
+           :class="avisoEscaneoError ? 'text-red-600 bg-red-50 border-red-200' : 'text-emerald-700 bg-emerald-50 border-emerald-200'"
+           class="text-xs font-medium px-3 py-1.5 rounded-lg border"></p>
+      </div>
+
+      <!-- Contenido desplazable: Búsqueda Manual, Ficha de Producto y Grilla Visual -->
+      <section class="flex-1 overflow-y-auto scroll-fino px-4 sm:px-8 py-5 pb-28 lg:pb-6 space-y-5">
+
+        <!-- 2. Búsqueda Manual y Selector de Vista Ficha -->
+        <div class="bg-white border border-gray-200 rounded-xl shadow-suave p-4 space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <h2 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
+              <i data-lucide="package-search" class="w-4 h-4 text-primario"></i> Selección Manual de Producto
+            </h2>
+            <!-- Selector Vista Ficha: Grande | Compacta | Sin imagen -->
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-medium text-gray-500">Vista Ficha:</span>
+              <div class="inline-flex bg-gray-100 rounded-lg p-0.5 text-xs font-medium">
+                <template x-for="v in ['Grande', 'Compacta', 'Sin imagen']" :key="v">
+                  <button type="button" @click="vistaFicha = v"
+                          :class="vistaFicha === v ? 'bg-white text-primario shadow-suave' : 'text-gray-600 hover:text-gray-900'"
+                          class="px-2.5 py-1 rounded-md transition-colors" x-text="v"></button>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filtros combinados: Categoría + Buscador + Selector desplegable (Nombre - $Precio) -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Filtrar por Categoría</label>
+              <select x-model="categoriaActiva" @change="asegurarSeleccionado()" class="campo">
+                <template x-for="cat in categorias" :key="cat">
+                  <option :value="cat" x-text="cat"></option>
+                </template>
+              </select>
+            </div>
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="block text-xs font-medium text-gray-500">Buscar por nombre o código</label>
+                <span class="text-[10px] font-mono font-bold px-1 py-0.2 rounded bg-gray-100 text-gray-500 border border-gray-200">F4</span>
+              </div>
+              <input x-ref="busquedaManual" x-model="busqueda" @input="asegurarSeleccionado()" type="text"
+                     placeholder="Filtrar lista [F4]…" class="campo">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-500 mb-1">Seleccionar Producto</label>
+              <select x-model.number="seleccionadoId" @change="alCambiarProducto()" class="campo font-medium">
+                <option :value="0" disabled>Elegí un producto…</option>
+                <template x-for="p in productosFiltrados" :key="p.id">
+                  <option :value="p.id" x-text="p.nombre + ' - ' + fmt(p.precio)"></option>
+                </template>
+              </select>
+            </div>
+          </div>
+
+          <!-- 3. Tarjeta del Producto Seleccionado (según Vista Ficha) + Controles de Venta -->
+          <template x-if="productoActual">
+            <div class="border-t border-gray-100 pt-4 space-y-4">
+
+              <!-- Alerta de stock crítico si corresponde -->
+              <div x-show="productoActual.stock <= (productoActual.stock_minimo ?? 0)"
+                   class="flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
+                <span>⚠️ ¡ALERTA DE STOCK CRÍTICO! — Disponible: <strong x-text="productoActual.stock"></strong> unid. (Mín: <strong x-text="productoActual.stock_minimo || 0"></strong>)</span>
+              </div>
+
+              <!-- Ficha Grande -->
+              <div x-show="vistaFicha === 'Grande'" class="flex flex-col sm:flex-row gap-4 bg-fondo border border-gray-200 rounded-xl p-4">
+                <div class="w-full sm:w-44 h-44 rounded-lg bg-white border border-gray-200 overflow-hidden shrink-0 flex items-center justify-center">
+                  <template x-if="productoActual.imagen">
+                    <img :src="productoActual.imagen" :alt="productoActual.nombre" class="w-full h-full object-contain p-1">
+                  </template>
+                  <template x-if="!productoActual.imagen">
+                    <span class="text-xs text-gray-400">Sin imagen</span>
+                  </template>
+                </div>
+                <div class="flex-1 min-w-0 flex flex-col justify-between gap-2">
+                  <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="text-xs font-mono px-2 py-0.5 rounded bg-gray-200/70 text-gray-700" x-text="productoActual.codigo || ('Prod-' + productoActual.id)"></span>
+                      <span class="text-xs font-medium px-2 py-0.5 rounded-full bg-primario-suave text-primario" x-text="productoActual.categoria"></span>
+                      <span x-show="productoActual.puntos_canje > 0"
+                            class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300"
+                            x-text="'🎁 ' + productoActual.puntos_canje + ' pts'"></span>
+                    </div>
+                    <h3 class="text-lg font-bold text-gray-900 mt-1" x-text="productoActual.nombre"></h3>
+                  </div>
+                  <div class="flex flex-wrap items-center justify-between gap-2">
+                    <span class="text-2xl font-bold text-primario" x-text="fmt(productoActual.precio) + (productoActual.unidad_medida === 'kg' ? ' / kg' : '')"></span>
+                    <span class="text-xs font-semibold px-3 py-1 rounded-full border"
+                          :class="productoActual.stock <= 0 ? 'bg-red-50 text-red-700 border-red-200'
+                                : productoActual.stock <= (productoActual.stock_minimo ?? 0) ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'"
+                          x-text="'Stock: ' + productoActual.stock + ' unid. (Mín: ' + (productoActual.stock_minimo ?? 0) + ')'"></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Ficha Compacta -->
+              <div x-show="vistaFicha === 'Compacta'" class="flex items-center gap-3 bg-fondo border border-gray-200 rounded-xl p-3">
+                <div class="w-14 h-14 rounded-lg bg-white border border-gray-200 overflow-hidden shrink-0 flex items-center justify-center">
+                  <template x-if="productoActual.imagen">
+                    <img :src="productoActual.imagen" :alt="productoActual.nombre" class="w-full h-full object-contain p-1">
+                  </template>
+                  <template x-if="!productoActual.imagen">
+                    <i data-lucide="package" class="w-5 h-5 text-gray-400"></i>
+                  </template>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <span class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-gray-200/70 text-gray-700" x-text="productoActual.codigo || ('Prod-' + productoActual.id)"></span>
+                    <span class="font-semibold text-sm text-gray-900 truncate" x-text="productoActual.nombre"></span>
+                    <span x-show="productoActual.puntos_canje > 0"
+                          class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300"
+                          x-text="'🎁 ' + productoActual.puntos_canje + ' pts'"></span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2 mt-1">
+                    <span class="text-base font-bold text-primario" x-text="fmt(productoActual.precio)"></span>
+                    <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full border"
+                          :class="productoActual.stock <= 0 ? 'bg-red-50 text-red-700 border-red-200'
+                                : productoActual.stock <= (productoActual.stock_minimo ?? 0) ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'"
+                          x-text="'Stock: ' + productoActual.stock + ' unid. (Mín: ' + (productoActual.stock_minimo ?? 0) + ')'"></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Ficha Sin imagen -->
+              <div x-show="vistaFicha === 'Sin imagen'" class="flex flex-wrap items-center justify-between gap-3 bg-fondo border border-gray-200 rounded-xl px-4 py-3">
+                <div class="flex flex-wrap items-center gap-2 min-w-0">
+                  <span class="text-xs font-mono px-2 py-0.5 rounded bg-gray-200/70 text-gray-700" x-text="productoActual.codigo || ('Prod-' + productoActual.id)"></span>
+                  <span class="font-semibold text-sm text-gray-900" x-text="productoActual.nombre"></span>
+                  <span x-show="productoActual.puntos_canje > 0"
+                        class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300"
+                        x-text="'🎁 ' + productoActual.puntos_canje + ' pts'"></span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="text-base font-bold text-primario" x-text="fmt(productoActual.precio)"></span>
+                  <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full border"
+                        :class="productoActual.stock <= 0 ? 'bg-red-50 text-red-700 border-red-200'
+                              : productoActual.stock <= (productoActual.stock_minimo ?? 0) ? 'bg-amber-50 text-amber-800 border-amber-200'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'"
+                        x-text="'Stock: ' + productoActual.stock + ' unid. (Mín: ' + (productoActual.stock_minimo ?? 0) + ')'"></span>
+                </div>
+              </div>
+
+              <!-- 4. Selector Inteligente Desplegable "¿Vender por?" -->
+              <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
+                <div class="md:col-span-4">
+                  <label class="block text-xs font-medium text-gray-500 mb-1">¿Vender por?</label>
+                  <select x-model="modoVenta" @change="alCambiarModoVenta()" class="campo font-medium">
+                    <option value="unidades">Unidades</option>
+                    <option value="peso">Peso / Fracción (g / kg)</option>
+                    <option value="monto">Monto ($)</option>
+                  </select>
+                </div>
+
+                <!-- Modo Unidades: enteros con -, +, +1 -->
+                <div x-show="modoVenta === 'unidades'" class="md:col-span-5">
+                  <label class="block text-xs font-medium text-gray-500 mb-1">Cantidad (unidades enteras)</label>
+                  <div class="flex items-center gap-1.5">
+                    <button type="button" @click="cantidadInput = Math.max(1, Math.round(Number(cantidadInput) || 1) - 1)"
+                            class="px-3.5 py-2 border border-gray-200 rounded-lg bg-white hover:bg-gray-50 font-bold text-sm">−</button>
+                    <input x-model.number="cantidadInput" type="number" min="1" step="1"
+                           class="campo text-center font-bold">
+                    <button type="button" @click="cantidadInput = Math.max(1, Math.round(Number(cantidadInput) || 0) + 1)"
+                            class="px-3.5 py-2 border border-gray-200 rounded-lg bg-white hover:bg-gray-50 font-bold text-sm">+</button>
+                  </div>
+                </div>
+
+                <!-- Modo Peso / Fracción (g / kg): decimales + botones rápidos 250 g, 500 g, 1 kg y +1 -->
+                <div x-show="modoVenta === 'peso'" class="md:col-span-5 space-y-1.5">
+                  <div class="flex items-center justify-between gap-1">
+                    <label class="text-xs font-medium text-gray-500">Peso / Fracción (kg)</label>
+                    <div class="flex gap-1">
+                      <button type="button" @click="cantidadInput = 0.25" class="px-2 py-0.5 text-xs font-medium rounded border border-gray-200 bg-gray-50 hover:bg-primario-suave hover:text-primario">250 g</button>
+                      <button type="button" @click="cantidadInput = 0.5" class="px-2 py-0.5 text-xs font-medium rounded border border-gray-200 bg-gray-50 hover:bg-primario-suave hover:text-primario">500 g</button>
+                      <button type="button" @click="cantidadInput = 1" class="px-2 py-0.5 text-xs font-medium rounded border border-gray-200 bg-gray-50 hover:bg-primario-suave hover:text-primario">1 kg</button>
+                      <button type="button" @click="cantidadInput = Math.round(((Number(cantidadInput) || 0) + 1) * 1000) / 1000" class="px-2 py-0.5 text-xs font-semibold rounded border border-primario/30 bg-primario-suave text-primario">+1</button>
+                    </div>
+                  </div>
+                  <input x-model.number="cantidadInput" type="number" min="0.001" step="0.001"
+                         placeholder="0.250" class="campo font-semibold">
+                </div>
+
+                <!-- Modo Monto ($): calcula automáticamente la cantidad/fracción equivalente -->
+                <div x-show="modoVenta === 'monto'" class="md:col-span-5 space-y-1">
+                  <label class="block text-xs font-medium text-gray-500">Importe en pesos a cobrar ($)</label>
+                  <input x-model.number="montoInput" type="number" min="1" step="100"
+                         placeholder="Ej: 1500" class="campo font-semibold">
+                  <p x-show="cantidadCalculada > 0" class="text-xs text-primario font-medium"
+                     x-text="'⚖️ Equivale a ' + cantidadCalculada + ' unid./kg (' + fmt(montoInput) + ')'"></p>
+                </div>
+
+                <!-- Botones de acción: Agregar y Canjear con puntos -->
+                <div class="md:col-span-3 flex flex-col gap-1.5">
+                  <button type="button" @click="agregarSeleccionado(false)"
+                          :disabled="!puedeAgregarSeleccionado"
+                          class="w-full py-2.5 px-3 rounded-lg bg-primario hover:bg-primario-oscuro text-white text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                    ➕ AGREGAR AL CARRITO
+                  </button>
+                  <button type="button" x-show="productoActual.puntos_canje > 0"
+                          @click="agregarSeleccionado(true)"
+                          :disabled="!puedeCanjearSeleccionado"
+                          class="w-full py-2 px-3 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                          :title="cliente.id === 0 ? 'Elegí un cliente registrado para canjear con puntos' : ''">
+                    🎁 Canjear (<span x-text="productoActual.puntos_canje"></span> pts)
+                  </button>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <!-- 5. Pestañas de categorías (pills) + Grilla visual rápida -->
+        <div class="space-y-3">
+          <nav class="flex gap-2 overflow-x-auto oculta-scroll -mx-1 px-1">
+            <template x-for="cat in categorias" :key="cat">
+              <button @click="categoriaActiva = cat; asegurarSeleccionado()"
+                      :class="categoriaActiva === cat
+                        ? 'bg-primario text-white border-primario'
+                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'"
+                      class="px-3.5 py-1.5 rounded-full text-xs font-medium border whitespace-nowrap transition-colors"
+                      x-text="cat"></button>
+            </template>
+          </nav>
+
+          <div x-show="cargando" class="text-center text-gray-400 py-14 text-sm">Cargando catálogo…</div>
+          <div x-show="!cargando && productosFiltrados.length === 0" class="text-center text-gray-400 py-14 text-sm">
+            No se encontraron productos.
+          </div>
+
+          <div class="grid"
+               :class="vistaFicha === 'Grande'
+                 ? 'grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3.5'
+                 : 'grid-cols-2 sm:grid-cols-4 xl:grid-cols-5 gap-2.5'">
+            <template x-for="p in productosFiltrados" :key="p.id">
+              <div @click="seleccionarYAgregarRapido(p)"
+                   :class="[
+                     p.stock <= 0 ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-primario hover:shadow-md active:scale-[0.99]',
+                     seleccionadoId === p.id ? 'ring-2 ring-primario border-primario' : 'border-gray-200'
+                   ]"
+                   class="relative text-left bg-white border rounded-xl overflow-hidden shadow-suave transition-all flex flex-col">
+                <div x-show="vistaFicha !== 'Sin imagen'"
+                     :class="vistaFicha === 'Grande' ? 'aspect-square p-2' : 'h-28 p-1.5'"
+                     class="bg-white border-b border-gray-100 overflow-hidden relative flex items-center justify-center">
+                  <template x-if="p.imagen">
+                    <img :src="p.imagen" :alt="p.nombre" loading="lazy"
+                         class="w-full h-full object-contain" :class="p.stock <= 0 && 'grayscale'">
+                  </template>
+                  <template x-if="!p.imagen">
+                    <div class="w-full h-full flex items-center justify-center text-gray-300">
+                      <i data-lucide="package" :class="vistaFicha === 'Grande' ? 'w-8 h-8' : 'w-5 h-5'"></i>
+                    </div>
+                  </template>
+                  <span x-show="p.puntos_canje > 0"
+                        class="absolute top-2 left-2 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 shadow-sm"
+                        x-text="'🎁 ' + p.puntos_canje + ' pts'"></span>
+                </div>
+
+                <!-- Cantidad ya en carrito -->
+                <span x-show="cantidadEnCarrito(p.id) > 0" x-text="fmtCant(cantidadEnCarrito(p.id))"
+                      class="absolute top-2 right-2 min-w-6 h-6 px-1.5 rounded-full bg-primario text-white text-xs font-semibold flex items-center justify-center shadow"></span>
+
+                <div :class="vistaFicha === 'Grande' ? 'p-3 space-y-1.5' : 'p-2 space-y-1'"
+                     class="flex-1 flex flex-col justify-between">
+                  <div>
+                    <p class="text-[11px] font-mono text-gray-400" x-text="p.codigo || ('Prod-' + p.id)"></p>
+                    <p class="text-sm font-medium text-gray-800 leading-tight line-clamp-2" x-text="p.nombre"></p>
+                  </div>
+                  <div class="flex items-center justify-between gap-1 pt-1">
+                    <span class="text-sm font-bold text-gray-900" x-text="fmt(p.precio)"></span>
+                    <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                          :class="p.stock <= 0 ? 'bg-red-50 text-red-600'
+                                : p.stock <= (p.stock_minimo ?? 0) ? 'bg-amber-50 text-amber-700'
+                                : 'bg-emerald-50 text-emerald-700'"
+                          x-text="'Stock: ' + p.stock + ' (Mín: ' + (p.stock_minimo ?? 0) + ')'"></span>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Fondo oscuro del drawer (solo móvil) -->
+    <div x-show="drawerAbierto" x-transition.opacity @click="drawerAbierto = false"
+         class="fixed inset-0 bg-black/30 z-30 lg:hidden"></div>
+
+    <!-- ===================== COLUMNA DERECHA: CARRITO ACTUAL ===================== -->
+    <aside :class="drawerAbierto ? 'translate-y-0' : 'translate-y-full lg:translate-y-0'"
+           class="fixed inset-x-0 bottom-0 top-12 z-40 rounded-t-2xl lg:rounded-none
+                  lg:static lg:w-[37%] lg:max-w-[500px] lg:min-w-[370px]
+                  bg-white border-l border-gray-200 flex flex-col transition-transform duration-300 shadow-xl lg:shadow-none">
+
+      <div class="px-5 py-3.5 border-b border-gray-200 flex items-center justify-between shrink-0">
+        <h2 class="font-semibold text-base flex items-center gap-2">
+          <i data-lucide="shopping-cart" class="w-4 h-4 text-primario"></i> Carrito Actual
+        </h2>
+        <div class="flex items-center gap-1">
+          <button x-show="carrito.length" @click="vaciar()" class="text-xs text-gray-500 hover:text-red-600 px-2 py-1 font-medium">Vaciar</button>
+          <button @click="drawerAbierto = false" class="lg:hidden p-1.5 rounded-lg hover:bg-gray-100" aria-label="Cerrar">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Cuerpo desplazable del panel derecho -->
+      <div class="flex-1 overflow-y-auto scroll-fino px-5 py-3.5 space-y-4">
+
+        <!-- 1. Selector de Cliente con formato: Nombre (Tel: XXXXX | Saldo Cta. Cte.: $X.XX) -->
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">👤 Cliente</label>
+          <select x-model.number="clienteId" @change="alCambiarCliente()" class="campo font-medium">
+            <template x-for="c in clientes" :key="c.id">
+              <option :value="c.id" x-text="etiquetaCliente(c)"></option>
+            </template>
+          </select>
+
+          <!-- Banner destacado ⭐ Club de Puntos -->
+          <div x-show="cliente.id !== 0" x-transition
+               class="mt-2.5 rounded-xl border border-blue-300 bg-gradient-to-br from-blue-50 to-indigo-50 p-3 space-y-1.5">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs font-bold text-blue-900 truncate" x-text="'⭐ Club de Puntos: ' + cliente.nombre"></span>
+              <span class="text-xs font-extrabold px-2.5 py-0.5 rounded-full bg-blue-600 text-white shrink-0"
+                    x-text="fmtPts(cliente.puntos) + ' pts'"></span>
+            </div>
+            <div class="flex items-center justify-between text-xs text-blue-800">
+              <span>🎁 Canjes en carrito: <strong x-text="fmtPts(puntosCanjesCarrito) + ' pts'"></strong></span>
+              <span>✨ Saldo disponible:
+                <strong :class="puntosDisponibles >= 0 ? 'text-emerald-700' : 'text-red-600'"
+                        x-text="fmtPts(puntosDisponibles) + ' pts'"></strong>
+              </span>
+            </div>
+            <div class="flex items-center justify-between text-[11px] pt-1 border-t border-blue-200/70">
+              <span class="text-blue-700">Cuenta Corriente:</span>
+              <span class="font-semibold"
+                    :class="cliente.saldo > 0 ? 'text-red-600' : 'text-emerald-700'"
+                    x-text="cliente.saldo > 0 ? 'Saldo Cta. Cte.: ' + fmt(cliente.saldo) : 'Al día ($ 0)'"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Tarjeta Post-Venta en vivo: 🧾 Comprobante: Ticket #X -->
+        <template x-if="ventaOk">
+          <div class="rounded-xl border-2 border-emerald-300 bg-emerald-50/70 p-4 space-y-3 shadow-suave">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <h3 class="text-sm font-bold text-emerald-950" x-text="'🧾 Comprobante: Ticket #' + ventaOk.id"></h3>
+                <p class="text-xs text-emerald-800 mt-0.5">
+                  Cliente: <strong x-text="ventaOk.cliente.nombre"></strong> |
+                  Total: <strong x-text="fmt(ventaOk.total)"></strong>
+                  (<span x-text="ventaOk.forma_pago || nombreMetodo(ventaOk.metodo_pago)"></span>)
+                </p>
+                <p x-show="ventaOk.puntos_ganados > 0 || ventaOk.puntos_canjeados > 0" class="text-[11px] text-amber-800 mt-0.5">
+                  <span x-show="ventaOk.puntos_canjeados > 0" x-text="'Canjeados: -' + fmtPts(ventaOk.puntos_canjeados) + ' pts · '"></span>
+                  <span x-show="ventaOk.puntos_ganados > 0" x-text="'Ganados: +' + fmtPts(ventaOk.puntos_ganados) + ' pts · '"></span>
+                  <span x-text="'Balance: ' + fmtPts(ventaOk.puntos_balance) + ' pts'"></span>
+                </p>
+              </div>
+              <button type="button" @click="cerrarComprobante()" class="text-emerald-700 hover:text-emerald-950 p-1 rounded-lg hover:bg-emerald-100/70 transition-colors" title="Cerrar comprobante">
+                <i data-lucide="x" class="w-5 h-5"></i>
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <a :href="'/api/ventas/' + ventaOk.id + '/ticket.pdf?canjeados=' + (ventaOk.puntos_canjeados || 0)"
+                 target="_blank" rel="noopener"
+                 @click="cerrarComprobante()"
+                 class="py-2 px-3 rounded-lg bg-white hover:bg-gray-50 text-gray-800 border border-gray-300 text-xs font-semibold flex items-center justify-center gap-1.5 shadow-suave">
+                📄 Descargar Ticket (PDF 80mm)
+              </a>
+
+              <template x-if="ventaOk.cliente && ventaOk.cliente.telefono && ventaOk.whatsapp_url">
+                <a :href="ventaOk.whatsapp_url" target="_blank" rel="noopener"
+                   @click="cerrarComprobante()"
+                   class="py-2 px-3 rounded-lg bg-[#25D366] hover:bg-[#1fb857] text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-suave">
+                  📲 Enviar por WhatsApp
+                </a>
+              </template>
+              <template x-if="!ventaOk.cliente || !ventaOk.cliente.telefono">
+                <span class="py-2 px-3 rounded-lg bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium flex items-center justify-center">
+                  ℹ️ Sin teléfono para WhatsApp
+                </span>
+              </template>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <a :href="'/caja?ticket=' + ventaOk.id"
+                 @click="cerrarComprobante()"
+                 class="py-2 px-3 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors">
+                Corregir / Devolver en Caja
+              </a>
+              <button type="button" @click="cerrarComprobante()"
+                      class="py-2 px-3 rounded-lg bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 text-xs font-semibold transition-colors">
+                ✖️ Cerrar Comprobante
+              </button>
+            </div>
+          </div>
+        </template>
+
+        <!-- 3. Lista de ítems del carrito -->
+        <div class="border-t border-gray-100 pt-2">
+          <div x-show="carrito.length === 0" class="py-10 flex flex-col items-center justify-center text-gray-400 text-sm gap-2">
+            <i data-lucide="shopping-bag" class="w-8 h-8"></i>
+            <span>Agregá productos para comenzar</span>
+          </div>
+
+          <template x-for="(it, idx) in carrito" :key="it.id + '-' + (it.es_canje ? 'c' : 'n')">
+            <div class="py-2.5 border-b border-gray-100 flex items-center gap-2.5">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <p class="text-sm font-medium truncate" x-text="it.nombre"></p>
+                  <span x-show="it.es_canje" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
+                    🎁 <span x-text="fmtPts(Math.round(it.puntos_canje * it.cantidad * 100) / 100) + ' pts'"></span>
+                  </span>
+                </div>
+                <p class="text-xs text-gray-500"
+                   x-text="it.es_canje ? 'Canje por puntos ($ 0)' : (fmt(it.precio) + ' × ' + fmtCant(it.cantidad))"></p>
+              </div>
+
+              <div class="flex items-center border border-gray-200 rounded-lg shrink-0">
+                <button @click="cambiarCantidad(it, -1)" class="w-7 h-7 flex items-center justify-center hover:bg-gray-50 rounded-l-lg" aria-label="Menos">−</button>
+                <span class="px-2 text-center text-xs font-semibold" x-text="fmtCant(it.cantidad)"></span>
+                <button @click="cambiarCantidad(it, 1)" class="w-7 h-7 flex items-center justify-center hover:bg-gray-50 rounded-r-lg" aria-label="Más">+</button>
+              </div>
+
+              <span class="w-20 text-right text-sm font-semibold" x-text="it.es_canje ? '$ 0' : fmt(it.precio * it.cantidad)"></span>
+
+              <!-- Alternar canje por puntos si el producto participa del programa -->
+              <button x-show="it.puntos_canje > 0 && !it.es_canje && cliente.id !== 0"
+                      @click="convertirACanje(it)" title="Canjear con puntos"
+                      class="p-1.5 text-amber-600 hover:bg-amber-50 rounded-lg text-xs">🎁</button>
+
+              <button @click="quitar(it)" class="p-1.5 text-gray-400 hover:text-red-600 rounded-lg" aria-label="Eliminar">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </template>
+        </div>
+
+        <!-- 4. Método de pago, Efectivo/Vuelto, Transferencia y Totales -->
+        <div class="space-y-3 pt-2">
+          <div>
+            <label class="block text-xs font-medium text-gray-500 mb-1">Método de pago</label>
+            <div class="grid grid-cols-4 gap-1.5">
+              <template x-for="m in metodos" :key="m.id">
+                <button type="button" @click="cambiarMetodoPago(m.id)"
+                        :class="metodoPago === m.id ? 'border-primario bg-primario-suave text-primario' : 'border-gray-200 text-gray-600 hover:bg-gray-50'"
+                        class="relative flex flex-col items-center gap-1 py-2 px-1 border rounded-lg text-xs font-medium transition-colors">
+                  <span class="absolute top-1 right-1 text-[9px] font-mono text-gray-400 font-bold" x-text="m.tecla"></span>
+                  <i :data-lucide="m.icono" class="w-4 h-4"></i>
+                  <span class="text-[11px] truncate w-full text-center" x-text="m.nombre"></span>
+                </button>
+              </template>
+            </div>
+            <p x-show="metodoPago === 'cuenta_corriente' && cliente.id === 0" class="mt-2 text-xs text-amber-700 font-medium">
+              Elegí un cliente del Padrón de Clientes para registrar la venta en Cuenta Corriente.
+            </p>
+            <p x-show="metodoPago === 'cuenta_corriente' && cliente.id !== 0 && (Number(cliente.limite_credito) || 0) <= 0"
+               class="mt-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5 font-medium">
+              ⚠️ Este cliente tiene Límite de Crédito $ 0,00 (Solo Fidelización) y no puede operar en Cuenta Corriente.
+            </p>
+            <p x-show="metodoPago === 'cuenta_corriente' && cliente.id !== 0 && (Number(cliente.limite_credito) || 0) > 0 && ((Number(cliente.saldo) || 0) + total) > (Number(cliente.limite_credito) || 0)"
+               class="mt-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5 font-medium"
+               x-text="'⚠️ Supera el Límite de Crédito (' + fmt(cliente.limite_credito) + '). Saldo actual: ' + fmt(cliente.saldo)"></p>
+          </div>
+
+          <!-- Efectivo: ¿Con cuánto abona? + Vuelto en vivo -->
+          <div x-show="metodoPago === 'efectivo'" x-transition class="bg-fondo border border-gray-200 rounded-xl p-3 space-y-2">
+            <label class="block text-xs font-medium text-gray-600">💵 ¿Con cuánto abona?</label>
+            <input x-model.number="pagaCon" type="number" min="0" step="any" inputmode="decimal" placeholder="Ingrese monto recibido…"
+                   class="campo">
+            <div x-show="pagaCon > 0" class="flex justify-between items-center text-sm pt-1">
+              <template x-if="pagaCon >= total">
+                <span class="contents">
+                  <span class="text-gray-600 font-medium">Vuelto a entregar:</span>
+                  <span class="text-base font-bold text-emerald-600" x-text="fmt(vuelto)"></span>
+                </span>
+              </template>
+              <template x-if="pagaCon < total">
+                <span class="contents">
+                  <span class="text-gray-600 font-medium">Faltan cubrir:</span>
+                  <span class="text-base font-bold text-red-600" x-text="fmt(total - pagaCon)"></span>
+                </span>
+              </template>
+            </div>
+          </div>
+
+          <!-- Transferencia: datos bancarios / QR -->
+          <div x-show="metodoPago === 'transferencia'" x-transition class="bg-fondo border border-gray-200 rounded-xl p-3 space-y-2 text-xs">
+            <p class="font-semibold text-gray-800 flex items-center gap-1.5">
+              <i data-lucide="landmark" class="w-4 h-4 text-primario"></i> Datos para Transferencia
+            </p>
+            <div class="space-y-1 text-gray-600">
+              <p x-show="config.banco">Banco / Entidad: <strong class="text-gray-900" x-text="config.banco"></strong></p>
+              <p x-show="config.titular_cuenta">Titular: <strong class="text-gray-900" x-text="config.titular_cuenta"></strong></p>
+              <p x-show="config.alias">Alias: <strong class="font-mono text-gray-900 select-all" x-text="config.alias"></strong></p>
+              <p x-show="config.cbu">CBU / CVU: <strong class="font-mono text-gray-900 select-all" x-text="config.cbu"></strong></p>
+              <p x-show="!config.alias && !config.cbu && !config.qr_imagen" class="text-gray-400">
+                Podés cargar tu Alias, CBU y QR desde Configuración.
+              </p>
+            </div>
+            <div x-show="Boolean(config.qr_imagen)" class="pt-2 flex justify-center">
+              <img :src="config.qr_imagen || ''" alt="QR de pago" class="w-40 h-40 object-contain rounded-lg border border-gray-200 bg-white p-1">
+            </div>
+          </div>
+
+          <!-- Pago Mixto (Efectivo + Transferencia) -->
+          <div x-show="metodoPago === 'mixto'" x-transition class="bg-fondo border border-gray-200 rounded-xl p-3.5 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-semibold text-gray-800 flex items-center gap-1.5">
+                <i data-lucide="layers" class="w-4 h-4 text-primario"></i> Pago Mixto (Dividir Cobro)
+              </span>
+              <span class="text-xs font-bold text-gray-900" x-text="'Total: ' + fmt(total)"></span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2.5">
+              <div>
+                <label class="block text-[11px] font-semibold text-gray-600 mb-1">💵 Efectivo ($)</label>
+                <input x-model.number="montoEfMixto" @input="alCambiarMontoMixto('efectivo')" type="number" min="0" :max="total" step="any"
+                       class="campo !py-2 font-bold text-gray-900">
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-gray-600 mb-1">🏦 Transferencia ($)</label>
+                <input x-model.number="montoTrMixto" @input="alCambiarMontoMixto('transferencia')" type="number" min="0" :max="total" step="any"
+                       class="campo !py-2 font-bold text-gray-900">
+              </div>
+            </div>
+
+            <!-- Vuelto si el efectivo se paga con billete mayor -->
+            <div class="pt-2 border-t border-gray-200/70 space-y-2">
+              <div class="flex items-center justify-between text-xs">
+                <span class="text-gray-600 font-medium">¿Con cuánto abona el efectivo?</span>
+                <input x-model.number="pagaConMixto" type="number" min="0" step="any" placeholder="Opcional…"
+                       class="w-28 campo !py-1 text-right text-xs font-medium">
+              </div>
+              <div x-show="pagaConMixto > 0" class="flex justify-between items-center text-xs">
+                <span class="text-gray-600 font-medium">Vuelto a entregar:</span>
+                <span class="text-sm font-bold text-emerald-600"
+                      x-text="fmt(Math.max(0, (Number(pagaConMixto) || 0) - (Number(montoEfMixto) || 0)))"></span>
+              </div>
+            </div>
+
+            <!-- Datos bancarios resumidos para el cliente -->
+            <div x-show="config.alias || config.cbu || config.qr_imagen" class="pt-2 border-t border-gray-200/70 text-[11px] text-gray-600 space-y-1">
+              <p x-show="config.alias">Alias: <strong class="font-mono text-gray-900 select-all" x-text="config.alias"></strong></p>
+              <p x-show="config.cbu">CBU: <strong class="font-mono text-gray-900 select-all" x-text="config.cbu"></strong></p>
+            </div>
+          </div>
+
+          <!-- Desglose y Total -->
+          <div class="space-y-1.5 text-sm pt-2 border-t border-gray-200">
+            <div class="flex justify-between text-gray-600">
+              <span>Subtotal</span><span x-text="fmt(subtotal)"></span>
+            </div>
+            <div class="flex justify-between items-center text-gray-600">
+              <span class="flex items-center gap-2">Descuento
+                <span class="relative">
+                  <input x-model.number="descuento" @input="descuento = Math.min(100, Math.max(0, Number(descuento) || 0)); if (metodoPago === 'mixto') ajustarMontosMixtosInicial();"
+                         type="number" min="0" max="100" step="any" placeholder="0"
+                         class="w-16 pl-2 pr-5 py-1 text-xs border border-gray-200 rounded-md focus:outline-none focus:border-primario">
+                  <span class="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400">%</span>
+                </span>
+              </span>
+              <span x-text="'− ' + fmt(montoDescuento)"></span>
+            </div>
+            <div class="flex justify-between items-end pt-2 border-t border-gray-200">
+              <span class="text-xs font-semibold tracking-wide text-gray-500">TOTAL A PAGAR</span>
+              <span class="text-2xl font-bold text-gray-900" x-text="fmt(total)"></span>
+            </div>
+          </div>
+
+          <p x-show="error" x-text="error" class="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2"></p>
+
+          <button @click="confirmarVenta()" :disabled="!puedeConfirmar || enviando"
+                  class="w-full h-14 btn-tactil-3d flex items-center justify-center gap-2 tracking-wide"
+                  :class="puedeConfirmar ? 'glow-giratorio' : ''">
+            <span x-text="enviando ? 'Procesando…' : '✅ Confirmar Venta'"></span>
+            <span class="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded bg-black/20 text-white/90">F9</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- Modal obligatorio de Apertura de Caja (Saldo Inicial del Día) -->
+<div x-show="!cargando && !cajaAbierta" x-transition.opacity
+     class="fixed inset-x-0 top-[57px] bottom-0 z-40 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-white border border-gray-200 rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-5">
+    <div class="flex items-start gap-3.5">
+      <div class="w-12 h-12 rounded-xl bg-primario-suave text-primario flex items-center justify-center shrink-0">
+        <i data-lucide="wallet" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <h2 class="text-lg font-bold text-gray-900">Apertura de Caja del Día</h2>
+        <p class="text-xs text-gray-500 mt-0.5">
+          Antes de comenzar a vender, registrá el dinero en efectivo con el que arranca la caja hoy (cambio / saldo inicial).
+        </p>
+      </div>
+    </div>
+
+    <form @submit.prevent="abrirCajaInicial()" class="space-y-4">
+      <div class="campo-flotante">
+        <input x-ref="inputMontoInicial" x-model="formMontoInicial" id="posAperturaMonto" type="number" min="0" step="0.01" required
+               placeholder=" " inputmode="decimal" enterkeyhint="done"
+               class="con-prefijo text-xl font-bold text-gray-900">
+        <span class="prefijo-moneda text-lg" x-text="config.moneda || '$'"></span>
+        <label for="posAperturaMonto">Saldo Inicial en Efectivo ($) *</label>
+      </div>
+      <p class="text-xs text-gray-400">Si arrancás sin cambio en el cajón, podés ingresar 0.</p>
+
+      <p x-show="errorCaja" x-text="errorCaja"
+         class="text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2"></p>
+
+      <div class="flex flex-col sm:flex-row gap-2.5 pt-1">
+        <button type="submit" :disabled="abriendoCaja"
+                class="flex-1 h-14 rounded-2xl bg-primario hover:bg-primario-oscuro text-white text-base font-semibold transition-colors shadow-suave disabled:opacity-50 flex items-center justify-center">
+          <span x-text="abriendoCaja ? 'Abriendo caja…' : 'Abrir Caja y Comenzar a Vender'"></span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Escáner de Código de Barras con Cámara del Celular -->
+<div x-show="modalCamara" x-transition.opacity
+     class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/75"
+     @keydown.escape.window="cerrarCamaraEscaner()" style="display:none;">
+  <div class="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-md overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+      <h3 class="font-semibold text-base text-gray-900 flex items-center gap-2">
+        <i data-lucide="camera" class="w-5 h-5 text-primario"></i>
+        Lector de Código con Cámara
+      </h3>
+      <button type="button" @click="cerrarCamaraEscaner()" class="text-gray-400 hover:text-gray-600 font-bold text-sm px-2 py-1">Cerrar</button>
+    </div>
+    <div class="p-4 space-y-3 bg-gray-900 text-white">
+      <div class="relative rounded-xl overflow-hidden bg-black aspect-video flex items-center justify-center border border-gray-700">
+        <video x-ref="videoCamara" autoplay playsinline muted class="w-full h-full object-cover"></video>
+        <div class="absolute inset-x-8 top-1/2 -translate-y-1/2 h-0.5 bg-red-500/80 shadow pointer-events-none"></div>
+      </div>
+      <p class="text-xs text-gray-300 text-center" x-text="estadoCamaraMsg || 'Apuntá la cámara trasera del celular al código de barras del producto.'"></p>
+    </div>
+    <div class="p-4 bg-white border-t border-gray-100 flex justify-end">
+      <button type="button" @click="cerrarCamaraEscaner()"
+              class="px-4 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50">
+        Cancelar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Botón flotante del carrito (solo móvil) -->
+<button x-show="!drawerAbierto && carrito.length > 0" @click="drawerAbierto = true" x-transition
+        class="lg:hidden fixed bottom-20 inset-x-4 z-30 bg-primario text-white rounded-xl shadow-lg px-5 py-3.5 flex items-center justify-between">
+  <span class="flex items-center gap-2 font-medium">
+    <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+    <span x-text="carrito.length + (carrito.length === 1 ? ' renglón' : ' renglones')"></span>
+  </span>
+  <span class="font-semibold" x-text="fmt(total)"></span>
+</button>
+
+<script>
+  function pos(config) {
+    config = window.obtenerConfigComercio ? window.obtenerConfigComercio(config) : config;
+    return {
+      config,
+      // --- Datos remotos ---
+      productos: [],
+      clientes: [],
+      cargando: true,
+
+      // --- Escáner rápido y Cámara ---
+      codigoEscaneo: '',
+      avisoEscaneo: '',
+      avisoEscaneoError: false,
+      modalCamara: false,
+      estadoCamaraMsg: '',
+      _streamCamara: null,
+      _timerCamara: null,
+
+      // --- Filtros y ficha ---
+      vistaFicha: 'Compacta',
+      busqueda: '',
+      categoriaActiva: 'Todas las categorías',
+      seleccionadoId: 0,
+
+      // --- Selector "¿Vender por?" ---
+      modoVenta: 'unidades',   // 'unidades' | 'peso' | 'monto'
+      cantidadInput: 1,
+      montoInput: null,
+
+      // --- Carrito y cobro ---
+      carrito: [],
+      clienteId: 0,
+      cliente: { id: 0, nombre: 'Consumidor Final', telefono: '', saldo: 0, puntos: 0 },
+      metodoPago: 'efectivo',
+      metodos: [
+        { id: 'efectivo', nombre: 'Efectivo', icono: 'banknote', tecla: 'F5' },
+        { id: 'transferencia', nombre: 'Transf.', icono: 'landmark', tecla: 'F6' },
+        { id: 'mixto', nombre: 'Mixto', icono: 'layers', tecla: 'F7' },
+        { id: 'cuenta_corriente', nombre: 'Cta. Cte.', icono: 'book-user', tecla: 'F8' },
+      ],
+      pagaCon: null,
+      montoEfMixto: 0,
+      montoTrMixto: 0,
+      pagaConMixto: null,
+      descuento: 0,
+
+      // --- Apertura de Caja (Saldo Inicial) ---
+      cajaAbierta: true,
+      montoInicialCaja: 0,
+      formMontoInicial: '',
+      abriendoCaja: false,
+      errorCaja: '',
+
+      // --- UI ---
+      drawerAbierto: false,
+      ventaOk: null,
+      enviando: false,
+      error: '',
+
+      async iniciar() {
+        let pendiente = false;
+        new MutationObserver(() => {
+          if (pendiente || !document.querySelector('i[data-lucide]')) return;  // solo iconos nuevos: lucide deja data-lucide en el <svg> y sin esto se redibuja en bucle
+          pendiente = true;
+          requestAnimationFrame(() => { window.lucide && lucide.createIcons(); pendiente = false; });
+        }).observe(document.body, { childList: true, subtree: true });
+
+        await this.cargarDatos();
+        this.$nextTick(() => {
+          if (!this.cajaAbierta && this.$refs.inputMontoInicial) {
+            this.$refs.inputMontoInicial.focus();
+          } else if (this.$refs.escaner) {
+            this.$refs.escaner.focus();
+          }
+        });
+      },
+
+      async cargarDatos() {
+        this.cargando = true;
+        try {
+          const [p, c, estCaja] = await Promise.all([
+            fetch('/api/productos').then(r => r.json()),
+            fetch('/api/clientes').then(r => r.json()),
+            fetch('/api/caja/estado').then(r => r.ok ? r.json() : { abierta: true }),
+          ]);
+          this.productos = p;
+          this.clientes = c;
+          this.cajaAbierta = Boolean(estCaja && estCaja.abierta);
+          this.montoInicialCaja = Number(estCaja && estCaja.monto_inicial) || 0;
+          this.cliente = c.find(x => x.id === this.clienteId) || c[0] || this.cliente;
+          this.clienteId = this.cliente.id;
+          this.asegurarSeleccionado();
+        } catch (e) {
+          this.error = 'No se pudo cargar el catálogo. Revisá la conexión.';
+        }
+        this.cargando = false;
+      },
+
+      async abrirCajaInicial() {
+        const monto = Number(this.formMontoInicial);
+        if (this.formMontoInicial === '' || isNaN(monto) || monto < 0) {
+          this.errorCaja = 'Ingresá un monto inicial válido (0 o mayor).';
+          return;
+        }
+        this.abriendoCaja = true;
+        this.errorCaja = '';
+        try {
+          const res = await fetch('/api/caja/abrir', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ monto_inicial: monto }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || 'No se pudo abrir la caja');
+          this.cajaAbierta = true;
+          this.montoInicialCaja = Number(data.monto_inicial) || monto;
+          this.formMontoInicial = '';
+          this.$nextTick(() => this.$refs.escaner && this.$refs.escaner.focus());
+        } catch (e) {
+          this.errorCaja = e.message;
+        } finally {
+          this.abriendoCaja = false;
+        }
+      },
+
+      fmt(n) {
+        return (this.config.moneda || '$') + ' ' + Number(n || 0).toLocaleString('es-AR', {
+          minimumFractionDigits: 2, maximumFractionDigits: 2,
+        });
+      },
+      fmtPts(n) { return Number(n || 0).toLocaleString('es-AR', { maximumFractionDigits: 2 }); },
+      fmtCant(n) { return Number(n || 0).toLocaleString('es-AR', { maximumFractionDigits: 3 }); },
+      nombreMetodo(id) { return (this.metodos.find(m => m.id === id) || {}).nombre || id; },
+
+      etiquetaCliente(c) {
+        if (!c || c.id === 0) return 'Consumidor Final';
+        const tel = c.telefono || 'S/T';
+        return `${c.nombre} (Tel: ${tel} | Saldo Cta. Cte.: ${this.fmt(c.saldo)})`;
+      },
+
+      alCambiarCliente() {
+        const encontrado = this.clientes.find(c => c.id === Number(this.clienteId));
+        this.cliente = encontrado || this.clientes[0] || { id: 0, nombre: 'Consumidor Final', telefono: '', saldo: 0, puntos: 0 };
+        if (this.cliente.id === 0) {
+          // Si vuelve a Consumidor Final, quita canjes por puntos
+          this.carrito = this.carrito.filter(i => !i.es_canje);
+        }
+      },
+
+      // ===== Catálogo y selección =====
+      get categorias() {
+        return ['Todas las categorías', ...new Set(this.productos.map(p => p.categoria))];
+      },
+      get productosFiltrados() {
+        const q = this.busqueda.trim().toLowerCase();
+        return this.productos.filter(p =>
+          (this.categoriaActiva === 'Todas las categorías' || p.categoria === this.categoriaActiva) &&
+          (!q || p.nombre.toLowerCase().includes(q) || (p.codigo || '').toLowerCase().includes(q))
+        );
+      },
+      get productoActual() {
+        return this.productos.find(p => p.id === Number(this.seleccionadoId)) || null;
+      },
+      asegurarSeleccionado() {
+        const lista = this.productosFiltrados;
+        if (!lista.length) { this.seleccionadoId = 0; return; }
+        if (!lista.some(p => p.id === Number(this.seleccionadoId))) {
+          this.seleccionadoId = lista[0].id;
+        }
+      },
+      alCambiarProducto() {
+        this.cantidadInput = 1;
+        this.montoInput = null;
+        if (this.productoActual && this.productoActual.unidad_medida === 'kg') {
+          this.modoVenta = 'peso';
+        } else if (this.modoVenta === 'peso') {
+          this.modoVenta = 'unidades';
+        }
+      },
+      alCambiarModoVenta() {
+        if (this.modoVenta === 'unidades') this.cantidadInput = Math.max(1, Math.round(Number(this.cantidadInput) || 1));
+        if (this.modoVenta === 'peso') this.cantidadInput = 1;
+        if (this.modoVenta === 'monto') this.montoInput = null;
+      },
+
+      get cantidadCalculada() {
+        const p = this.productoActual;
+        if (!p) return 0;
+        if (this.modoVenta === 'unidades') {
+          const n = Math.round(Number(this.cantidadInput) || 0);
+          return n > 0 ? n : 0;
+        }
+        if (this.modoVenta === 'peso') {
+          const n = Math.round((Number(this.cantidadInput) || 0) * 1000) / 1000;
+          return n > 0 ? n : 0;
+        }
+        const monto = Number(this.montoInput) || 0;
+        if (monto > 0 && p.precio > 0) {
+          return Math.round((monto / p.precio) * 10000) / 10000;
+        }
+        return 0;
+      },
+
+      disponibleParaAgregar(p) {
+        if (!p) return 0;
+        return Math.round((p.stock - this.cantidadEnCarrito(p.id)) * 10000) / 10000;
+      },
+
+      get puedeAgregarSeleccionado() {
+        const p = this.productoActual;
+        if (!p) return false;
+        const cant = this.cantidadCalculada;
+        return cant > 0 && cant <= this.disponibleParaAgregar(p);
+      },
+
+      get puedeCanjearSeleccionado() {
+        const p = this.productoActual;
+        if (!p || !p.puntos_canje || this.cliente.id === 0) return false;
+        const cant = Math.max(1, Math.round(this.cantidadCalculada || 1));
+        return cant <= this.disponibleParaAgregar(p) && (p.puntos_canje * cant) <= this.puntosDisponibles;
+      },
+
+      // ===== Escaneo Rápido por Código =====
+      cargarPorCodigo() {
+        const q = this.codigoEscaneo.trim();
+        if (!q) return;
+        const ql = q.toLowerCase();
+        const prod = this.productos.find(p => (p.codigo || '').toLowerCase() === ql);
+        if (!prod) {
+          this.mostrarAviso(`No existe ningún producto con el código '${q}'.`, true);
+          return;
+        }
+        if (this.disponibleParaAgregar(prod) < 1) {
+          this.mostrarAviso(`Sin stock disponible para '${prod.nombre}'.`, true);
+          return;
+        }
+        this.seleccionadoId = prod.id;
+        this.insertarEnCarrito(prod, 1, false);
+        this.codigoEscaneo = '';
+        this.mostrarAviso(`✅ Agregado: ${prod.nombre} x1 (${this.fmt(prod.precio)})`, false);
+        this.$nextTick(() => this.$refs.escaner && this.$refs.escaner.focus());
+      },
+
+      async abrirCamaraEscaner() {
+        this.modalCamara = true;
+        this.estadoCamaraMsg = 'Iniciando cámara del dispositivo…';
+        try {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            this.estadoCamaraMsg = 'El navegador no habilitó la cámara (requiere abrir desde localhost en el celular o HTTPS).';
+            return;
+          }
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' } },
+            audio: false,
+          });
+          this._streamCamara = stream;
+          const video = this.$refs.videoCamara;
+          if (video) {
+            video.srcObject = stream;
+            await video.play();
+          }
+          if (!('BarcodeDetector' in window)) {
+            this.estadoCamaraMsg = 'Tu navegador no incluye lector nativo BarcodeDetector. Usá Chrome en Android para escaneo directo con cámara.';
+            return;
+          }
+          this.estadoCamaraMsg = 'Apuntá la línea roja al código de barras del envase…';
+          const detector = new window.BarcodeDetector({
+            formats: ['ean_13', 'ean_8', 'code_128', 'code_39', 'upc_a', 'upc_e', 'qr_code'],
+          });
+          this._timerCamara = setInterval(async () => {
+            if (!this.modalCamara || !video || video.readyState < 2) return;
+            try {
+              const codigos = await detector.detect(video);
+              if (codigos && codigos.length > 0 && codigos[0].rawValue) {
+                const leido = String(codigos[0].rawValue).trim();
+                if (leido) {
+                  this.codigoEscaneo = leido;
+                  this.cerrarCamaraEscaner();
+                  this.cargarPorCodigo();
+                }
+              }
+            } catch (_) {}
+          }, 280);
+        } catch (err) {
+          this.estadoCamaraMsg = 'No se pudo acceder a la cámara: ' + (err.message || 'Permiso denegado');
+        }
+      },
+
+      cerrarCamaraEscaner() {
+        if (this._timerCamara) {
+          clearInterval(this._timerCamara);
+          this._timerCamara = null;
+        }
+        if (this._streamCamara) {
+          try {
+            this._streamCamara.getTracks().forEach(t => t.stop());
+          } catch (_) {}
+          this._streamCamara = null;
+        }
+        this.modalCamara = false;
+      },
+
+      mostrarAviso(msg, esError = false) {
+        this.avisoEscaneo = msg;
+        this.avisoEscaneoError = esError;
+        setTimeout(() => { if (this.avisoEscaneo === msg) this.avisoEscaneo = ''; }, 3500);
+      },
+
+      // ===== Carrito =====
+      cantidadEnCarrito(id) {
+        return this.carrito.filter(i => i.id === id).reduce((s, i) => s + i.cantidad, 0);
+      },
+
+      agregarSeleccionado(esCanje = false) {
+        const p = this.productoActual;
+        if (!p) return;
+        const cant = esCanje ? Math.max(1, Math.round(this.cantidadCalculada || 1)) : this.cantidadCalculada;
+        if (cant <= 0) return;
+        this.insertarEnCarrito(p, cant, esCanje);
+        this.cantidadInput = 1;
+        this.montoInput = null;
+      },
+
+      seleccionarYAgregarRapido(p) {
+        this.seleccionadoId = p.id;
+        if (this.disponibleParaAgregar(p) <= 0) return;
+        const cant = this.disponibleParaAgregar(p) >= 1 ? 1 : this.disponibleParaAgregar(p);
+        this.insertarEnCarrito(p, cant, false);
+      },
+
+      insertarEnCarrito(p, cantidad, esCanje = false) {
+        this.error = '';
+        if (cantidad > this.disponibleParaAgregar(p)) {
+          this.error = `Stock insuficiente de ${p.nombre}. Disponible: ${this.disponibleParaAgregar(p)}`;
+          return;
+        }
+        if (esCanje) {
+          if (this.cliente.id === 0) {
+            this.error = 'Seleccioná un cliente registrado arriba para canjear premios con puntos.';
+            return;
+          }
+          const ptsReq = Math.round((p.puntos_canje || 0) * cantidad * 100) / 100;
+          if (ptsReq > this.puntosDisponibles) {
+            this.error = `Puntos insuficientes: requiere ${this.fmtPts(ptsReq)} pts y hay ${this.fmtPts(this.puntosDisponibles)} pts disponibles.`;
+            return;
+          }
+        }
+        const existente = this.carrito.find(i => i.id === p.id && Boolean(i.es_canje) === Boolean(esCanje));
+        if (existente) {
+          existente.cantidad = Math.round((existente.cantidad + cantidad) * 10000) / 10000;
+        } else {
+          this.carrito.push({
+            id: p.id,
+            nombre: p.nombre,
+            precio: esCanje ? 0 : p.precio,
+            precio_original: p.precio,
+            stock: p.stock,
+            cantidad: cantidad,
+            puntos_canje: p.puntos_canje || 0,
+            es_canje: Boolean(esCanje),
+          });
+        }
+        if (this.metodoPago === 'mixto') this.ajustarMontosMixtosInicial();
+      },
+
+      convertirACanje(it) {
+        if (this.cliente.id === 0 || !it.puntos_canje) return;
+        const ptsReq = Math.round(it.puntos_canje * it.cantidad * 100) / 100;
+        if (ptsReq > this.puntosDisponibles) {
+          this.error = `Puntos insuficientes para canjear ${it.nombre} (${ptsReq} pts).`;
+          return;
+        }
+        it.es_canje = true;
+        it.precio = 0;
+        if (this.metodoPago === 'mixto') this.ajustarMontosMixtosInicial();
+      },
+
+      cambiarCantidad(it, delta) {
+        const paso = Number.isInteger(it.cantidad) ? 1 : 0.25;
+        const nueva = Math.round((it.cantidad + delta * paso) * 10000) / 10000;
+        if (nueva <= 0) return this.quitar(it);
+        const otros = this.cantidadEnCarrito(it.id) - it.cantidad;
+        if (nueva + otros > it.stock) return;
+        if (it.es_canje && delta > 0) {
+          const extraPts = Math.round(it.puntos_canje * paso * 100) / 100;
+          if (extraPts > this.puntosDisponibles) return;
+        }
+        it.cantidad = nueva;
+        if (this.metodoPago === 'mixto') this.ajustarMontosMixtosInicial();
+      },
+
+      quitar(it) {
+        this.carrito = this.carrito.filter(i => !(i.id === it.id && i.es_canje === it.es_canje));
+        if (this.metodoPago === 'mixto') this.ajustarMontosMixtosInicial();
+      },
+      vaciar() {
+        this.carrito = [];
+        this.drawerAbierto = false;
+        this.montoEfMixto = 0;
+        this.montoTrMixto = 0;
+        this.pagaConMixto = null;
+      },
+
+      cambiarMetodoPago(id) {
+        this.metodoPago = id;
+        if (id === 'mixto') {
+          this.ajustarMontosMixtosInicial();
+        }
+      },
+
+      ajustarMontosMixtosInicial() {
+        if (this.total <= 0) {
+          this.montoEfMixto = 0;
+          this.montoTrMixto = 0;
+          return;
+        }
+        // Si no se había dividido o quedó desfasado del total actual, inicializar mitad y mitad (o efectivo 0 y resto transf)
+        if (!this.montoEfMixto || Number(this.montoEfMixto) > this.total) {
+          this.montoEfMixto = Math.round((this.total / 2) * 100) / 100;
+        }
+        this.montoTrMixto = Math.round((this.total - this.montoEfMixto) * 100) / 100;
+      },
+
+      alCambiarMontoMixto(origen) {
+        if (this.total <= 0) {
+          this.montoEfMixto = 0;
+          this.montoTrMixto = 0;
+          return;
+        }
+        if (origen === 'efectivo') {
+          const ef = Math.min(this.total, Math.max(0, Number(this.montoEfMixto) || 0));
+          this.montoEfMixto = ef;
+          this.montoTrMixto = Math.round((this.total - ef) * 100) / 100;
+        } else {
+          const tr = Math.min(this.total, Math.max(0, Number(this.montoTrMixto) || 0));
+          this.montoTrMixto = tr;
+          this.montoEfMixto = Math.round((this.total - tr) * 100) / 100;
+        }
+      },
+
+      alApretarTecla(e) {
+        const k = e.key;
+        if (k === 'F2') {
+          e.preventDefault();
+          this.$nextTick(() => this.$refs.escaner && (this.$refs.escaner.focus(), this.$refs.escaner.select()));
+        } else if (k === 'F4') {
+          e.preventDefault();
+          this.$nextTick(() => this.$refs.busquedaManual && (this.$refs.busquedaManual.focus(), this.$refs.busquedaManual.select()));
+        } else if (k === 'F5') {
+          e.preventDefault();
+          this.cambiarMetodoPago('efectivo');
+        } else if (k === 'F6') {
+          e.preventDefault();
+          this.cambiarMetodoPago('transferencia');
+        } else if (k === 'F7') {
+          e.preventDefault();
+          this.cambiarMetodoPago('mixto');
+        } else if (k === 'F8') {
+          e.preventDefault();
+          this.cambiarMetodoPago('cuenta_corriente');
+        } else if (k === 'F9') {
+          e.preventDefault();
+          if (this.puedeConfirmar && !this.enviando) {
+            this.confirmarVenta();
+          }
+        } else if (k === 'Escape') {
+          if (this.ventaOk) {
+            this.cerrarComprobante();
+          } else if (this.drawerAbierto) {
+            this.drawerAbierto = false;
+          }
+        }
+      },
+
+      cerrarComprobante() {
+        this.ventaOk = null;
+        this.resetearClienteYMetodo();
+      },
+
+      resetearClienteYMetodo() {
+        const cf = (this.clientes && this.clientes.find(c => c.id === 0)) ||
+                   (this.clientes && this.clientes[0]) ||
+                   { id: 0, nombre: 'Consumidor Final', telefono: '', saldo: 0, puntos: 0 };
+        this.cliente = cf;
+        this.clienteId = 0;
+        this.metodoPago = 'efectivo';
+        this.descuento = 0;
+        this.pagaCon = null;
+        this.montoEfMixto = 0;
+        this.montoTrMixto = 0;
+        this.pagaConMixto = null;
+      },
+
+      get puntosCanjesCarrito() {
+        return this.carrito.filter(i => i.es_canje).reduce((s, i) => s + Math.round((i.puntos_canje || 0) * i.cantidad * 100) / 100, 0);
+      },
+      get puntosDisponibles() {
+        return Math.round(((Number(this.cliente.puntos) || 0) - this.puntosCanjesCarrito) * 100) / 100;
+      },
+      get subtotal() {
+        return Math.round(this.carrito.filter(i => !i.es_canje).reduce((s, i) => s + i.precio * i.cantidad, 0) * 100) / 100;
+      },
+      get montoDescuento() { return Math.round(this.subtotal * (Number(this.descuento) || 0)) / 100; },
+      get total() { return Math.round((this.subtotal - this.montoDescuento) * 100) / 100; },
+      get vuelto() { return Math.max(0, (Number(this.pagaCon) || 0) - this.total); },
+
+      get puedeConfirmar() {
+        if (!this.cajaAbierta) return false;
+        if (this.carrito.length === 0) return false;
+        if (this.metodoPago === 'cuenta_corriente') {
+          if (this.cliente.id === 0) return false;
+          const lim = Number(this.cliente.limite_credito) || 0;
+          if (lim <= 0) return false;
+          if ((Number(this.cliente.saldo) || 0) + this.total > lim) return false;
+        }
+        if (this.puntosCanjesCarrito > 0 && (this.cliente.id === 0 || this.puntosDisponibles < 0)) return false;
+        if (this.metodoPago === 'efectivo' && this.pagaCon > 0 && this.pagaCon < this.total) return false;
+        if (this.metodoPago === 'mixto') {
+          const suma = Math.round(((Number(this.montoEfMixto) || 0) + (Number(this.montoTrMixto) || 0)) * 100) / 100;
+          if (Math.abs(suma - this.total) > 0.01) return false;
+        }
+        return true;
+      },
+
+      async confirmarVenta() {
+        if (!this.puedeConfirmar) return;
+        this.enviando = true;
+        this.error = '';
+        try {
+          const res = await fetch('/api/ventas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              items: this.carrito.map(i => ({
+                producto_id: i.id,
+                cantidad: i.cantidad,
+                es_canje: Boolean(i.es_canje),
+              })),
+              cliente_id: this.cliente.id,
+              metodo_pago: this.metodoPago,
+              descuento_pct: Number(this.descuento) || 0,
+              paga_con: this.metodoPago === 'efectivo' && this.pagaCon > 0 ? this.pagaCon : (this.metodoPago === 'mixto' && this.pagaConMixto > 0 ? this.pagaConMixto : null),
+              monto_efectivo: this.metodoPago === 'mixto' ? Number(this.montoEfMixto) || 0 : null,
+              monto_transferencia: this.metodoPago === 'mixto' ? Number(this.montoTrMixto) || 0 : null,
+            }),
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || 'Error al registrar la venta');
+          this.ventaOk = data;
+          this.carrito = [];
+          this.resetearClienteYMetodo();
+          await this.cargarDatos();
+          this.$nextTick(() => this.$refs.escaner && this.$refs.escaner.focus());
+        } catch (e) {
+          this.error = e.message;
+        }
+        this.enviando = false;
+      },
+    };
+  }
+</script>
+</body>
+</html>

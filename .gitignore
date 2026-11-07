@@ -1,0 +1,31 @@
+# Python & Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# Base de datos y subidas locales
+datos/pos_local.db
+datos/pos_local.db-wal
+datos/pos_local.db-shm
+datos/uploads/*
+!datos/uploads/.gitkeep
+datos/backups_drive/*
+
+# Salida compilada (para gh-pages)
+dist/
+dist.zip
+
+# Instaladores binarios y comprimidos
+*.exe
+*.msi
+*.zip
+*.rar
+*.tar.gz
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
