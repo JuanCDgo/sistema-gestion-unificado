@@ -3,20 +3,20 @@
 <!-- =================================================================== -->
 <div x-show="mostrarWizard" x-cloak
      class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-zinc-950/80 backdrop-blur-md overflow-y-auto">
-  <div class="bg-white border border-zinc-200 rounded-2xl shadow-2xl max-w-lg w-full p-5 sm:p-6 my-auto text-left space-y-5 transition-all">
+  <div class="bg-white border border-zinc-200 rounded-2xl shadow-2xl max-w-xl w-full p-5 sm:p-6 my-auto text-left space-y-5 transition-all">
     
     <!-- Encabezado del Wizard -->
     <div class="flex items-center justify-between pb-3 border-b border-zinc-100">
       <div class="flex items-center gap-2.5">
         <div class="w-9 h-9 rounded-xl bg-zinc-900 text-white flex items-center justify-center font-bold text-sm">
-          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          <i data-lucide="sliders" class="w-4 h-4"></i>
         </div>
         <div>
-          <h3 class="font-bold text-zinc-900 text-base leading-tight">Bienvenido al Sistema</h3>
-          <p class="text-xs text-zinc-500">Configuración inicial en 4 simples pasos</p>
+          <h3 class="font-bold text-zinc-900 text-base leading-tight">Configuración Inicial del Sistema</h3>
+          <p class="text-xs text-zinc-500">Dejá listo tu negocio, modo de uso y cajeros en 4 pasos</p>
         </div>
       </div>
-      <div class="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-zinc-100 text-zinc-700">
+      <div class="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-zinc-100 text-zinc-700 shrink-0">
         <span x-text="'Paso ' + wizardPaso + ' de 4'"></span>
       </div>
     </div>
@@ -33,20 +33,88 @@
       <span x-text="wizardError"></span>
     </div>
 
-    <!-- PASO 1: Identidad del Comercio -->
+    <!-- =============================================================== -->
+    <!-- PASO 1: MODO DE OPERACIÓN (A vs B) + MIGRACIÓN DESDE CELULAR     -->
+    <!-- =============================================================== -->
     <div x-show="wizardPaso === 1" class="space-y-4">
-      <h4 class="font-semibold text-sm text-zinc-900">1. Identidad de tu Negocio</h4>
+      <div>
+        <h4 class="font-bold text-sm text-zinc-900">1. ¿Cómo vas a usar el sistema? (Modo A o Modo B)</h4>
+        <p class="text-xs text-zinc-500 mt-0.5">Elegí cómo va a funcionar este equipo o traé tus datos si ya venías usando el celular:</p>
+      </div>
+
+      <div class="grid grid-cols-1 gap-2.5">
+        <!-- Modo B: Servidor Central LAN -->
+        <label class="flex items-start gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all"
+               :class="wizardDatos.modo_operacion === 'servidor_central' ? 'border-zinc-900 bg-zinc-50' : 'border-zinc-200 hover:border-zinc-300'">
+          <input type="radio" value="servidor_central" x-model="wizardDatos.modo_operacion" class="mt-1 text-zinc-900 focus:ring-zinc-900">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <strong class="text-xs sm:text-sm font-bold text-zinc-900">Modo B: Servidor Central en PC + Celulares Wi-Fi</strong>
+              <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">PC Mostrador + QR</span>
+            </div>
+            <p class="text-xs text-zinc-600 mt-1">
+              Ideal si tenés una PC o Notebook en el negocio. La PC guarda la base central y muestra un código QR para que tu celular y el de tus empleados vendan al mismo tiempo sobre el mismo stock.
+            </p>
+          </div>
+        </label>
+
+        <!-- Modo A: Móvil Autónomo -->
+        <label class="flex items-start gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all"
+               :class="wizardDatos.modo_operacion === 'autonomo_offline' ? 'border-zinc-900 bg-zinc-50' : 'border-zinc-200 hover:border-zinc-300'">
+          <input type="radio" value="autonomo_offline" x-model="wizardDatos.modo_operacion" class="mt-1 text-zinc-900 focus:ring-zinc-900">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between gap-2 flex-wrap">
+              <strong class="text-xs sm:text-sm font-bold text-zinc-900">Modo A: Celular Autónomo (Sin PC)</strong>
+              <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">100% En tu Celular</span>
+            </div>
+            <p class="text-xs text-zinc-600 mt-1">
+              Para manejar todo el negocio desde tu teléfono o tablet sin computadora, con respaldo automático en tu Google Drive.
+            </p>
+          </div>
+        </label>
+      </div>
+
+      <!-- CAJA DE MIGRACIÓN DIRECTA: PASAR DE MODO A (CELULAR) A MODO B (PC NUEVA) -->
+      <div class="p-3.5 rounded-xl border-2 border-blue-200 bg-blue-50/60 space-y-2.5">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <p class="text-xs font-bold text-blue-950">
+              📲 ¿Empezaste con el Modo A en el celular y ahora compraste una PC?
+            </p>
+            <p class="text-[11px] text-blue-800 mt-0.5">
+              Subí acá el archivo de copia de tu celular (o de tu Google Drive) para pasar al <strong>Modo B</strong> dejando productos, promos, stock, clientes, cajeros, claves y caja exactamente igual.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+          <input type="file" accept=".json,.zip" @change="seleccionarArchivoModoAWizard($event)"
+                 class="block w-full text-xs text-zinc-700 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-white file:text-blue-800 hover:file:bg-blue-100 cursor-pointer border border-blue-200 rounded-lg bg-white/80 p-1">
+          <button type="button" @click="importarDesdeModoAWizard()"
+                  :disabled="!archivoModoA || importandoModoA"
+                  class="px-4 py-2 rounded-lg bg-blue-700 hover:bg-blue-800 text-white font-bold text-xs shrink-0 disabled:opacity-40 transition-colors cursor-pointer">
+            <span x-text="importandoModoA ? 'Importando todo...' : 'Pasar a Modo B Ahora'"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =============================================================== -->
+    <!-- PASO 2: IDENTIDAD DEL NEGOCIO (NOMBRE, RUBRO, WHATSAPP Y LOGO)   -->
+    <!-- =============================================================== -->
+    <div x-show="wizardPaso === 2" class="space-y-4">
+      <h4 class="font-bold text-sm text-zinc-900">2. Identidad de tu Negocio</h4>
       <div>
         <label class="block text-xs font-semibold text-zinc-700 mb-1">Nombre del Comercio *</label>
-        <input type="text" x-model="wizardDatos.nombre_comercio" placeholder="Ej. Mi Kiosco, Barbería Central, etc."
-               class="w-full px-3 py-2 rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900 text-sm">
+        <input type="text" x-model="wizardDatos.nombre_comercio" placeholder="Ej. Bebidas del Centro, Kiosco 24hs, etc."
+               class="w-full px-3 py-2.5 rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900 text-sm font-medium">
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-semibold text-zinc-700 mb-1">Rubro Principal</label>
-          <select x-model="wizardDatos.rubro" class="w-full px-3 py-2 rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900 text-sm">
-            <option value="comercio_general">Kiosco / Almacén / Maxikiosco</option>
-            <option value="gastronomia">Gastronomía / Rotisería / Bar</option>
+          <select x-model="wizardDatos.rubro" class="w-full px-3 py-2.5 rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900 text-sm">
+            <option value="comercio_general">Bebidas / Kiosco / Almacén</option>
+            <option value="gastronomia">Gastronomía / Bar / Rotisería</option>
             <option value="indumentaria">Indumentaria / Calzado</option>
             <option value="servicios">Taller / Barbería / Servicios</option>
             <option value="farmacia">Farmacia / Perfumería</option>
@@ -55,123 +123,136 @@
         <div>
           <label class="block text-xs font-semibold text-zinc-700 mb-1">Teléfono (WhatsApp)</label>
           <input type="tel" x-model="wizardDatos.telefono" placeholder="Ej. 351 1234567"
-                 class="w-full px-3 py-2 rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900 text-sm">
+                 class="w-full px-3 py-2.5 rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900 text-sm">
         </div>
       </div>
       <div>
-        <label class="block text-xs font-semibold text-zinc-700 mb-1">Logo del Comercio (Opcional)</label>
-        <div class="flex items-center gap-3">
-          <div class="w-12 h-12 rounded-xl bg-zinc-100 border border-zinc-200 flex items-center justify-center overflow-hidden shrink-0">
+        <label class="block text-xs font-semibold text-zinc-700 mb-1">Logo del Negocio (Opcional)</label>
+        <div class="flex items-center gap-3 p-3 rounded-xl bg-zinc-50 border border-zinc-200">
+          <div class="w-14 h-14 rounded-xl bg-white border border-zinc-200 flex items-center justify-center overflow-hidden shrink-0">
             <template x-if="wizardDatos.logo_imagen">
-              <img :src="wizardDatos.logo_imagen" class="w-full h-full object-cover">
+              <img :src="wizardDatos.logo_imagen" class="w-full h-full object-contain p-1">
             </template>
             <template x-if="!wizardDatos.logo_imagen">
-              <i data-lucide="image" class="w-5 h-5 text-zinc-400"></i>
+              <i data-lucide="image" class="w-6 h-6 text-zinc-400"></i>
             </template>
           </div>
-          <input type="file" accept="image/*" @change="comprimirLogoWizard($event)"
-                 class="text-xs text-zinc-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-100 file:text-zinc-700 hover:file:bg-zinc-200 cursor-pointer">
+          <div class="flex-1 min-w-0">
+            <input type="file" accept="image/*" @change="comprimirLogoWizard($event)"
+                   class="block w-full text-xs text-zinc-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-zinc-900 file:text-white hover:file:bg-zinc-800 cursor-pointer">
+            <p class="text-[11px] text-zinc-400 mt-1">Se ajusta automáticamente para encabezados y tickets.</p>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- PASO 2: Modo de Trabajo (A vs B) -->
-    <div x-show="wizardPaso === 2" class="space-y-3">
-      <h4 class="font-semibold text-sm text-zinc-900">2. Modo de Operación</h4>
-      <p class="text-xs text-zinc-500">Elegí la arquitectura de funcionamiento según tu equipamiento:</p>
-
-      <div class="grid grid-cols-1 gap-2.5">
-        <!-- Modo A: Móvil Autónomo -->
-        <label class="flex items-start gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all"
-               :class="wizardDatos.modo_operacion === 'autonomo_offline' ? 'border-zinc-900 bg-zinc-50/50' : 'border-zinc-200 hover:border-zinc-300'">
-          <input type="radio" value="autonomo_offline" x-model="wizardDatos.modo_operacion" class="mt-1 text-zinc-900 focus:ring-zinc-900">
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center justify-between">
-              <strong class="text-xs sm:text-sm font-bold text-zinc-900">Modo A: Celular Autónomo (PWA)</strong>
-              <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">100% Offline</span>
-            </div>
-            <p class="text-xs text-zinc-600 mt-1">
-              Para usar en celular o tablet sin computadora. La base de datos reside en la memoria de este teléfono y realiza copias automáticas en tu Google Drive.
-            </p>
-          </div>
-        </label>
-
-        <!-- Modo B: Servidor Central LAN -->
-        <label class="flex items-start gap-3 p-3.5 rounded-xl border-2 cursor-pointer transition-all"
-               :class="wizardDatos.modo_operacion === 'servidor_central' ? 'border-zinc-900 bg-zinc-50/50' : 'border-zinc-200 hover:border-zinc-300'">
-          <input type="radio" value="servidor_central" x-model="wizardDatos.modo_operacion" class="mt-1 text-zinc-900 focus:ring-zinc-900">
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center justify-between">
-              <strong class="text-xs sm:text-sm font-bold text-zinc-900">Modo B: Servidor Central LAN</strong>
-              <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">PC + Celulares Wi-Fi</span>
-            </div>
-            <p class="text-xs text-zinc-600 mt-1">
-              Para computadoras en mostrador. La PC almacena la base de datos central (SQLite WAL) y genera un código QR para que múltiples celulares del local operen en tiempo real.
-            </p>
-          </div>
-        </label>
-      </div>
-    </div>
-
-    <!-- PASO 3: Cobro QR & Finanzas -->
+    <!-- =============================================================== -->
+    <!-- PASO 3: COBRO QR Y TRANSFERENCIAS                               -->
+    <!-- =============================================================== -->
     <div x-show="wizardPaso === 3" class="space-y-4">
-      <h4 class="font-semibold text-sm text-zinc-900">3. Cobro por Transferencia y QR (Sin Comisiones)</h4>
-      <p class="text-xs text-zinc-500">Configurá tu Alias bancario o de billetera virtual para cobrar directamente en el mostrador:</p>
+      <h4 class="font-bold text-sm text-zinc-900">3. Cobro por Transferencia y QR (Sin Comisiones)</h4>
+      <p class="text-xs text-zinc-500">Configurá tu Alias de Mercado Pago o Banco para mostrar el QR en el mostrador y en los avisos de WhatsApp:</p>
 
       <div>
         <label class="block text-xs font-semibold text-zinc-700 mb-1">Alias de Mercado Pago / Banco</label>
-        <input type="text" x-model="wizardDatos.alias" placeholder="Ej. mipyme.mp ó juan.perez.banco"
-               class="w-full px-3 py-2 rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900 text-sm">
+        <input type="text" x-model="wizardDatos.alias" placeholder="Ej. mipyme.mp ó bebidas.centro.mp"
+               class="w-full px-3 py-2.5 rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900 text-sm font-mono">
       </div>
       <div>
-        <label class="block text-xs font-semibold text-zinc-700 mb-1">CBU / CVU (22 dígitos)</label>
-        <input type="text" x-model="wizardDatos.cbu" placeholder="Opcional: 00000031000..."
-               class="w-full px-3 py-2 rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900 text-sm">
+        <label class="block text-xs font-semibold text-zinc-700 mb-1">CBU / CVU (22 dígitos - Opcional)</label>
+        <input type="text" x-model="wizardDatos.cbu" placeholder="00000031000..."
+               class="w-full px-3 py-2.5 rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900 text-sm font-mono">
       </div>
       <div class="p-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-600 space-y-1">
-        <p class="font-semibold text-zinc-800">Formato financiero argentino:</p>
-        <p>• Moneda: ARS ($) con separador de miles en punto (.) y coma decimal (,).</p>
-        <p>• Los comprobantes de cobro y deudas se envían a WhatsApp en 1 toque sin comisiones intermediarias.</p>
+        <p class="font-semibold text-zinc-800">Formato argentino configurado:</p>
+        <p>• Moneda en Pesos Argentinos (ARS $) y hora local GTM-3 (24hs).</p>
+        <p>• Podés modificar estos datos o subir la imagen de tu QR cuando quieras desde Configuración.</p>
       </div>
     </div>
 
-    <!-- PASO 4: Clave Maestra (PIN) -->
+    <!-- =============================================================== -->
+    <!-- PASO 4: PIN DEL DUEÑO + EQUIPO DE CAJEROS / EMPLEADOS           -->
+    <!-- =============================================================== -->
     <div x-show="wizardPaso === 4" class="space-y-4">
-      <h4 class="font-semibold text-sm text-zinc-900">4. Seguridad y PIN Maestro</h4>
-      <p class="text-xs text-zinc-500">Definí tu PIN privado de 4 dígitos para ingresar como Dueño / Administrador:</p>
+      <div>
+        <h4 class="font-bold text-sm text-zinc-900">4. Clave de Dueño y Empleados / Cajeros</h4>
+        <p class="text-xs text-zinc-500 mt-0.5">
+          Al guardar, el sistema se reiniciará en la pantalla de Login para que cada uno entre con su propio usuario y clave.
+        </p>
+      </div>
 
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="block text-xs font-semibold text-zinc-700 mb-1">Nuevo PIN Dueño *</label>
-          <input type="password" x-model="wizardDatos.pin_dueno" inputmode="numeric" maxlength="4" placeholder="4 dígitos"
-                 class="w-full px-3 py-2 text-center tracking-widest font-bold text-lg rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900">
-        </div>
-        <div>
-          <label class="block text-xs font-semibold text-zinc-700 mb-1">Confirmar PIN *</label>
-          <input type="password" x-model="wizardDatos.pin_dueno_conf" inputmode="numeric" maxlength="4" placeholder="4 dígitos"
-                 class="w-full px-3 py-2 text-center tracking-widest font-bold text-lg rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900">
+      <!-- PIN del Dueño -->
+      <div class="p-3.5 rounded-xl bg-zinc-50 border border-zinc-200 space-y-2.5">
+        <label class="block text-xs font-bold text-zinc-900 uppercase tracking-wide">🔑 Usuario: Dueño (Acceso Total)</label>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-semibold text-zinc-600 mb-1">PIN del Dueño (4 números) *</label>
+            <input type="password" x-model="wizardDatos.pin_dueno" inputmode="numeric" maxlength="4" placeholder="Ej: 1234"
+                   class="w-full px-3 py-2 text-center tracking-widest font-bold text-base rounded-xl border border-zinc-300 bg-white focus:outline-none focus:border-zinc-900">
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-zinc-600 mb-1">Repetir PIN Dueño *</label>
+            <input type="password" x-model="wizardDatos.pin_dueno_conf" inputmode="numeric" maxlength="4" placeholder="Ej: 1234"
+                   class="w-full px-3 py-2 text-center tracking-widest font-bold text-base rounded-xl border border-zinc-300 bg-white focus:outline-none focus:border-zinc-900">
+          </div>
         </div>
       </div>
 
-      <div class="pt-2 border-t border-zinc-100">
-        <label class="block text-xs font-semibold text-zinc-700 mb-1">PIN para Empleados / Cajeros</label>
-        <input type="password" x-model="wizardDatos.pin_cajero" inputmode="numeric" maxlength="4" placeholder="Por defecto: 0000"
-               class="w-full sm:w-1/2 px-3 py-2 text-center tracking-widest font-semibold rounded-xl border border-zinc-300 focus:outline-none focus:border-zinc-900 text-sm">
-        <span class="text-[11px] text-zinc-400 block mt-1">Los empleados solo pueden cobrar y consultar stock (sin anular ventas ni ver ganancias).</span>
+      <!-- Lista dinámica de Cajeros -->
+      <div class="space-y-2.5 pt-1">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <label class="block text-xs font-bold text-zinc-900 uppercase tracking-wide">👥 Empleados / Cajeros (Con su propio PIN)</label>
+            <span class="text-[11px] text-zinc-500">Cada empleado entra con su clave para cobrar y usar la caja.</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button type="button" @click="cargarTresCajerosWizard()"
+                    class="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 text-[11px] font-semibold cursor-pointer">
+              + Cargar Cajero 1, 2 y 3
+            </button>
+            <button type="button" @click="agregarFilaCajeroWizard()"
+                    class="px-2.5 py-1 rounded-lg bg-zinc-900 hover:bg-zinc-800 text-white text-[11px] font-semibold cursor-pointer">
+              + Agregar Cajero
+            </button>
+          </div>
+        </div>
+
+        <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
+          <template x-for="(caj, idx) in wizardDatos.cajeros" :key="idx">
+            <div class="flex items-center gap-2 bg-zinc-50 p-2 rounded-xl border border-zinc-200">
+              <div class="flex-1">
+                <input type="text" x-model="caj.nombre" maxlength="50"
+                       :placeholder="'Nombre (ej. Cajero ' + (idx + 1) + ' o Franco)'"
+                       class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-xs font-semibold text-zinc-900 focus:outline-none focus:border-zinc-900">
+              </div>
+              <div class="w-28 shrink-0">
+                <input type="text" x-model="caj.pin" inputmode="numeric" maxlength="4"
+                       placeholder="PIN 4 núm."
+                       class="w-full px-2.5 py-1.5 rounded-lg border border-zinc-300 bg-white text-xs font-mono font-bold text-center tracking-widest text-zinc-900 focus:outline-none focus:border-zinc-900">
+              </div>
+              <button type="button" @click="quitarFilaCajeroWizard(idx)"
+                      x-show="wizardDatos.cajeros.length > 1"
+                      class="w-7 h-7 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold flex items-center justify-center shrink-0"
+                      title="Quitar cajero">
+                ✕
+              </button>
+            </div>
+          </template>
+        </div>
       </div>
     </div>
 
     <!-- Botones de Navegación del Wizard -->
     <div class="flex items-center justify-between pt-3 border-t border-zinc-100">
       <button type="button" @click="wizardAtras()" x-show="wizardPaso > 1"
-              class="px-4 py-2 rounded-xl border border-zinc-300 hover:bg-zinc-50 text-xs font-semibold text-zinc-700 transition-colors">
+              class="px-4 py-2 rounded-xl border border-zinc-300 hover:bg-zinc-50 text-xs font-semibold text-zinc-700 transition-colors cursor-pointer">
         Atrás
       </button>
       <div x-show="wizardPaso === 1"></div>
 
       <button type="button" @click="wizardSiguiente()" :disabled="guardandoWizard"
-              class="px-5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 disabled:opacity-50">
-        <span x-text="wizardPaso === 4 ? (guardandoWizard ? 'Guardando...' : 'Comenzar a Trabajar') : 'Siguiente'"></span>
+              class="px-5 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 disabled:opacity-50 cursor-pointer">
+        <span x-text="wizardPaso === 4 ? (guardandoWizard ? 'Guardando y reiniciando...' : 'Guardar y Ir al Login') : 'Siguiente'"></span>
         <i data-lucide="chevron-right" class="w-3.5 h-3.5" x-show="wizardPaso < 4"></i>
       </button>
     </div>

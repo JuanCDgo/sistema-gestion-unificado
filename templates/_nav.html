@@ -541,17 +541,23 @@
       wizardPaso: 1,
       wizardError: '',
       guardandoWizard: false,
+      archivoModoA: null,
+      importandoModoA: false,
       wizardDatos: {
         nombre_comercio: '',
         rubro: 'comercio_general',
-        modo_operacion: 'autonomo_offline',
+        modo_operacion: 'servidor_central',
         alias: '',
         cbu: '',
         telefono: '',
         logo_imagen: '',
-        pin_dueno: '',
-        pin_dueno_conf: '',
-        pin_cajero: '0000',
+        pin_dueno: '1234',
+        pin_dueno_conf: '1234',
+        cajeros: [
+          { nombre: 'Cajero 1', pin: '1111' },
+          { nombre: 'Cajero 2', pin: '2222' },
+          { nombre: 'Cajero 3', pin: '3333' },
+        ],
       },
 
       abrirMenuMas() {
@@ -572,7 +578,6 @@
         }
         this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
       },
-
 
       comprimirLogoWizard(event) {
         const file = event.target.files && event.target.files[0];
@@ -599,6 +604,58 @@
         reader.readAsDataURL(file);
       },
 
+      agregarFilaCajeroWizard() {
+        const n = (this.wizardDatos.cajeros ? this.wizardDatos.cajeros.length : 0) + 1;
+        this.wizardDatos.cajeros.push({ nombre: `Cajero ${n}`, pin: `${n}${n}${n}${n}`.slice(0, 4) });
+      },
+
+      cargarTresCajerosWizard() {
+        this.wizardDatos.cajeros = [
+          { nombre: 'Cajero 1', pin: '1111' },
+          { nombre: 'Cajero 2', pin: '2222' },
+          { nombre: 'Cajero 3', pin: '3333' },
+        ];
+      },
+
+      quitarFilaCajeroWizard(idx) {
+        if (this.wizardDatos.cajeros.length > 1) {
+          this.wizardDatos.cajeros.splice(idx, 1);
+        }
+      },
+
+      seleccionarArchivoModoAWizard(event) {
+        const f = event.target.files && event.target.files[0];
+        this.archivoModoA = f || null;
+        this.wizardError = '';
+      },
+
+      async importarDesdeModoAWizard() {
+        if (!this.archivoModoA) return;
+        this.importandoModoA = true;
+        this.wizardError = '';
+        try {
+          const fd = new FormData();
+          fd.append('archivo', this.archivoModoA);
+          const resp = await fetch('/api/setup-wizard/importar-modo-a', {
+            method: 'POST',
+            body: fd,
+          });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok) {
+            throw new Error(data.detail || 'No se pudo importar el archivo de respaldo del celular.');
+          }
+          localStorage.setItem('POS_WIZARD_COMPLETADO', '1');
+          localStorage.setItem('POS_MODO_OPERACION', 'servidor_central');
+          try { await fetch('/api/logout', { method: 'POST' }); } catch (_) {}
+          this.mostrarWizard = false;
+          window.location.href = '/login?migrado_ok=1';
+        } catch (e) {
+          this.wizardError = e.message || 'Error al importar respaldo del Modo A.';
+        } finally {
+          this.importandoModoA = false;
+        }
+      },
+
       wizardAtras() {
         if (this.wizardPaso > 1) this.wizardPaso--;
         this.wizardError = '';
@@ -608,25 +665,37 @@
       async wizardSiguiente() {
         this.wizardError = '';
         if (this.wizardPaso === 1) {
+          this.wizardPaso = 2;
+        } else if (this.wizardPaso === 2) {
           if (!this.wizardDatos.nombre_comercio.trim()) {
             this.wizardError = 'Por favor ingresá el nombre de tu comercio.';
             return;
           }
-          this.wizardPaso = 2;
-        } else if (this.wizardPaso === 2) {
           this.wizardPaso = 3;
         } else if (this.wizardPaso === 3) {
           this.wizardPaso = 4;
         } else if (this.wizardPaso === 4) {
-          const pin = this.wizardDatos.pin_dueno.trim();
-          const conf = this.wizardDatos.pin_dueno_conf.trim();
-          if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+          const pin = String(this.wizardDatos.pin_dueno || '').trim();
+          const conf = String(this.wizardDatos.pin_dueno_conf || '').trim();
+          if (!/^\d{4}$/.test(pin)) {
             this.wizardError = 'El PIN del Dueño debe tener exactamente 4 números.';
             return;
           }
           if (pin !== conf) {
             this.wizardError = 'Los PINs ingresados no coinciden.';
             return;
+          }
+          for (const c of (this.wizardDatos.cajeros || [])) {
+            const nomC = String(c.nombre || '').trim();
+            const pinC = String(c.pin || '').trim();
+            if (!nomC) {
+              this.wizardError = 'Todos los cajeros de la lista deben tener un nombre.';
+              return;
+            }
+            if (!/^\d{4}$/.test(pinC)) {
+              this.wizardError = `El PIN de "${nomC}" debe tener exactamente 4 números.`;
+              return;
+            }
           }
           await this.guardarWizardCompleto();
         }
@@ -648,8 +717,9 @@
           }
           localStorage.setItem('POS_WIZARD_COMPLETADO', '1');
           localStorage.setItem('POS_MODO_OPERACION', this.wizardDatos.modo_operacion);
+          try { await fetch('/api/logout', { method: 'POST' }); } catch (_) {}
           this.mostrarWizard = false;
-          window.location.reload();
+          window.location.href = '/login?setup_ok=1';
         } catch (e) {
           this.wizardError = e.message || 'Error guardando configuración inicial';
         } finally {

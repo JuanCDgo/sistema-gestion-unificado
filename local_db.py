@@ -333,19 +333,20 @@ def _crear_esquema(conn: sqlite3.Connection) -> None:
     if not cur.fetchone():
         cur.execute("INSERT INTO comercios (id, nombre_negocio, created_at) VALUES (1, 'Mi Comercio', ?);", (_ahora_iso(),))
 
-    # Asegurar usuarios iniciales Dueño (1234) y Cajero (0000)
-    cur.execute("SELECT id FROM usuarios WHERE comercio_id = 1 AND nombre = 'Dueño';")
+    # Asegurar usuarios iniciales: Dueño (1234) y Cajero 1, Cajero 2, Cajero 3 si aún no hay cajeros
+    cur.execute("SELECT id FROM usuarios WHERE comercio_id = 1 AND rol = 'admin';")
     if not cur.fetchone():
         cur.execute(
             "INSERT INTO usuarios (comercio_id, nombre, pin_hash, rol, created_at) VALUES (1, 'Dueño', ?, 'admin', ?);",
             (hash_pin("1234"), _ahora_iso()),
         )
-    cur.execute("SELECT id FROM usuarios WHERE comercio_id = 1 AND nombre = 'Cajero';")
+    cur.execute("SELECT id FROM usuarios WHERE comercio_id = 1 AND rol = 'cajero';")
     if not cur.fetchone():
-        cur.execute(
-            "INSERT INTO usuarios (comercio_id, nombre, pin_hash, rol, created_at) VALUES (1, 'Cajero', ?, 'cajero', ?);",
-            (hash_pin("0000"), _ahora_iso()),
-        )
+        for nom_caj, pin_caj in [("Cajero 1", "1111"), ("Cajero 2", "2222"), ("Cajero 3", "3333")]:
+            cur.execute(
+                "INSERT INTO usuarios (comercio_id, nombre, pin_hash, rol, created_at) VALUES (1, ?, ?, 'cajero', ?);",
+                (nom_caj, hash_pin(pin_caj), _ahora_iso()),
+            )
 
     # Asegurar configuración de negocio por defecto
     cur.execute("SELECT comercio_id FROM configuracion_negocio WHERE comercio_id = 1;")

@@ -523,13 +523,16 @@ def estado_barra(request: Request):
         }
     except Exception:
         pass
+    cfg_actual = cargar_config()
     return {
         "usuario": info.get("usuario", ""),
         "rol": info.get("rol", ""),
         "debe_cambiar_pin": bool(info.get("debe_cambiar_pin")),
         "stock_critico_count": criticos,
-        "modo_bloqueo": cargar_config().get("modo_bloqueo", "nunca"),
-        "tiempo_inactividad_min": cargar_config().get("tiempo_inactividad_min", 15),
+        "modo_bloqueo": cfg_actual.get("modo_bloqueo", "nunca"),
+        "tiempo_inactividad_min": cfg_actual.get("tiempo_inactividad_min", 15),
+        "wizard_completado": int(cfg_actual.get("wizard_completado") or 0),
+        "modo_operacion": cfg_actual.get("modo_operacion", "autonomo_offline"),
         "backup": backup_info,
     }
 
@@ -2835,19 +2838,47 @@ def exportar_backup_json():
         movimientos_cuenta = db.table("movimientos_cuenta").select("*").eq("comercio_id", COMERCIO_ID).order("id").execute().data or []
     except Exception:
         movimientos_cuenta = []
+    try:
+        promos_raw = db.table("promos").select("*").eq("comercio_id", COMERCIO_ID).order("id").execute().data or []
+        promos = []
+        for pr in promos_raw:
+            item_pr = dict(pr)
+            try:
+                item_pr["fijos"] = json.loads(pr.get("fijos_json") or "[]")
+            except Exception:
+                item_pr["fijos"] = []
+            try:
+                item_pr["elecciones"] = json.loads(pr.get("elecciones_json") or "[]")
+            except Exception:
+                item_pr["elecciones"] = []
+            promos.append(item_pr)
+    except Exception:
+        promos = []
+    try:
+        cierres_caja = db.table("cierres_caja").select("*").eq("comercio_id", COMERCIO_ID).order("id").execute().data or []
+    except Exception:
+        cierres_caja = []
+    try:
+        usuarios = db.table("usuarios").select("*").eq("comercio_id", COMERCIO_ID).order("id").execute().data or []
+    except Exception:
+        usuarios = []
 
     snapshot = {
         "version": "1.0",
         "timestamp": _ahora_local().isoformat(),
         "comercio_id": COMERCIO_ID,
+        "config": config_publica(),
+        "usuarios": usuarios,
         "tablas": {
             "categorias": categorias,
             "clientes": clientes,
             "productos": productos,
+            "promos": promos,
             "ventas": ventas,
             "detalle_ventas": detalle_ventas,
             "movimientos_caja": movimientos_caja,
             "movimientos_cuenta": movimientos_cuenta,
+            "cierres_caja": cierres_caja,
         },
     }
     contenido = json.dumps(snapshot, indent=2, default=str, ensure_ascii=False).encode("utf-8")
@@ -2887,6 +2918,11 @@ def restaurar_backup_json(
         raise HTTPException(400, "No se encontraron datos de tablas en el archivo de respaldo")
 
     db = get_db()
+    if hasattr(db, 'pool'):
+        from backup_drive import importar_snapshot_json_en_sqlite
+        res_imp = importar_snapshot_json_en_sqlite(APP_DIR, backup_data, forzar_modo_b=False)
+        SESIONES_INFO.clear()
+        return {'ok': True, 'resumen': res_imp.get('resumen', {}), 'mensaje': 'Restauración completada con éxito.'}
     orden_tablas = [
         "categorias",
         "clientes",
@@ -3168,6 +3204,7 @@ def restaurar_carpeta_datos_zip_api(
         raise HTTPException(400, "El archivo ZIP está vacío.")
     try:
         resultado = restaurar_datos_desde_zip(APP_DIR, raw)
+        SESIONES_INFO.clear()
     except ValueError as ve:
         raise HTTPException(400, str(ve))
     except Exception as exc:
@@ -3207,6 +3244,11 @@ def red_qr_svg():
     raise HTTPException(404, "No se pudo generar el codigo QR")
 
 
+class SetupWizardCajeroIn(BaseModel):
+    nombre: str
+    pin: str = "0000"
+
+
 class SetupWizardIn(BaseModel):
     nombre_comercio: str
     rubro: Optional[str] = "comercio_general"
@@ -3217,11 +3259,23 @@ class SetupWizardIn(BaseModel):
     logo_imagen: Optional[str] = ""
     pin_dueno: Optional[str] = "1234"
     pin_cajero: Optional[str] = "0000"
+    cajeros: Optional[List[SetupWizardCajeroIn]] = None
+
+
+@app.get("/api/setup-wizard/estado")
+def estado_setup_wizard():
+    """Devuelve si el asistente inicial ya fue completado (accesible en /login)."""
+    cfg = cargar_config()
+    return {
+        "wizard_completado": int(cfg.get("wizard_completado") or 0),
+        "modo_operacion": cfg.get("modo_operacion") or "autonomo_offline",
+        "config": config_publica(),
+    }
 
 
 @app.post("/api/setup-wizard/completar")
-def completar_setup_wizard(datos: SetupWizardIn):
-    """Guarda la configuracion inicial del asistente de primer arranque."""
+def completar_setup_wizard(datos: SetupWizardIn, response: Response):
+    """Guarda la configuracion inicial del asistente, crea los cajeros y cierra sesion para exigir login."""
     cfg = cargar_config()
     cfg["nombre_comercio"] = datos.nombre_comercio.strip() or "Mi Comercio"
     cfg["rubro"] = (datos.rubro or "comercio_general").strip()
@@ -3234,27 +3288,124 @@ def completar_setup_wizard(datos: SetupWizardIn):
     cfg["wizard_completado"] = 1
     guardar_config(cfg)
 
-    # Actualizar PIN del Dueño
     db = get_db()
     from local_db import hash_pin
+
+    # 1. Actualizar PIN del Dueño
     if datos.pin_dueno and len(datos.pin_dueno.strip()) == 4 and datos.pin_dueno.strip().isdigit():
         try:
             db.table("usuarios").update({
-                "pin_hash": hash_pin(datos.pin_dueno.strip())
-            }).eq("nombre", "Dueño").eq("comercio_id", COMERCIO_ID).execute()
+                "pin_hash": hash_pin(datos.pin_dueno.strip()),
+                "intentos_fallidos": 0,
+                "bloqueado_hasta": None,
+            }).eq("rol", "admin").eq("comercio_id", COMERCIO_ID).execute()
         except Exception as e:
             log.warning("No se pudo actualizar PIN de Dueño: %s", e)
 
-    # Actualizar PIN del Cajero
-    if datos.pin_cajero and len(datos.pin_cajero.strip()) == 4 and datos.pin_cajero.strip().isdigit():
+    # 2. Configurar lista de Cajeros / Empleados
+    if datos.cajeros and len(datos.cajeros) > 0:
+        try:
+            # Desactivar cajeros previos para dejar activos exactamente los que definió el dueño en el Wizard
+            db.table("usuarios").update({"activo": 0}).eq("rol", "cajero").eq("comercio_id", COMERCIO_ID).execute()
+            existentes = (
+                db.table("usuarios")
+                .select("*")
+                .eq("comercio_id", COMERCIO_ID)
+                .execute()
+                .data
+                or []
+            )
+            mapa_existentes = {str(u.get("nombre") or "").strip().lower(): u for u in existentes}
+            for c_in in datos.cajeros:
+                nom_c = (c_in.nombre or "").strip()
+                pin_c = (c_in.pin or "0000").strip()
+                if not nom_c or nom_c.lower() == "dueño":
+                    continue
+                if len(pin_c) != 4 or not pin_c.isdigit():
+                    pin_c = "0000"
+                ex = mapa_existentes.get(nom_c.lower())
+                if ex:
+                    db.table("usuarios").update({
+                        "nombre": nom_c,
+                        "pin_hash": hash_pin(pin_c),
+                        "rol": "cajero",
+                        "activo": 1,
+                        "intentos_fallidos": 0,
+                        "bloqueado_hasta": None,
+                    }).eq("id", ex["id"]).eq("comercio_id", COMERCIO_ID).execute()
+                else:
+                    db.table("usuarios").insert({
+                        "comercio_id": COMERCIO_ID,
+                        "nombre": nom_c,
+                        "pin_hash": hash_pin(pin_c),
+                        "rol": "cajero",
+                        "activo": 1,
+                    }).execute()
+        except Exception as e:
+            log.warning("Error configurando cajeros en Wizard: %s", e)
+    elif datos.pin_cajero and len(datos.pin_cajero.strip()) == 4 and datos.pin_cajero.strip().isdigit():
         try:
             db.table("usuarios").update({
-                "pin_hash": hash_pin(datos.pin_cajero.strip())
+                "pin_hash": hash_pin(datos.pin_cajero.strip()),
+                "activo": 1,
             }).eq("nombre", "Cajero").eq("comercio_id", COMERCIO_ID).execute()
         except Exception as e:
             log.warning("No se pudo actualizar PIN de Cajero: %s", e)
 
-    return {"ok": True, "mensaje": "Asistente completado exitosamente", "config": config_publica()}
+    # 3. Cerrar cualquier sesión activa para obligar a que el Cajero o Dueño de turno se loguee
+    SESIONES_INFO.clear()
+    response.delete_cookie(COOKIE_SESION)
+
+    return {
+        "ok": True,
+        "mensaje": "Asistente completado exitosamente",
+        "redirect": "/login",
+        "config": config_publica(),
+    }
+
+
+@app.post("/api/setup-wizard/importar-modo-a")
+def importar_modo_a_en_modo_b(
+    request: Request,
+    response: Response,
+    archivo: UploadFile = File(...),
+):
+    """
+    Permite pasar del Modo A (Celular Autónomo) al Modo B (Servidor Central PC)
+    importando el archivo .json o .zip del celular directamente en el Setup Wizard
+    o al iniciar la PC nueva, dejando el 100% de los datos idénticos.
+    """
+    from backup_drive import restaurar_datos_desde_zip
+    cfg_actual = cargar_config()
+    # Permitir sin PIN si el wizard aún no fue completado, o si tiene sesión de admin activa
+    es_admin_logueado = _sesion_valida(request) and _info_sesion(request).get("rol") == "admin"
+    if int(cfg_actual.get("wizard_completado") or 0) != 0 and not es_admin_logueado:
+        raise HTTPException(
+            403,
+            "El sistema ya fue inicializado. Ingresá como Dueño y restaurá desde Configuración -> Copias de Seguridad.",
+        )
+
+    raw = archivo.file.read(50 * 1024 * 1024)
+    if not raw:
+        raise HTTPException(400, "El archivo seleccionado está vacío.")
+    try:
+        resultado = restaurar_datos_desde_zip(APP_DIR, raw, forzar_modo_b=True)
+    except ValueError as ve:
+        raise HTTPException(400, str(ve))
+    except Exception as exc:
+        raise HTTPException(500, f"Error al migrar datos desde Modo A: {exc}")
+
+    # Limpiar sesiones para que el login cargue el negocio y todos los cajeros importados
+    SESIONES_INFO.clear()
+    response.delete_cookie(COOKIE_SESION)
+
+    return {
+        "ok": True,
+        "mensaje": "Migración de Modo A a Modo B completada con éxito.",
+        "redirect": "/login",
+        "config": config_publica(),
+        **resultado,
+    }
 
 
 

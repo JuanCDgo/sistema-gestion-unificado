@@ -137,7 +137,9 @@
       config: { ...CONFIG_DEFAULT },
       usuarios: [
         { id: 1, comercio_id: 1, nombre: 'Dueño', pin: '1234', rol: 'admin', activo: true },
-        { id: 2, comercio_id: 1, nombre: 'Cajero', pin: '0000', rol: 'cajero', activo: true },
+        { id: 2, comercio_id: 1, nombre: 'Cajero 1', pin: '1111', rol: 'cajero', activo: true },
+        { id: 3, comercio_id: 1, nombre: 'Cajero 2', pin: '2222', rol: 'cajero', activo: true },
+        { id: 4, comercio_id: 1, nombre: 'Cajero 3', pin: '3333', rol: 'cajero', activo: true },
       ],
       categorias: [],
       productos: [],
@@ -663,6 +665,7 @@
         categorias: db.categorias,
         clientes: db.clientes,
         productos: db.productos,
+        promos: db.promos || [],
         ventas: db.ventas,
         detalle_ventas: db.detalle_ventas,
         movimientos_caja: db.movimientos_caja,
@@ -1460,6 +1463,8 @@
         stock_critico_count: criticos,
         modo_bloqueo: cfg.modo_bloqueo || 'nunca',
         tiempo_inactividad_min: cfg.tiempo_inactividad_min || 15,
+        wizard_completado: Number(cfg.wizard_completado || 0),
+        modo_operacion: cfg.modo_operacion || 'autonomo_offline',
         backup: {
           cambios_pendientes: Boolean(db.estado_backup && db.estado_backup.cambios_pendientes),
           ultimo_backup_local: (db.estado_backup && db.estado_backup.ultimo_backup_local) || '',
@@ -2503,37 +2508,84 @@
     }
 
     
+    if (path === '/api/setup-wizard/estado' && method === 'GET') {
+      return respuestaJSON({
+        wizard_completado: Number((db.config && db.config.wizard_completado) || 0),
+        modo_operacion: (db.config && db.config.modo_operacion) || 'autonomo_offline',
+        config: obtenerConfigComercio(db.config),
+      });
+    }
+
     if (path === '/api/setup-wizard/completar' && method === 'POST') {
-      const body = init && init.body ? (typeof init.body === 'string' ? JSON.parse(init.body) : init.body) : {};
-      const db = obtenerDB();
+      const body = await leerBodyJSON(init);
       db.config = db.config || {};
-      db.config.nombre_comercio = (body.nombre_comercio || 'Mi Comercio').trim();
-      db.config.rubro = (body.rubro || 'comercio_general').trim();
+      db.config.nombre_comercio = String(body.nombre_comercio || 'Mi Comercio').trim() || 'Mi Comercio';
+      db.config.rubro = String(body.rubro || 'comercio_general').trim();
       db.config.modo_operacion = body.modo_operacion || 'autonomo_offline';
-      db.config.alias = (body.alias || '').trim();
-      db.config.cbu = (body.cbu || '').trim();
-      db.config.telefono = (body.telefono || '').trim();
+      db.config.alias = String(body.alias || '').trim();
+      db.config.cbu = String(body.cbu || '').trim();
+      db.config.telefono = String(body.telefono || '').trim();
       if (body.logo_imagen) db.config.logo_imagen = body.logo_imagen;
       db.config.wizard_completado = 1;
 
-      if (body.pin_dueno && String(body.pin_dueno).trim().length === 4) {
-        const usrDueno = (db.usuarios || []).find((u) => u.nombre === 'Dueño');
+      db.usuarios = db.usuarios || [];
+      if (body.pin_dueno && /^\d{4}$/.test(String(body.pin_dueno).trim())) {
+        const usrDueno = db.usuarios.find((u) => u.rol === 'admin' || u.nombre === 'Dueño');
         if (usrDueno) {
           usrDueno.pin = String(body.pin_dueno).trim();
-          usrDueno.pin_hash = sha256Sync(usrDueno.pin);
-          usrDueno.debe_cambiar_pin = false;
+          usrDueno.intentos_fallidos = 0;
+          usrDueno.bloqueado_hasta = 0;
         }
       }
-      if (body.pin_cajero && String(body.pin_cajero).trim().length === 4) {
-        const usrCajero = (db.usuarios || []).find((u) => u.nombre === 'Cajero');
+
+      if (Array.isArray(body.cajeros) && body.cajeros.length > 0) {
+        db.usuarios.forEach((u) => {
+          if (u.rol !== 'admin') u.activo = false;
+        });
+        let maxId = db.usuarios.reduce((m, u) => Math.max(m, Number(u.id || 0)), 0);
+        for (const cIn of body.cajeros) {
+          const nomC = String((cIn && cIn.nombre) || '').trim();
+          let pinC = String((cIn && cIn.pin) || '0000').trim();
+          if (!nomC || nomC.toLowerCase() === 'dueño') continue;
+          if (!/^\d{4}$/.test(pinC)) pinC = '0000';
+          const ex = db.usuarios.find((u) => String(u.nombre || '').toLowerCase() === nomC.toLowerCase());
+          if (ex) {
+            ex.nombre = nomC;
+            ex.pin = pinC;
+            ex.rol = 'cajero';
+            ex.activo = true;
+            ex.intentos_fallidos = 0;
+            ex.bloqueado_hasta = 0;
+          } else {
+            maxId += 1;
+            db.usuarios.push({
+              id: maxId,
+              comercio_id: 1,
+              nombre: nomC,
+              pin: pinC,
+              rol: 'cajero',
+              activo: true,
+              created_at: ahoraISO(),
+            });
+          }
+        }
+      } else if (body.pin_cajero && /^\d{4}$/.test(String(body.pin_cajero).trim())) {
+        const usrCajero = db.usuarios.find((u) => u.nombre === 'Cajero');
         if (usrCajero) {
           usrCajero.pin = String(body.pin_cajero).trim();
-          usrCajero.pin_hash = sha256Sync(usrCajero.pin);
-          usrCajero.debe_cambiar_pin = false;
+          usrCajero.activo = true;
         }
       }
+
+      guardarSesion(null);
       guardarDB(db, true, 'Asistente de configuración inicial completado');
-      return respuestaJSON({ ok: true, mensaje: 'Asistente completado exitosamente', config: sanitizarConfigPublica(db.config) });
+      sincronizarIdentidadComercio(db.config);
+      return respuestaJSON({
+        ok: true,
+        mensaje: 'Asistente completado exitosamente',
+        redirect: '/login',
+        config: obtenerConfigComercio(db.config),
+      });
     }
 
     if (path === '/api/red/info' && method === 'GET') {
@@ -2709,30 +2761,46 @@
       return respuestaJSON(res);
     }
 
-    if ((path === '/api/backup/restaurar' || path === '/api/backup-drive/restaurar-zip') && method === 'POST') {
+    if ((path === '/api/backup/restaurar' || path === '/api/backup-drive/restaurar-zip' || path === '/api/setup-wizard/importar-modo-a') && method === 'POST') {
       const fd = init.body;
       const archivo = fd && typeof fd.get === 'function' ? fd.get('archivo') : null;
-      const pin = String((fd && typeof fd.get === 'function' ? fd.get('pin') : '') || '').trim();
-      const admin = db.usuarios.find((u) => u.rol === 'admin') || db.usuarios[0];
-      if (!admin || admin.pin !== pin) {
-        return respuestaJSON({ detail: 'PIN incorrecto. No se modificó ningún dato.' }, 403);
+      if (path !== '/api/setup-wizard/importar-modo-a') {
+        const pin = String((fd && typeof fd.get === 'function' ? fd.get('pin') : '') || '').trim();
+        const admin = db.usuarios.find((u) => u.rol === 'admin') || db.usuarios[0];
+        if (!admin || admin.pin !== pin) {
+          return respuestaJSON({ detail: 'PIN incorrecto. No se modificó ningún dato.' }, 403);
+        }
       }
       if (!archivo) return respuestaJSON({ detail: 'Seleccioná el archivo de respaldo' }, 400);
       try {
         const txt = await archivo.text();
         const json = JSON.parse(txt);
         const t = json.tablas || json;
-        if (json.config) db.config = { ...CONFIG_DEFAULT, ...json.config };
+        if (json.config) db.config = { ...CONFIG_DEFAULT, ...json.config, wizard_completado: 1 };
+        if (Array.isArray(json.usuarios) && json.usuarios.length > 0) {
+          db.usuarios = json.usuarios.map((u, idx) => ({
+            id: Number(u.id || (idx + 1)),
+            comercio_id: 1,
+            nombre: u.nombre || `Usuario ${idx + 1}`,
+            pin: u.pin || (u.rol === 'admin' ? '1234' : '0000'),
+            rol: u.rol === 'admin' ? 'admin' : 'cajero',
+            activo: u.activo !== false && u.activo !== 0,
+            created_at: u.created_at || ahoraISO(),
+          }));
+        }
         if (Array.isArray(t.categorias)) db.categorias = t.categorias;
         if (Array.isArray(t.productos)) db.productos = t.productos;
+        if (Array.isArray(t.promos)) db.promos = t.promos;
         if (Array.isArray(t.clientes)) db.clientes = t.clientes;
         if (Array.isArray(t.ventas)) db.ventas = t.ventas;
         if (Array.isArray(t.detalle_ventas)) db.detalle_ventas = t.detalle_ventas;
         if (Array.isArray(t.movimientos_caja)) db.movimientos_caja = t.movimientos_caja;
         if (Array.isArray(t.movimientos_cuenta)) db.movimientos_cuenta = t.movimientos_cuenta;
+        if (Array.isArray(t.cierres_caja)) db.cierres_caja = t.cierres_caja;
+        guardarSesion(null);
         guardarDB(db, false);
         sincronizarIdentidadComercio(db.config);
-        return respuestaJSON({ ok: true, mensaje: 'Datos restaurados con éxito en el celular.' });
+        return respuestaJSON({ ok: true, redirect: '/login', mensaje: 'Datos restaurados con éxito.' });
       } catch (e) {
         return respuestaJSON({ detail: 'El archivo seleccionado no tiene un formato de respaldo válido.' }, 400);
       }

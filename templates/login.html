@@ -45,7 +45,7 @@
       color:var(--color-primario);
     }
   
-    /* ===== Efecto 1: Boton Tactil 3D (Skeuomorphism) - Inspirado en Ania Kubow ===== */
+    /* ===== Efecto 1: Boton Tactil 3D (Skeuomorphism) ===== */
     .btn-tactil-3d {
       position: relative;
       display: inline-flex;
@@ -95,62 +95,6 @@
       box-shadow: none !important;
       filter: grayscale(0.2);
     }
-
-    /* ===== Efecto 2: Borde Resplandeciente Giratorio (@property + conic-gradient) ===== */
-    @property --glow-angle {
-      syntax: '<angle>';
-      initial-value: 0deg;
-      inherits: false;
-    }
-
-    @keyframes girarGlow {
-      0% { --glow-angle: 0deg; }
-      100% { --glow-angle: 360deg; }
-    }
-
-    .glow-giratorio {
-      position: relative;
-      z-index: 1;
-    }
-
-    .glow-giratorio::before {
-      content: '';
-      position: absolute;
-      inset: -3px;
-      border-radius: inherit;
-      background: conic-gradient(
-        from var(--glow-angle),
-        transparent 0deg,
-        var(--color-primario) 60deg,
-        color-mix(in srgb, var(--color-primario) 50%, white 50%) 90deg,
-        var(--color-primario) 120deg,
-        transparent 180deg,
-        transparent 360deg
-      );
-      z-index: -1;
-      animation: girarGlow 3.5s linear infinite;
-    }
-
-    .glow-giratorio::after {
-      content: '';
-      position: absolute;
-      inset: -3px;
-      border-radius: inherit;
-      background: conic-gradient(
-        from var(--glow-angle),
-        transparent 0deg,
-        var(--color-primario) 60deg,
-        color-mix(in srgb, var(--color-primario) 50%, white 50%) 90deg,
-        var(--color-primario) 120deg,
-        transparent 180deg,
-        transparent 360deg
-      );
-      z-index: -2;
-      filter: blur(8px);
-      opacity: 0.55;
-      animation: girarGlow 3.5s linear infinite;
-    }
-
   </style>
   <script>
     tailwind.config = {
@@ -177,17 +121,23 @@
 </head>
 
 <body class="bg-fondo text-gray-900 antialiased min-h-screen flex items-center justify-center p-4"
-      x-data="login()" x-init="init(); window.lucide && lucide.createIcons()" x-cloak>
+      x-data="login({{ config | tojson }})" x-init="init(); window.lucide && lucide.createIcons()" x-cloak>
 
-  <main class="w-full max-w-sm bg-white border border-gray-200/80 rounded-2xl shadow-xl p-7 space-y-6">
+  <main class="w-full max-w-sm bg-white border border-gray-200/80 rounded-2xl shadow-xl p-7 space-y-5">
     <div class="flex flex-col items-center gap-3 text-center">
       <div data-brand-logo class="w-16 h-16 rounded-2xl bg-primario text-white flex items-center justify-center overflow-hidden shadow-suave">
         <i data-lucide="store" class="w-7 h-7"></i>
       </div>
       <div>
         <h1 data-brand-nombre class="text-xl font-bold text-gray-900 tracking-tight">{{ config.nombre_comercio }}</h1>
-        <p class="text-xs text-gray-500 mt-0.5">Ingresá tu PIN para continuar</p>
+        <p class="text-xs text-gray-500 mt-0.5">Seleccioná tu usuario e ingresá tu PIN</p>
       </div>
+    </div>
+
+    <!-- Aviso de confirmación tras guardar Wizard, migrar Modo A->B o actualizar cajeros -->
+    <div x-show="avisoExito" class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-medium text-emerald-800 flex items-start gap-2">
+      <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+      <span x-text="avisoExito"></span>
     </div>
 
     <form @submit.prevent="ingresar()" class="space-y-4">
@@ -197,7 +147,7 @@
             <option :value="u.id" x-text="u.nombre"></option>
           </template>
         </select>
-        <label for="loginUsuario">Usuario</label>
+        <label for="loginUsuario">Usuario / Cajero de Turno</label>
       </div>
 
       <div class="campo-flotante">
@@ -213,13 +163,128 @@
         <span x-text="cargando ? 'Ingresando…' : 'Ingresar al Sistema'"></span>
       </button>
     </form>
+
+    <!-- Acceso rápido en Login para ver el QR Wi-Fi (conectar celulares en Modo B) o reabrir el asistente si aún no se configuró -->
+    <div class="pt-3 border-t border-gray-100 flex items-center justify-between gap-2 text-xs">
+      <button type="button" @click="abrirModalRedQR()"
+              class="inline-flex items-center gap-1.5 text-blue-700 hover:text-blue-900 font-semibold cursor-pointer">
+        <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
+        <span>Conectar Celular (QR Wi-Fi)</span>
+      </button>
+      <button type="button" x-show="wizardDisponible" @click="mostrarWizard = true"
+              class="text-zinc-500 hover:text-zinc-900 font-medium underline cursor-pointer">
+        Asistente Inicial
+      </button>
+    </div>
   </main>
 
+  <!-- Modal Conectar Celular / QR en Red desde el Login -->
+  <div x-show="modalRedQR" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+       @keydown.escape.window="modalRedQR = false">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center space-y-4" @click.outside="modalRedQR = false">
+      <div class="flex items-center justify-between pb-2 border-b border-gray-100">
+        <h3 class="font-bold text-gray-900 text-base flex items-center gap-2">
+          <i data-lucide="smartphone" class="w-5 h-5 text-primario"></i>
+          Conectar Celular al Servidor (Modo B)
+        </h3>
+        <button type="button" @click="modalRedQR = false" class="text-gray-400 hover:text-gray-600 text-lg leading-none cursor-pointer">&times;</button>
+      </div>
+      <p class="text-xs text-gray-600">
+        Conectá los celulares al <strong>mismo Wi-Fi que esta PC</strong> y escaneá este código QR para operar en tiempo real:
+      </p>
+      <div class="p-3 bg-white border border-gray-200 rounded-xl shadow-inner flex items-center justify-center mx-auto">
+        <img src="/api/red/qr.svg" alt="Código QR Wi-Fi" class="w-48 h-48 object-contain">
+      </div>
+      <div class="bg-gray-50 rounded-xl p-3 border border-gray-200 text-center">
+        <span class="text-[10px] text-gray-400 block uppercase font-bold tracking-wider">Dirección en la red local:</span>
+        <code class="text-xs font-bold text-gray-900 select-all block mt-1" x-text="redUrl || 'Cargando...'"></code>
+      </div>
+      <button type="button" @click="modalRedQR = false"
+              class="w-full py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 font-semibold text-xs text-gray-700 transition-colors cursor-pointer">
+        Cerrar
+      </button>
+    </div>
+  </div>
+
+  <!-- Inclusión del Asistente de Primer Arranque (Setup Wizard) -->
+  {% include "_wizard.html" %}
+
   <script>
-    function login() {
+    function login(cfgServidor) {
+      const cfgInicial = (window.obtenerConfigComercio ? window.obtenerConfigComercio(cfgServidor) : cfgServidor) || {};
       return {
-        usuarios: [], usuarioId: '', pin: '', error: '', cargando: false,
+        usuarios: [],
+        usuarioId: '',
+        pin: '',
+        error: '',
+        avisoExito: '',
+        cargando: false,
+        modalRedQR: false,
+        redUrl: '',
+        wizardDisponible: false,
+        mostrarWizard: false,
+        wizardPaso: 1,
+        wizardError: '',
+        guardandoWizard: false,
+        archivoModoA: null,
+        importandoModoA: false,
+        wizardDatos: {
+          nombre_comercio: (cfgInicial.nombre_comercio && cfgInicial.nombre_comercio !== 'Mi Comercio') ? cfgInicial.nombre_comercio : '',
+          rubro: cfgInicial.rubro || 'comercio_general',
+          modo_operacion: cfgInicial.modo_operacion || 'servidor_central',
+          alias: cfgInicial.alias || '',
+          cbu: cfgInicial.cbu || '',
+          telefono: cfgInicial.telefono || '',
+          logo_imagen: cfgInicial.logo_imagen || '',
+          pin_dueno: '1234',
+          pin_dueno_conf: '1234',
+          cajeros: [
+            { nombre: 'Cajero 1', pin: '1111' },
+            { nombre: 'Cajero 2', pin: '2222' },
+            { nombre: 'Cajero 3', pin: '3333' },
+          ],
+        },
+
         async init() {
+          const params = new URLSearchParams(window.location.search);
+          if (params.get('setup_ok') === '1') {
+            this.avisoExito = '¡Sistema configurado! Seleccioná tu usuario (Dueño o Cajero) e ingresá tu PIN para abrir turno.';
+          } else if (params.get('migrado_ok') === '1') {
+            this.avisoExito = '¡Datos del Modo A importados a esta PC (Modo B)! Elegí tu usuario e ingresá tu PIN.';
+            this.abrirModalRedQR();
+          } else if (params.get('cajeros_ok') === '1') {
+            this.avisoExito = 'Equipo de cajeros guardado. Por seguridad se cerró la sesión de Dueño: ingresá con el usuario del turno.';
+          }
+
+          await this.cargarUsuariosLogin();
+
+          // Verificar si corresponde mostrar el Setup Wizard de primer arranque
+          try {
+            const rw = await fetch('/api/setup-wizard/estado');
+            if (rw.ok) {
+              const dw = await rw.json();
+              if (Number(dw.wizard_completado || 0) === 0) {
+                this.wizardDisponible = true;
+                this.mostrarWizard = true;
+              }
+            } else if (Number(cfgInicial.wizard_completado || 0) === 0) {
+              this.wizardDisponible = true;
+              this.mostrarWizard = true;
+            }
+          } catch (_) {
+            if (Number(cfgInicial.wizard_completado || 0) === 0) {
+              this.wizardDisponible = true;
+              this.mostrarWizard = true;
+            }
+          }
+
+          this.$nextTick(() => {
+            if (window.lucide) lucide.createIcons();
+            if (!this.mostrarWizard && this.$refs.inputPin) this.$refs.inputPin.focus();
+          });
+        },
+
+        async cargarUsuariosLogin() {
           try {
             const r = await fetch('/api/usuarios-login');
             if (r.ok) {
@@ -231,8 +296,169 @@
             }
           } catch (e) {}
           if (!this.usuarios.length) this.error = 'No se pudo cargar la lista de usuarios.';
-          this.$nextTick(() => this.$refs.inputPin && this.$refs.inputPin.focus());
         },
+
+        async abrirModalRedQR() {
+          this.modalRedQR = true;
+          if (!this.redUrl) {
+            try {
+              const r = await fetch('/api/red/info');
+              if (r.ok) {
+                const d = await r.json();
+                this.redUrl = d.url;
+              }
+            } catch (_) {}
+          }
+          this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+        },
+
+        comprimirLogoWizard(event) {
+          const file = event.target.files && event.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const maxLado = 160;
+              let w = img.width, h = img.height;
+              if (w > maxLado || h > maxLado) {
+                if (w > h) { h = Math.round((h * maxLado) / w); w = maxLado; }
+                else { w = Math.round((w * maxLado) / h); h = maxLado; }
+              }
+              canvas.width = w;
+              canvas.height = h;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, w, h);
+              this.wizardDatos.logo_imagen = canvas.toDataURL('image/png');
+            };
+            img.src = e.target.result;
+          };
+          reader.readAsDataURL(file);
+        },
+
+        agregarFilaCajeroWizard() {
+          const n = (this.wizardDatos.cajeros ? this.wizardDatos.cajeros.length : 0) + 1;
+          this.wizardDatos.cajeros.push({ nombre: `Cajero ${n}`, pin: `${n}${n}${n}${n}`.slice(0, 4) });
+        },
+
+        cargarTresCajerosWizard() {
+          this.wizardDatos.cajeros = [
+            { nombre: 'Cajero 1', pin: '1111' },
+            { nombre: 'Cajero 2', pin: '2222' },
+            { nombre: 'Cajero 3', pin: '3333' },
+          ];
+        },
+
+        quitarFilaCajeroWizard(idx) {
+          if (this.wizardDatos.cajeros.length > 1) {
+            this.wizardDatos.cajeros.splice(idx, 1);
+          }
+        },
+
+        seleccionarArchivoModoAWizard(event) {
+          const f = event.target.files && event.target.files[0];
+          this.archivoModoA = f || null;
+          this.wizardError = '';
+        },
+
+        async importarDesdeModoAWizard() {
+          if (!this.archivoModoA) return;
+          this.importandoModoA = true;
+          this.wizardError = '';
+          try {
+            const fd = new FormData();
+            fd.append('archivo', this.archivoModoA);
+            const resp = await fetch('/api/setup-wizard/importar-modo-a', {
+              method: 'POST',
+              body: fd,
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) {
+              throw new Error(data.detail || 'No se pudo importar el archivo de respaldo del celular.');
+            }
+            localStorage.setItem('POS_WIZARD_COMPLETADO', '1');
+            localStorage.setItem('POS_MODO_OPERACION', 'servidor_central');
+            this.mostrarWizard = false;
+            window.location.href = '/login?migrado_ok=1';
+          } catch (e) {
+            this.wizardError = e.message || 'Error al importar respaldo del Modo A.';
+          } finally {
+            this.importandoModoA = false;
+          }
+        },
+
+        wizardAtras() {
+          if (this.wizardPaso > 1) this.wizardPaso--;
+          this.wizardError = '';
+          this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+        },
+
+        async wizardSiguiente() {
+          this.wizardError = '';
+          if (this.wizardPaso === 1) {
+            this.wizardPaso = 2;
+          } else if (this.wizardPaso === 2) {
+            if (!this.wizardDatos.nombre_comercio.trim()) {
+              this.wizardError = 'Por favor ingresá el nombre de tu comercio.';
+              return;
+            }
+            this.wizardPaso = 3;
+          } else if (this.wizardPaso === 3) {
+            this.wizardPaso = 4;
+          } else if (this.wizardPaso === 4) {
+            const pin = String(this.wizardDatos.pin_dueno || '').trim();
+            const conf = String(this.wizardDatos.pin_dueno_conf || '').trim();
+            if (!/^\d{4}$/.test(pin)) {
+              this.wizardError = 'El PIN del Dueño debe tener exactamente 4 números.';
+              return;
+            }
+            if (pin !== conf) {
+              this.wizardError = 'Los PINs del Dueño no coinciden.';
+              return;
+            }
+            for (const c of (this.wizardDatos.cajeros || [])) {
+              const nomC = String(c.nombre || '').trim();
+              const pinC = String(c.pin || '').trim();
+              if (!nomC) {
+                this.wizardError = 'Todos los cajeros de la lista deben tener un nombre.';
+                return;
+              }
+              if (!/^\d{4}$/.test(pinC)) {
+                this.wizardError = `El PIN de "${nomC}" debe tener exactamente 4 números.`;
+                return;
+              }
+            }
+            await this.guardarWizardCompleto();
+          }
+          this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+        },
+
+        async guardarWizardCompleto() {
+          this.guardandoWizard = true;
+          this.wizardError = '';
+          try {
+            const resp = await fetch('/api/setup-wizard/completar', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.wizardDatos),
+            });
+            const data = await resp.json().catch(() => ({}));
+            if (!resp.ok) {
+              throw new Error(data.detail || 'Error al guardar la configuración inicial');
+            }
+            localStorage.setItem('POS_WIZARD_COMPLETADO', '1');
+            localStorage.setItem('POS_MODO_OPERACION', this.wizardDatos.modo_operacion);
+            try { await fetch('/api/logout', { method: 'POST' }); } catch (_) {}
+            this.mostrarWizard = false;
+            window.location.href = '/login?setup_ok=1';
+          } catch (e) {
+            this.wizardError = e.message || 'Error guardando configuración inicial';
+          } finally {
+            this.guardandoWizard = false;
+          }
+        },
+
         async ingresar() {
           this.cargando = true; this.error = '';
           try {

@@ -1,6 +1,6 @@
 # Manual de Usuario Final — Sistema de Gestión Unificado (Next-Gen)
 
-Bienvenido al **Sistema de Gestión Unificado**. Este sistema fue diseñado para resolver el control de ventas, stock, caja chica y fiados de tu comercio de forma rápida, moderna y sin costos de mantenimiento.
+Bienvenido al **Sistema de Gestión Unificado**. Este sistema fue diseñado para resolver el control de ventas, stock, promos, caja chica, empleados y fiados de tu comercio de forma rápida, moderna y sin costos de mantenimiento.
 
 ---
 
@@ -18,25 +18,37 @@ El sistema cuenta con **dos modos de uso** según tu negocio:
 
 ---
 
-## 2. Asistente de Primer Arranque (Setup Wizard)
+## 2. Asistente de Primer Arranque (Setup Wizard) y Gestión de Cajeros
 
-La primera vez que abras el sistema verás un asistente guiado de 4 pasos:
+La primera vez que abras `Iniciar_Servidor.bat` (o la app nueva), antes de entrar verás un **Asistente de Bienvenida de 4 pasos**:
 
-1. **Identidad del Negocio:**
-   - Nombre de tu comercio, rubro y teléfono de contacto.
-   - Podés subir el logo de tu negocio (el sistema lo comprime automáticamente para que no ocupe espacio).
-2. **Modo de Operación:**
-   - Seleccionás **Modo A (Celular)** o **Modo B (PC + Wi-Fi)**.
+1. **Modo de Operación (Modo A o Modo B) o Migración desde Celular:**
+   - Elegís si vas a trabajar en **Modo B (Servidor Central PC + Celulares Wi-Fi)** o **Modo A (Celular Autónomo)**.
+   - Si ya venías usando el **Modo A en tu celular** y compraste una PC, desde este mismo Paso 1 podés subir el archivo de respaldo de tu celular y pasar al **Modo B** dejando todo idéntico.
+2. **Identidad del Negocio:**
+   - Nombre de tu comercio, rubro, teléfono de WhatsApp y carga del **Logo** de tu negocio.
 3. **Cobro por Transferencia y QR:**
-   - Ingresás tu **Alias** de Mercado Pago o Banco (ej: `kiosco.central.mp`).
-   - El sistema genera el QR automáticamente para cobrar sin comisiones en el mostrador.
-4. **Seguridad y PIN:**
-   - Creás tu propio **PIN privado de 4 dígitos** para ingresar como Dueño.
-   - Opcionalmente podés dejar el PIN para empleados/cajeros (`0000`).
+   - Ingresás tu **Alias** de Mercado Pago o Banco y CBU/CVU para cobrar sin comisiones en el mostrador.
+4. **Clave de Dueño y Equipo de Cajeros / Empleados:**
+   - Definís tu **PIN de 4 números de Dueño** (acceso total).
+   - Creás todos los **Cajeros / Empleados** que trabajen en el negocio (`Cajero 1`, `Cajero 2`, `Cajero 3` o sus nombres reales como `Franco`, `Lucas`, `Micaela`) cada uno con su propia clave de 4 números.
+   - **Reinicio Automático al Login por Seguridad:** Al guardar el asistente (o cuando el Dueño agrega/edita cajeros en **Configuración -> Equipo de Trabajo** y toca **"Guardar Cajeros y Reiniciar al Login"**), el sistema cierra la sesión de Dueño y vuelve automáticamente a la pantalla de Login para que el empleado o dueño de turno ingrese con su propio PIN.
 
 ---
 
-## 3. Uso Diario en el Mostrador
+## 3. Cómo Pasar de Modo A (Celular) a Modo B (PC Nueva) sin Perder Nada
+
+Si arrancaste trabajando solo con tu celular en **Modo A** y más adelante sumaste una PC en el mostrador para trabajar en **Modo B**:
+
+1. **En tu Celular (Modo A):** Entrá a **Configuración -> Copias de Seguridad** y tocá **"Descargar Copia Completa"** (o descargá la última copia automática desde la carpeta `Backups_POS_Celular` de tu Google Drive).
+2. **En la PC Nueva (Modo B):** Abrí `Iniciar_Servidor.bat`.
+   - En el **Paso 1 del Asistente de Bienvenida** (o dentro de **Configuración -> Restaurar Copia o Migrar desde Modo A**), seleccioná el archivo descargado del celular (`.json` o `.zip`) y tocá **"Pasar a Modo B Ahora"**.
+3. **Resultado 100% Idéntico:** La PC importa automáticamente tu nombre, logo, Alias/CBU, el Dueño y todos los Cajeros con sus claves, todas las categorías, productos, promos editadas, stock actual, clientes con sus deudas de cuenta corriente y el historial de ventas y caja.
+4. **Conectá los Celulares por Wi-Fi:** Al terminar de importar, la pantalla vuelve al Login y te muestra el **Código QR de Red Wi-Fi**. Escanealo con la cámara de tu celular (y los de tus empleados) para que todos trabajen conectados en tiempo real a la PC.
+
+---
+
+## 4. Uso Diario en el Mostrador
 
 ### A. Ventas, Promos y Punto de Venta (POS)
 - **Selector Superior (Promos y Combos vs Productos Sueltos):**
@@ -63,28 +75,11 @@ La primera vez que abras el sistema verás un asistente guiado de 4 pasos:
 - **Semáforo de stock:** Los productos con stock bajo aparecen en rojo y las promos calculan automáticamente cuántos combos podés armar según el stock real de sus botellas.
 
 ### C. Clientes y Cuentas Corrientes (Fiados)
-- **Cero etiquetas innecesarias:** Estar al día es el estado normal de un cliente. 
+- **Cero etiquetas innecesarias:** Estar al día es el estado normal de un cliente.
 - **Control de deuda:** Solo verás un cartel destacado en rojo cuando un cliente tenga saldo pendiente (`Debe: $ 15.400,00`).
 - **Aviso de deuda en 1 toque:** Tocando el icono de WhatsApp en la ficha del cliente, le enviás el saldo exacto junto a tu Alias/CBU para que te transfiera.
 
 ### D. Caja y Cierre Diario
 - **Apertura de caja:** Registrá el cambio inicial al empezar la jornada.
-- **Ingresos y Egresos:** Anotá pagos a proveedores, gastos diarios o retiros del dueño.
+- **Ingresos y Egresos:** Anotá pagos a proveedores, gastos diarios o retiros del dueño (queda registrado qué usuario o cajero hizo cada movimiento).
 - **Cierre Diario Oficial:** Al terminar el día, el sistema cuenta las ventas, calcula el efectivo esperado y te muestra si la caja está exacta o si hay diferencias. Podés descargar el comprobante en PDF o mandarlo por WhatsApp/Email.
-
----
-
-## 4. Cómo Conectar Celulares a la PC (Modo B)
-
-1. En la PC, hacé doble clic en **`Iniciar_Servidor.bat`**.
-2. Tocá el botón **"Conectar Celular"** en la barra superior.
-3. Con el celular conectado al mismo Wi-Fi del negocio, abrí la cámara y apuntá al código QR que se muestra en la pantalla de la PC.
-4. En Chrome del celular, tocá los 3 puntos arriba a la derecha y elegí **"Agregar a la pantalla principal"** o **"Instalar aplicación"**.
-5. ¡Listo! El celular ahora funciona como una terminal más conectada a la PC.
-
----
-
-## 5. Copias de Seguridad (Google Drive)
-
-- **En Celular (Modo A):** El sistema detecta cuando te conectás al Wi-Fi y sube una copia de seguridad a tu Google Drive sin que tengas que hacer nada.
-- **En PC (Modo B):** Podés descargar un archivo `.zip` con todos tus datos desde **Configuración -> Copia de Seguridad** o configurar el enlace automático a Google Drive.

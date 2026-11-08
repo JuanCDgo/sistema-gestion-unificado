@@ -529,76 +529,583 @@ def _subir_zip_a_google_drive_webhook(
 # ---------------------------------------------------------------------------
 # Restaurar la carpeta `datos/` desde un archivo `.zip`
 # ---------------------------------------------------------------------------
-def restaurar_datos_desde_zip(app_dir: Path, zip_bytes: bytes) -> Dict[str, Any]:
+def importar_snapshot_json_en_sqlite(
+    app_dir: Path,
+    backup_data: Dict[str, Any],
+    forzar_modo_b: bool = False,
+) -> Dict[str, Any]:
     """
-    Restaura `datos/pos_local.db`, `config_negocio.json` y `datos/uploads/`
-    desde un archivo `.zip` generado por el backup automático.
+    Importa un archivo de respaldo JSON (generado en Modo A Celular o desde Exportar JSON)
+    directamente adentro de la base de datos SQLite de la PC (`datos/pos_local.db`),
+    copiando configuración, logo, usuarios/cajeros con sus claves, categorías, productos,
+    promos, clientes, cuentas corrientes, caja e historial de ventas.
     """
+    from local_db import LocalDBClient, hash_pin
+
+    if not isinstance(backup_data, dict):
+        raise ValueError("El archivo de respaldo no contiene un objeto JSON válido.")
+
+    tablas = backup_data.get("tablas") or backup_data.get("datos") or backup_data
+    if not isinstance(tablas, dict):
+        raise ValueError("No se encontraron tablas de datos en el archivo seleccionado.")
+
     with _lock_backup:
         rutas = obtener_rutas_base(app_dir)
-        try:
-            zf = zipfile.ZipFile(io.BytesIO(zip_bytes), "r")
-        except Exception as exc:
-            raise ValueError(f"El archivo seleccionado no es un ZIP válido: {exc}")
+        _ = LocalDBClient(rutas["db_file"])
 
-        nombres = zf.namelist()
-        tiene_db = any(n.endswith("pos_local.db") for n in nombres)
-        if not tiene_db:
-            raise ValueError(
-                "El archivo ZIP no contiene 'pos_local.db'. Asegurate de subir un backup generado por este sistema."
-            )
-
-        # Hacer un resguardo previo antes de pisar
         if rutas["db_file"].exists():
-            previo = rutas["backups_dir"] / f"resguardo_antes_de_restaurar_{_ahora().strftime('%Y%m%d_%H%M%S')}.db"
+            previo = rutas["backups_dir"] / f"resguardo_antes_de_importar_{_ahora().strftime('%Y%m%d_%H%M%S')}.db"
             try:
                 _copiar_sqlite_consistente(rutas["db_file"], previo)
             except Exception:
                 pass
 
-        archivos_restaurados: List[str] = []
-        for item in zf.infolist():
-            if item.is_dir():
-                continue
-            nombre = item.filename.replace("\\", "/")
-            datos_item = zf.read(item.filename)
+        conn = sqlite3.connect(str(rutas["db_file"]), timeout=20.0)
+        conn.row_factory = sqlite3.Row
+        resumen: Dict[str, int] = {}
+        try:
+            cur = conn.cursor()
+            comercio_id = 1
 
-            if nombre.endswith("pos_local.db"):
-                # Restaurar base SQLite de forma segura
-                tmp_db = rutas["datos_dir"] / "pos_local_restore_tmp.db"
-                tmp_db.write_bytes(datos_item)
-                _copiar_sqlite_consistente(tmp_db, rutas["db_file"])
+            # 1. Configuración del negocio
+            cfg_in = backup_data.get("config") or tablas.get("config") or {}
+            if isinstance(cfg_in, dict) and cfg_in:
+                nombre_com = str(cfg_in.get("nombre_comercio") or "Mi Comercio").strip() or "Mi Comercio"
+                cur.execute("UPDATE comercios SET nombre_negocio = ? WHERE id = ?", (nombre_com, comercio_id))
+                modo_op = "servidor_central" if forzar_modo_b else str(cfg_in.get("modo_operacion") or "servidor_central")
+                cur.execute(
+                    """
+                    UPDATE configuracion_negocio SET
+                        nombre_comercio = ?,
+                        telefono = ?,
+                        direccion = ?,
+                        moneda = ?,
+                        color_primario = ?,
+                        logo_imagen = ?,
+                        qr_imagen = ?,
+                        titular_cuenta = ?,
+                        banco = ?,
+                        alias = ?,
+                        cbu = ?,
+                        pesos_por_punto = ?,
+                        modo_bloqueo = ?,
+                        tiempo_inactividad_min = ?,
+                        modo_operacion = ?,
+                        wizard_completado = 1,
+                        rubro = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE comercio_id = ?
+                    """,
+                    (
+                        nombre_com,
+                        str(cfg_in.get("telefono") or ""),
+                        str(cfg_in.get("direccion") or ""),
+                        str(cfg_in.get("moneda") or "$"),
+                        str(cfg_in.get("color_primario") or "#2563EB"),
+                        str(cfg_in.get("logo_imagen") or ""),
+                        str(cfg_in.get("qr_imagen") or ""),
+                        str(cfg_in.get("titular_cuenta") or ""),
+                        str(cfg_in.get("banco") or ""),
+                        str(cfg_in.get("alias") or ""),
+                        str(cfg_in.get("cbu") or ""),
+                        float(cfg_in.get("pesos_por_punto") or 100.0),
+                        str(cfg_in.get("modo_bloqueo") or "nunca"),
+                        int(cfg_in.get("tiempo_inactividad_min") or 15),
+                        modo_op,
+                        str(cfg_in.get("rubro") or "comercio_general"),
+                        comercio_id,
+                    ),
+                )
+                cfg_guardar = dict(cfg_in)
+                cfg_guardar["modo_operacion"] = modo_op
+                cfg_guardar["wizard_completado"] = 1
                 try:
-                    tmp_db.unlink()
+                    rutas["config_file"].write_text(
+                        json.dumps(cfg_guardar, ensure_ascii=False, indent=2), encoding="utf-8"
+                    )
                 except Exception:
                     pass
-                archivos_restaurados.append("datos/pos_local.db")
-            elif nombre.endswith("config_negocio.json"):
-                rutas["config_file"].write_bytes(datos_item)
-                archivos_restaurados.append("config_negocio.json")
-            elif "/uploads/" in nombre or nombre.startswith("uploads/"):
-                nombre_img = Path(nombre).name
-                if nombre_img:
-                    rutas["uploads_static"].mkdir(parents=True, exist_ok=True)
-                    rutas["uploads_datos"].mkdir(parents=True, exist_ok=True)
-                    (rutas["uploads_static"] / nombre_img).write_bytes(datos_item)
-                    (rutas["uploads_datos"] / nombre_img).write_bytes(datos_item)
-                    archivos_restaurados.append(f"uploads/{nombre_img}")
+            elif forzar_modo_b:
+                cur.execute(
+                    "UPDATE configuracion_negocio SET modo_operacion = 'servidor_central', wizard_completado = 1 WHERE comercio_id = ?",
+                    (comercio_id,),
+                )
+
+            # 2. Usuarios y Cajeros (con sus PINs convertidos a hash seguro PBKDF2)
+            usuarios_in = backup_data.get("usuarios") or tablas.get("usuarios") or []
+            if isinstance(usuarios_in, list) and len(usuarios_in) > 0:
+                cur.execute("DELETE FROM usuarios WHERE comercio_id = ?", (comercio_id,))
+                usr_count = 0
+                tiene_admin = False
+                for u in usuarios_in:
+                    if not isinstance(u, dict):
+                        continue
+                    nom_u = str(u.get("nombre") or "").strip()
+                    if not nom_u:
+                        continue
+                    rol_u = "admin" if str(u.get("rol") or "").lower() == "admin" else "cajero"
+                    if rol_u == "admin":
+                        tiene_admin = True
+                    pin_plano = str(u.get("pin") or "").strip()
+                    pin_h = str(u.get("pin_hash") or "").strip()
+                    if pin_plano and len(pin_plano) == 4 and pin_plano.isdigit():
+                        hash_final = hash_pin(pin_plano)
+                    elif pin_h.startswith("pbkdf2:"):
+                        hash_final = pin_h
+                    else:
+                        hash_final = hash_pin("1234" if rol_u == "admin" else "0000")
+                    act_u = 1 if u.get("activo", True) else 0
+                    uid = int(u["id"]) if "id" in u and str(u["id"]).isdigit() else None
+                    if uid is not None:
+                        cur.execute(
+                            """
+                            INSERT OR REPLACE INTO usuarios (id, comercio_id, nombre, pin_hash, rol, activo, intentos_fallidos)
+                            VALUES (?, ?, ?, ?, ?, ?, 0)
+                            """,
+                            (uid, comercio_id, nom_u, hash_final, rol_u, act_u),
+                        )
+                    else:
+                        cur.execute(
+                            """
+                            INSERT OR REPLACE INTO usuarios (comercio_id, nombre, pin_hash, rol, activo, intentos_fallidos)
+                            VALUES (?, ?, ?, ?, ?, 0)
+                            """,
+                            (comercio_id, nom_u, hash_final, rol_u, act_u),
+                        )
+                    usr_count += 1
+                if not tiene_admin:
+                    cur.execute(
+                        "INSERT INTO usuarios (comercio_id, nombre, pin_hash, rol, activo) VALUES (?, 'Dueño', ?, 'admin', 1)",
+                        (comercio_id, hash_pin("1234")),
+                    )
+                    usr_count += 1
+                resumen["usuarios"] = usr_count
+
+            # 3. Categorías
+            cats_in = tablas.get("categorias")
+            if isinstance(cats_in, list) and len(cats_in) > 0:
+                cur.execute("DELETE FROM categorias WHERE comercio_id = ?", (comercio_id,))
+                c_count = 0
+                for c in cats_in:
+                    if not isinstance(c, dict) or not c.get("nombre"):
+                        continue
+                    cid = int(c["id"]) if "id" in c and str(c["id"]).isdigit() else None
+                    cur.execute(
+                        """
+                        INSERT OR REPLACE INTO categorias (id, comercio_id, nombre, activo, fecha_baja, descripcion, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            cid,
+                            comercio_id,
+                            str(c["nombre"]).strip(),
+                            1 if c.get("activo", True) else 0,
+                            c.get("fecha_baja"),
+                            str(c.get("descripcion") or ""),
+                            str(c.get("created_at") or _ahora().isoformat()),
+                        ),
+                    )
+                    c_count += 1
+                resumen["categorias"] = c_count
+
+            # 4. Productos
+            prods_in = tablas.get("productos")
+            if isinstance(prods_in, list) and len(prods_in) > 0:
+                cur.execute("DELETE FROM productos WHERE comercio_id = ?", (comercio_id,))
+                p_count = 0
+                for p in prods_in:
+                    if not isinstance(p, dict) or not p.get("nombre"):
+                        continue
+                    pid = int(p["id"]) if "id" in p and str(p["id"]).isdigit() else None
+                    codigo = str(p.get("codigo") or f"Prod-{pid or (p_count + 1):03d}").strip()
+                    p_venta = float(p.get("precio_venta") if p.get("precio_venta") is not None else (p.get("precio") or 0))
+                    stk_act = float(p.get("stock_actual") if p.get("stock_actual") is not None else (p.get("stock") or 0))
+                    cur.execute(
+                        """
+                        INSERT OR REPLACE INTO productos (
+                            id, comercio_id, codigo, nombre, categoria_id,
+                            precio_costo, margen_ganancia, precio_venta, usa_precio_manual,
+                            stock_actual, stock_minimo, imagen_url, activo, fecha_baja,
+                            puntos_canje, unidad_medida, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            pid,
+                            comercio_id,
+                            codigo,
+                            str(p["nombre"]).strip(),
+                            p.get("categoria_id"),
+                            float(p.get("precio_costo") or 0),
+                            float(p.get("margen_ganancia") or 0),
+                            p_venta,
+                            1 if p.get("usa_precio_manual", True) else 0,
+                            stk_act,
+                            float(p.get("stock_minimo") or 0),
+                            str(p.get("imagen_url") or p.get("imagen") or ""),
+                            1 if p.get("activo", True) else 0,
+                            p.get("fecha_baja"),
+                            float(p.get("puntos_canje") or 0),
+                            str(p.get("unidad_medida") or "unid"),
+                            str(p.get("created_at") or _ahora().isoformat()),
+                        ),
+                    )
+                    p_count += 1
+                resumen["productos"] = p_count
+
+            # 5. Promos y Combos
+            promos_in = tablas.get("promos") if "promos" in tablas else backup_data.get("promos")
+            if isinstance(promos_in, list) and len(promos_in) > 0:
+                cur.execute("DELETE FROM promos WHERE comercio_id = ?", (comercio_id,))
+                pr_count = 0
+                for pr in promos_in:
+                    if not isinstance(pr, dict) or not pr.get("nombre"):
+                        continue
+                    pr_id = int(pr["id"]) if "id" in pr and str(pr["id"]).isdigit() else None
+                    p_venta = float(pr.get("precio_venta") if pr.get("precio_venta") is not None else (pr.get("precio") or 0))
+                    if isinstance(pr.get("fijos_json"), str):
+                        fijos_j = pr["fijos_json"]
+                    else:
+                        fijos_j = json.dumps(pr.get("fijos") or [], ensure_ascii=False)
+                    if isinstance(pr.get("elecciones_json"), str):
+                        elec_j = pr["elecciones_json"]
+                    else:
+                        elec_j = json.dumps(pr.get("elecciones") or [], ensure_ascii=False)
+                    cur.execute(
+                        """
+                        INSERT OR REPLACE INTO promos (
+                            id, comercio_id, nombre, categoria, descripcion,
+                            precio_venta, fijos_json, elecciones_json, activo, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            pr_id,
+                            comercio_id,
+                            str(pr["nombre"]).strip(),
+                            str(pr.get("categoria") or "General"),
+                            str(pr.get("descripcion") or ""),
+                            p_venta,
+                            fijos_j,
+                            elec_j,
+                            1 if pr.get("activo", True) else 0,
+                            str(pr.get("created_at") or _ahora().isoformat()),
+                        ),
+                    )
+                    pr_count += 1
+                resumen["promos"] = pr_count
+
+            # 6. Clientes
+            clientes_in = tablas.get("clientes")
+            if isinstance(clientes_in, list):
+                cur.execute("DELETE FROM clientes WHERE comercio_id = ?", (comercio_id,))
+                cli_count = 0
+                for cl in clientes_in:
+                    if not isinstance(cl, dict) or not cl.get("nombre"):
+                        continue
+                    cid = int(cl["id"]) if "id" in cl and str(cl["id"]).isdigit() else None
+                    if cid == 0:
+                        continue
+                    saldo = float(cl.get("saldo_deudor") if cl.get("saldo_deudor") is not None else (cl.get("saldo") or 0))
+                    cur.execute(
+                        """
+                        INSERT OR REPLACE INTO clientes (
+                            id, comercio_id, nombre, telefono, email,
+                            limite_credito, saldo_deudor, puntos, activo, fecha_baja, created_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            cid,
+                            comercio_id,
+                            str(cl["nombre"]).strip(),
+                            str(cl.get("telefono") or ""),
+                            str(cl.get("email") or ""),
+                            float(cl.get("limite_credito") or 0),
+                            saldo,
+                            float(cl.get("puntos") or 0),
+                            1 if cl.get("activo", True) else 0,
+                            cl.get("fecha_baja"),
+                            str(cl.get("created_at") or _ahora().isoformat()),
+                        ),
+                    )
+                    cli_count += 1
+                resumen["clientes"] = cli_count
+
+            # 7. Ventas y Detalle de Ventas
+            ventas_in = tablas.get("ventas")
+            if isinstance(ventas_in, list):
+                cur.execute("DELETE FROM detalle_ventas")
+                cur.execute("DELETE FROM ventas WHERE comercio_id = ?", (comercio_id,))
+                v_count = 0
+                for v in ventas_in:
+                    if not isinstance(v, dict):
+                        continue
+                    vid = int(v["id"]) if "id" in v and str(v["id"]).isdigit() else None
+                    cur.execute(
+                        """
+                        INSERT OR REPLACE INTO ventas (
+                            id, comercio_id, cliente_id, total_venta, forma_pago,
+                            fecha_hora, puntos_ganados, archivado_en, archivado_por
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            vid,
+                            comercio_id,
+                            v.get("cliente_id"),
+                            float(v.get("total_venta") or 0),
+                            str(v.get("forma_pago") or "Efectivo"),
+                            str(v.get("fecha_hora") or _ahora().isoformat()),
+                            float(v.get("puntos_ganados") or 0),
+                            v.get("archivado_en"),
+                            v.get("archivado_por"),
+                        ),
+                    )
+                    v_count += 1
+                resumen["ventas"] = v_count
+
+            det_in = tablas.get("detalle_ventas")
+            if isinstance(det_in, list):
+                d_count = 0
+                for d in det_in:
+                    if not isinstance(d, dict) or not d.get("venta_id"):
+                        continue
+                    did = int(d["id"]) if "id" in d and str(d["id"]).isdigit() else None
+                    cur.execute(
+                        """
+                        INSERT OR REPLACE INTO detalle_ventas (
+                            id, venta_id, producto_id, cantidad, precio_unitario, costo_unitario
+                        ) VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            did,
+                            int(d["venta_id"]),
+                            d.get("producto_id"),
+                            float(d.get("cantidad") or 0),
+                            float(d.get("precio_unitario") or 0),
+                            float(d.get("costo_unitario") or 0),
+                        ),
+                    )
+                    d_count += 1
+                resumen["detalle_ventas"] = d_count
+
+            # 8. Movimientos de Caja, Cuenta Corriente y Cierres de Caja
+            mov_caja_in = tablas.get("movimientos_caja")
+            if isinstance(mov_caja_in, list):
+                cur.execute("DELETE FROM movimientos_caja WHERE comercio_id = ?", (comercio_id,))
+                mc_count = 0
+                for m in mov_caja_in:
+                    if not isinstance(m, dict):
+                        continue
+                    mid = int(m["id"]) if "id" in m and str(m["id"]).isdigit() else None
+                    tipo_m = "ingreso_extra" if m.get("tipo") == "ingreso_extra" else "egreso"
+                    cur.execute(
+                        """
+                        INSERT OR REPLACE INTO movimientos_caja (
+                            id, comercio_id, tipo, monto, concepto, usuario_nombre, fecha, archivado_en, archivado_por
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            mid,
+                            comercio_id,
+                            tipo_m,
+                            float(m.get("monto") or 0),
+                            str(m.get("concepto") or ""),
+                            str(m.get("usuario_nombre") or "Dueño"),
+                            str(m.get("fecha") or _ahora().isoformat()),
+                            m.get("archivado_en"),
+                            m.get("archivado_por"),
+                        ),
+                    )
+                    mc_count += 1
+                resumen["movimientos_caja"] = mc_count
+
+            mov_cta_in = tablas.get("movimientos_cuenta")
+            if isinstance(mov_cta_in, list):
+                cur.execute("DELETE FROM movimientos_cuenta WHERE comercio_id = ?", (comercio_id,))
+                mct_count = 0
+                for m in mov_cta_in:
+                    if not isinstance(m, dict) or not m.get("cliente_id"):
+                        continue
+                    mid = int(m["id"]) if "id" in m and str(m["id"]).isdigit() else None
+                    cur.execute(
+                        """
+                        INSERT OR REPLACE INTO movimientos_cuenta (
+                            id, comercio_id, cliente_id, tipo, monto, descripcion, ticket_id, fecha_hora, archivado_en, archivado_por
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            mid,
+                            comercio_id,
+                            int(m["cliente_id"]),
+                            str(m.get("tipo") or "cargo"),
+                            float(m.get("monto") or 0),
+                            str(m.get("descripcion") or ""),
+                            m.get("ticket_id"),
+                            str(m.get("fecha_hora") or _ahora().isoformat()),
+                            m.get("archivado_en"),
+                            m.get("archivado_por"),
+                        ),
+                    )
+                    mct_count += 1
+                resumen["movimientos_cuenta"] = mct_count
+
+            cierres_in = tablas.get("cierres_caja")
+            if isinstance(cierres_in, list):
+                cur.execute("DELETE FROM cierres_caja WHERE comercio_id = ?", (comercio_id,))
+                cc_count = 0
+                for c in cierres_in:
+                    if not isinstance(c, dict):
+                        continue
+                    cid = int(c["id"]) if "id" in c and str(c["id"]).isdigit() else None
+                    est_c = "abierta" if c.get("estado") == "abierta" else "cerrada"
+                    cur.execute(
+                        """
+                        INSERT OR REPLACE INTO cierres_caja (
+                            id, comercio_id, estado, monto_inicial, fecha_apertura,
+                            fecha_cierre, total_esperado, monto_real, diferencia, archivado_en, archivado_por
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            cid,
+                            comercio_id,
+                            est_c,
+                            float(c.get("monto_inicial") or 0),
+                            str(c.get("fecha_apertura") or _ahora().isoformat()),
+                            c.get("fecha_cierre"),
+                            c.get("total_esperado"),
+                            c.get("monto_real"),
+                            c.get("diferencia"),
+                            c.get("archivado_en"),
+                            c.get("archivado_por"),
+                        ),
+                    )
+                    cc_count += 1
+                resumen["cierres_caja"] = cc_count
+
+            conn.commit()
+        finally:
+            conn.close()
 
         ahora_txt = _ahora_str()
         guardar_estado_backup(
             app_dir,
             {
                 "cambios_pendientes": False,
-                "ultimo_estado": "restaurado",
-                "ultimo_mensaje": f"Carpeta 'datos' restaurada correctamente desde ZIP ({ahora_txt}).",
+                "ultimo_estado": "migrado_desde_modo_a",
+                "ultimo_mensaje": f"Datos importados íntegramente desde Modo A / JSON ({ahora_txt}).",
             },
         )
         return {
             "ok": True,
-            "archivos_restaurados": archivos_restaurados,
+            "modo_origen": "json_modo_a",
+            "resumen": resumen,
+            "archivos_restaurados": ["datos/pos_local.db", "config_negocio.json"],
             "restaurado_en": ahora_txt,
         }
+
+
+def restaurar_datos_desde_zip(app_dir: Path, zip_bytes: bytes, forzar_modo_b: bool = False) -> Dict[str, Any]:
+    """
+    Restaura `datos/pos_local.db`, `config_negocio.json` y `datos/uploads/`
+    desde un archivo `.zip` generado en PC (Modo B) O desde un archivo `.json` / `.zip`
+    generado en el celular (Modo A).
+    """
+    texto_inicio = zip_bytes[:64].lstrip()
+    if texto_inicio.startswith(b"{") or texto_inicio.startswith(b"\xef\xbb\xbf{"):
+        try:
+            json_data = json.loads(zip_bytes.decode("utf-8-sig"))
+        except Exception as exc:
+            raise ValueError(f"El archivo JSON de respaldo no es válido: {exc}")
+        return importar_snapshot_json_en_sqlite(app_dir, json_data, forzar_modo_b=forzar_modo_b)
+
+    json_embebido = None
+    with _lock_backup:
+        rutas = obtener_rutas_base(app_dir)
+        try:
+            zf = zipfile.ZipFile(io.BytesIO(zip_bytes), "r")
+        except Exception as exc:
+            raise ValueError(f"El archivo seleccionado no es un ZIP ni un JSON válido: {exc}")
+
+        nombres = zf.namelist()
+        tiene_db = any(n.endswith("pos_local.db") for n in nombres)
+        if not tiene_db:
+            archivos_json = [
+                n for n in nombres
+                if n.endswith(".json") and not n.endswith("info_backup.json") and not n.endswith("config_negocio.json")
+            ]
+            if archivos_json:
+                raw_json = zf.read(archivos_json[0])
+                json_embebido = json.loads(raw_json.decode("utf-8-sig"))
+                zf.close()
+            else:
+                zf.close()
+                raise ValueError(
+                    "El archivo no contiene 'pos_local.db' ni un respaldo JSON de celular válido."
+                )
+        else:
+            if rutas["db_file"].exists():
+                previo = rutas["backups_dir"] / f"resguardo_antes_de_restaurar_{_ahora().strftime('%Y%m%d_%H%M%S')}.db"
+                try:
+                    _copiar_sqlite_consistente(rutas["db_file"], previo)
+                except Exception:
+                    pass
+
+            archivos_restaurados: List[str] = []
+            for item in zf.infolist():
+                if item.is_dir():
+                    continue
+                nombre = item.filename.replace("\\", "/")
+                datos_item = zf.read(item.filename)
+
+                if nombre.endswith("pos_local.db"):
+                    tmp_db = rutas["datos_dir"] / "pos_local_restore_tmp.db"
+                    tmp_db.write_bytes(datos_item)
+                    _copiar_sqlite_consistente(tmp_db, rutas["db_file"])
+                    try:
+                        tmp_db.unlink()
+                    except Exception:
+                        pass
+                    archivos_restaurados.append("datos/pos_local.db")
+                elif nombre.endswith("config_negocio.json"):
+                    rutas["config_file"].write_bytes(datos_item)
+                    archivos_restaurados.append("config_negocio.json")
+                elif "/uploads/" in nombre or nombre.startswith("uploads/"):
+                    nombre_img = Path(nombre).name
+                    if nombre_img:
+                        rutas["uploads_static"].mkdir(parents=True, exist_ok=True)
+                        rutas["uploads_datos"].mkdir(parents=True, exist_ok=True)
+                        (rutas["uploads_static"] / nombre_img).write_bytes(datos_item)
+                        (rutas["uploads_datos"] / nombre_img).write_bytes(datos_item)
+                        archivos_restaurados.append(f"uploads/{nombre_img}")
+            zf.close()
+
+            if forzar_modo_b and rutas["db_file"].exists():
+                try:
+                    conn = sqlite3.connect(str(rutas["db_file"]), timeout=15.0)
+                    with conn:
+                        conn.execute(
+                            "UPDATE configuracion_negocio SET modo_operacion = 'servidor_central', wizard_completado = 1 WHERE comercio_id = 1"
+                        )
+                    conn.close()
+                except Exception:
+                    pass
+
+            ahora_txt = _ahora_str()
+            guardar_estado_backup(
+                app_dir,
+                {
+                    "cambios_pendientes": False,
+                    "ultimo_estado": "restaurado",
+                    "ultimo_mensaje": f"Carpeta 'datos' restaurada correctamente desde ZIP ({ahora_txt}).",
+                },
+            )
+            return {
+                "ok": True,
+                "archivos_restaurados": archivos_restaurados,
+                "restaurado_en": ahora_txt,
+            }
+
+    if json_embebido is not None:
+        return importar_snapshot_json_en_sqlite(app_dir, json_embebido, forzar_modo_b=forzar_modo_b)
+    raise ValueError("No se pudo procesar el archivo de respaldo.")
 
 
 # ---------------------------------------------------------------------------

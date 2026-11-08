@@ -556,12 +556,27 @@
                    placeholder="Dejar vacío para no cambiar" class="campo bg-white font-mono font-bold text-center tracking-widest">
           </div>
           <div class="sm:col-span-3 flex gap-2">
-            <button type="button" @click="guardarEdicionCajero()" :disabled="guardandoCajero"
+            <button type="button" @click="guardarEdicionCajero(false)" :disabled="guardandoCajero"
                     class="flex-1 py-2.5 px-3 rounded-lg bg-primario hover:bg-primario-oscuro text-white text-xs font-bold shadow-sm">
-              Guardar Cambios
+              Guardar
             </button>
           </div>
         </div>
+      </div>
+
+      <!-- Barra de Confirmación y Reinicio Obligatorio al Login -->
+      <div class="pt-3 border-t border-gray-200 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-amber-50/70 border border-amber-200 rounded-xl p-4">
+        <div class="text-xs text-amber-950">
+          <p class="font-bold">🔒 Seguridad de Turno (Evitar que el Cajero opere en cuenta de Dueño)</p>
+          <p class="text-amber-800 mt-0.5">
+            Cuando termines de agregar o editar a tus cajeros, tocá el botón para guardar y volver a la pantalla de Login así cada empleado entra con su propio PIN.
+          </p>
+        </div>
+        <button type="button" @click="guardarYReiniciarLoginCajeros()" :disabled="guardandoCajero"
+                class="px-5 py-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs sm:text-sm font-bold shadow-sm transition-colors shrink-0 flex items-center justify-center gap-2 cursor-pointer">
+          <i data-lucide="log-out" class="w-4 h-4"></i>
+          <span>Guardar Cajeros y Reiniciar al Login</span>
+        </button>
       </div>
     </section>
 
@@ -685,10 +700,10 @@
           <div class="border-t border-gray-100 pt-4 space-y-3">
             <h3 class="font-bold text-sm text-gray-900 flex items-center gap-2">
               <i data-lucide="upload" class="w-4 h-4 text-amber-600"></i>
-              Restaurar Copia de Seguridad
+              Restaurar Copia o Migrar desde Modo A (Celular a PC)
             </h3>
             <p class="text-xs text-gray-500">
-              Elegí tu archivo de copia, ingresá tu PIN de seguridad y presioná Restaurar para recuperar todo.
+              Si empezaste usando el <strong>Modo A en el celular</strong> y compraste una PC, subí acá la copia descargada del celular (<code>.json</code> o <code>.zip</code>), poné tu PIN y quedará todo 100% idéntico en <strong>Modo B</strong>.
             </p>
             <input type="file" accept=".zip,.json" @change="seleccionarZipDatos($event)"
                    class="block w-full text-xs text-gray-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 cursor-pointer">
@@ -997,19 +1012,19 @@
           this.formEditarCajero = { id: u.id, nombre: u.nombre, pin: '' };
         },
 
-        async guardarEdicionCajero() {
-          if (!this.cajeroEditando) return;
+        async guardarEdicionCajero(reiniciar = false) {
+          if (!this.cajeroEditando) return true;
           this.errorCajero = '';
           this.okCajero = '';
           const nom = String(this.formEditarCajero.nombre || '').trim();
           const pin = String(this.formEditarCajero.pin || '').trim();
           if (!nom) {
             this.errorCajero = 'El nombre no puede quedar vacío.';
-            return;
+            return false;
           }
           if (pin && !/^\d{4}$/.test(pin)) {
             this.errorCajero = 'Si ingresás un nuevo PIN, debe tener exactamente 4 números.';
-            return;
+            return false;
           }
           this.guardandoCajero = true;
           try {
@@ -1025,11 +1040,43 @@
             this.cajeroEditando = null;
             await this.cargarUsuariosCajeros();
             this.okCajero = `Usuario "${d.nombre}" actualizado correctamente.`;
+            if (reiniciar) {
+              await this.reiniciarAlLoginPorSeguridad();
+            }
+            return true;
           } catch (e) {
             this.errorCajero = e.message;
+            return false;
           } finally {
             this.guardandoCajero = false;
           }
+        },
+
+        async guardarYReiniciarLoginCajeros() {
+          this.errorCajero = '';
+          // Si dejó escrito un nuevo cajero en el formulario sin tocar "+ Agregar", lo guardamos primero
+          const nomNuevo = String(this.nuevoCajero.nombre || '').trim();
+          const pinNuevo = String(this.nuevoCajero.pin || '').trim();
+          if (nomNuevo || pinNuevo) {
+            await this.crearNuevoCajero();
+            if (this.errorCajero) return;
+          }
+          // Si tenía abierto el panel de edición de un cajero, lo guardamos también
+          if (this.cajeroEditando) {
+            const okEd = await this.guardarEdicionCajero(false);
+            if (!okEd) return;
+          }
+          await this.reiniciarAlLoginPorSeguridad();
+        },
+
+        async reiniciarAlLoginPorSeguridad() {
+          try {
+            sessionStorage.removeItem('POS_NAVEGANDO_INTERNO');
+            sessionStorage.removeItem('POS_REDIRECT_DESPUES_LOGIN');
+            sessionStorage.setItem('POS_BLOQUEAR_PIN', '1');
+            await fetch('/api/logout', { method: 'POST' });
+          } catch (_) {}
+          window.location.href = '/login?cajeros_ok=1';
         },
 
         async cambiarEstadoCajero(u, nuevoActivo) {
@@ -1112,8 +1159,8 @@
             this.archivoZipDatos = null;
             this.pinRestaurarZip = '';
             await this.cargarEstadoBackupDrive();
-            this.notificarOk('Carpeta datos restaurada íntegramente desde el archivo ZIP.');
-            setTimeout(() => location.reload(), 1200);
+            this.notificarOk('Datos restaurados íntegramente. Reiniciando al Login...');
+            setTimeout(() => { window.location.href = '/login?migrado_ok=1'; }, 1000);
           } catch (e) {
             this.error = e.message;
           } finally {
