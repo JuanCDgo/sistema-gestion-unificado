@@ -274,8 +274,24 @@ def _crear_esquema(conn: sqlite3.Connection) -> None:
     );
     """)
 
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS promos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        comercio_id INTEGER NOT NULL REFERENCES comercios(id),
+        nombre TEXT NOT NULL,
+        categoria TEXT NOT NULL DEFAULT 'General',
+        descripcion TEXT NOT NULL DEFAULT '',
+        precio_venta REAL NOT NULL DEFAULT 0,
+        fijos_json TEXT NOT NULL DEFAULT '[]',
+        elecciones_json TEXT NOT NULL DEFAULT '[]',
+        activo INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+
     # Índices esenciales
     cur.execute("CREATE INDEX IF NOT EXISTS idx_prod_comercio ON productos (comercio_id, nombre);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_promos_comercio ON promos (comercio_id, categoria, nombre);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_cli_comercio ON clientes (comercio_id, nombre);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_ven_comercio ON ventas (comercio_id, fecha_hora DESC);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_det_venta ON detalle_ventas (venta_id);")
@@ -340,6 +356,165 @@ def _crear_esquema(conn: sqlite3.Connection) -> None:
         )
 
     conn.commit()
+    sembrar_catalogo_bebidas(conn, comercio_id=1, forzar=False)
+
+
+def sembrar_catalogo_bebidas(conn: sqlite3.Connection, comercio_id: int = 1, forzar: bool = False) -> dict:
+    """Siembra las categorías, productos y promos de bebidas si la tabla de productos o promos está vacía (o si forzar=True)."""
+    try:
+        from catalogo_bebidas import CATEGORIAS_BEBIDAS, PRODUCTOS_BEBIDAS_RAW, PROMOS_BEBIDAS_RAW
+    except ImportError:
+        return {"ok": False, "motivo": "modulo_catalogo_no_encontrado"}
+
+    cur = conn.cursor()
+    cur.execute("SELECT COUNT(*) FROM productos WHERE comercio_id = ? AND activo = 1;", (comercio_id,))
+    cant_prod = int(cur.fetchone()[0])
+    cur.execute("SELECT COUNT(*) FROM promos WHERE comercio_id = ? AND activo = 1;", (comercio_id,))
+    cant_promos = int(cur.fetchone()[0])
+
+    if not forzar and cant_prod > 0 and cant_promos > 0:
+        return {"ok": True, "sembrado": False, "productos": cant_prod, "promos": cant_promos}
+
+    ahora = _ahora_iso()
+    cat_map: Dict[str, int] = {}
+
+    for nombre_cat in CATEGORIAS_BEBIDAS:
+        cur.execute(
+            "SELECT id FROM categorias WHERE comercio_id = ? AND LOWER(nombre) = LOWER(?);",
+            (comercio_id, nombre_cat),
+        )
+        row = cur.fetchone()
+        if row:
+            cat_id = int(row[0])
+            cur.execute("UPDATE categorias SET activo = 1, fecha_baja = NULL WHERE id = ?;", (cat_id,))
+        else:
+            cur.execute(
+                "INSERT INTO categorias (comercio_id, nombre, activo, descripcion, created_at) VALUES (?, ?, 1, '', ?);",
+                (comercio_id, nombre_cat, ahora),
+            )
+            cat_id = int(cur.lastrowid)
+        cat_map[nombre_cat] = cat_id
+
+    prod_name_to_id: Dict[str, int] = {}
+    cur.execute("SELECT id, nombre FROM productos WHERE comercio_id = ?;", (comercio_id,))
+    for r in cur.fetchall():
+        prod_name_to_id[str(r[1])] = int(r[0])
+
+    insertados_prod = 0
+    for idx, (prod_nom, cat_nom, precio_vta, stock_ini) in enumerate(PRODUCTOS_BEBIDAS_RAW, start=1):
+        cat_id = cat_map.get(cat_nom)
+        if prod_nom in prod_name_to_id:
+            pid = prod_name_to_id[prod_nom]
+            if forzar:
+                costo = round(float(precio_vta) * 0.70, 2)
+                cur.execute(
+                    """UPDATE productos
+                       SET categoria_id = ?, precio_costo = ?, precio_venta = ?,
+                           usa_precio_manual = 1, activo = 1, fecha_baja = NULL
+                       WHERE id = ?;""",
+                    (cat_id, costo, float(precio_vta), pid),
+                )
+        else:
+            codigo = f"BEB-{idx:03d}"
+            # Asegurar unicidad de código
+            cur.execute("SELECT id FROM productos WHERE comercio_id = ? AND codigo = ?;", (comercio_id, codigo))
+            if cur.fetchone():
+                codigo = f"BEB-{idx:03d}-{secrets.token_hex(2).upper()}"
+            costo = round(float(precio_vta) * 0.70, 2)
+            cur.execute(
+                """INSERT INTO productos (
+                    comercio_id, codigo, nombre, categoria_id, precio_costo,
+                    margen_ganancia, precio_venta, usa_precio_manual,
+                    stock_actual, stock_minimo, activo, unidad_medida, created_at
+                ) VALUES (?, ?, ?, ?, ?, 42.86, ?, 1, ?, 5, 1, 'unid', ?);""",
+                (comercio_id, codigo, prod_nom, cat_id, costo, float(precio_vta), float(stock_ini), ahora),
+            )
+            pid = int(cur.lastrowid)
+            prod_name_to_id[prod_nom] = pid
+            insertados_prod += 1
+
+    # Si no hay promos o se fuerza recarga de promos
+    insertados_promos = 0
+    if cant_promos == 0 or forzar:
+        cur.execute("SELECT nombre FROM promos WHERE comercio_id = ?;", (comercio_id,))
+        promos_existentes = {str(r[0]).lower() for r in cur.fetchall()}
+
+        for p_raw in PROMOS_BEBIDAS_RAW:
+            nom_promo = p_raw["nombre"]
+            if nom_promo.lower() in promos_existentes and not forzar:
+                continue
+
+            fijos_res = []
+            for f in p_raw.get("fijos", []):
+                p_nom = f[0] if isinstance(f, (list, tuple)) else f["producto"]
+                cant_f = f[1] if isinstance(f, (list, tuple)) else f.get("cantidad", 1)
+                pid = prod_name_to_id.get(p_nom)
+                if pid:
+                    fijos_res.append({
+                        "producto_id": pid,
+                        "nombre": p_nom,
+                        "cantidad": float(cant_f),
+                    })
+
+            elecciones_res = []
+            for grp in p_raw.get("elecciones", []):
+                opciones_res = []
+                for op in grp.get("opciones", []):
+                    p_nom = op[0] if isinstance(op, (list, tuple)) else op["producto"]
+                    extra_op = op[1] if isinstance(op, (list, tuple)) else op.get("extra", 0)
+                    pid = prod_name_to_id.get(p_nom)
+                    if pid:
+                        opciones_res.append({
+                            "producto_id": pid,
+                            "nombre": p_nom,
+                            "extra": float(extra_op),
+                        })
+                if opciones_res:
+                    elecciones_res.append({
+                        "titulo": grp.get("titulo", "Elegir opción"),
+                        "cantidad": float(grp.get("cantidad", 1)),
+                        "opciones": opciones_res,
+                    })
+
+            fijos_json = json.dumps(fijos_res, ensure_ascii=False)
+            elecciones_json = json.dumps(elecciones_res, ensure_ascii=False)
+
+            cur.execute("SELECT id FROM promos WHERE comercio_id = ? AND LOWER(nombre) = LOWER(?);", (comercio_id, nom_promo))
+            ex = cur.fetchone()
+            if ex:
+                cur.execute(
+                    """UPDATE promos
+                       SET categoria = ?, descripcion = ?, precio_venta = ?,
+                           fijos_json = ?, elecciones_json = ?, activo = 1
+                       WHERE id = ?;""",
+                    (p_raw["categoria"], p_raw.get("descripcion", ""), float(p_raw.get("precio_venta") or p_raw.get("precio") or 0), fijos_json, elecciones_json, int(ex[0])),
+                )
+            else:
+                cur.execute(
+                    """INSERT INTO promos (
+                        comercio_id, nombre, categoria, descripcion, precio_venta,
+                        fijos_json, elecciones_json, activo, created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?);""",
+                    (
+                        comercio_id,
+                        nom_promo,
+                        p_raw["categoria"],
+                        p_raw.get("descripcion", ""),
+                        float(p_raw.get("precio_venta") or p_raw.get("precio") or 0),
+                        fijos_json,
+                        elecciones_json,
+                        ahora,
+                    ),
+                )
+                insertados_promos += 1
+
+    conn.commit()
+    return {
+        "ok": True,
+        "sembrado": True,
+        "productos_insertados": insertados_prod,
+        "promos_insertadas": insertados_promos,
+    }
 
 
 # ---------------------------------------------------------------------------

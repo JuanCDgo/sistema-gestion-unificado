@@ -46,9 +46,17 @@ El motor de persistencia en PC es SQLite 3 gestionado a través de `local_db.py`
 3. **`categorias`**: Rubros de productos con orden y color identificador.
 4. **`productos`**: Catálogo con código de barras, precios (costo y venta en ARS $), stock actual y mínimo, e imagen.
 5. **`clientes`**: Padrón con límite de crédito, saldo en cuenta corriente y puntos de fidelización.
-6. **`ventas`** y **`ventas_items`**: Historial transaccional con desglose por medio de pago (efectivo, digital, cta cte, mixto).
-7. **`movimientos_caja`** y **`cierres_caja`**: Libro de caja chica y cierres diarios con diferencias y auditoría.
-8. **`auditoria_movimientos`**: Registro inmutable de operaciones sensibles (anulaciones, cambios de precio).
+6. **`ventas`** y **`detalle_ventas`**: Historial transaccional con desglose por medio de pago (efectivo, digital, cta cte, mixto).
+7. **`promos`**: Combos y promociones compuestas (`fijos_json` para componentes fijos que se descuentan siempre y `elecciones_json` para grupos de elección Opción A con recargo opcional).
+8. **`movimientos_caja`** y **`cierres_caja`**: Libro de caja chica y cierres diarios con diferencias y auditoría.
+9. **`auditoria_movimientos`**: Registro inmutable de operaciones sensibles (anulaciones, cambios de precio, alta/edición de promos).
+
+### Motor de Promos y Descuento Atómico de Componentes
+* **Semilla inicial (`catalogo_bebidas.py`)**: Contiene las 13 categorías, 261 productos de bebidas/kiosco y 75 promos/packs. Se siembra automáticamente en `local_db.py` (`sembrar_catalogo_bebidas`) y en `motor_offline_pwa.js` (`sembrarCatalogoBebidasEnDB`) si la base está vacía, siendo 100% editable vía CRUD (`GET/POST/PUT/PATCH/DELETE /api/promos`).
+* **Descomposición exacta en `POST /api/ventas`**: Cuando se vende una Promo (fija o con elección resuelta en el modal Opción A), el POS descompone el combo en sus `producto_id` reales y distribuye el precio de la promo proporcionalmente mediante `precio_unitario_pactado` (absorbiendo cualquier centavo de redondeo en la última unidad). De esta forma:
+  1. `registrar_venta_atomica` valida y descuenta el stock exacto de cada botella componente.
+  2. Se registra el `costo_unitario` real de cada botella para que la ganancia estimada de Caja sea exacta.
+  3. Si se anula o devuelve un ticket en Caja, el stock de todas las botellas componentes se restaura automáticamente.
 
 ---
 

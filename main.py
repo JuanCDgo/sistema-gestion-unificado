@@ -541,6 +541,8 @@ class ItemVenta(BaseModel):
     producto_id: int
     cantidad: float = Field(gt=0, le=100_000, allow_inf_nan=False)  # Soporta enteros y decimales
     es_canje: bool = False         # True = canje con puntos de fidelización ($0.00)
+    precio_unitario_pactado: Optional[float] = Field(default=None, ge=0.01, le=100_000_000, allow_inf_nan=False)
+    nombre_promo: Optional[str] = Field(default=None, max_length=200)
 
 
 class VentaIn(BaseModel):
@@ -692,11 +694,13 @@ def crear_venta(venta: VentaIn, request: Request):
 
     # --- Productos y stock (items repetidos se acumulan por producto para validar stock total)
     pedido_stock = {}
-    grupos = {}  # (pid, es_canje) -> cantidad
+    grupos = {}  # (pid, es_canje, precio_pactado, nombre_promo) -> cantidad
     for it in venta.items:
         cant = round(float(it.cantidad), 4)
         pedido_stock[it.producto_id] = round(pedido_stock.get(it.producto_id, 0.0) + cant, 4)
-        clave = (it.producto_id, bool(it.es_canje))
+        p_pactado = round(float(it.precio_unitario_pactado), 2) if (not it.es_canje and it.precio_unitario_pactado is not None) else None
+        nom_pr = (it.nombre_promo or "").strip() or None
+        clave = (it.producto_id, bool(it.es_canje), p_pactado, nom_pr)
         grupos[clave] = round(grupos.get(clave, 0.0) + cant, 4)
 
     filas = (db.table("productos")
@@ -712,7 +716,7 @@ def crear_venta(venta: VentaIn, request: Request):
 
     # --- Totales y canjes. El descuento se reparte en el precio unitario de cada renglón normal.
     detalle, items_rpc, subtotal, total, puntos_canjeados = [], [], 0.0, 0.0, 0.0
-    for (pid, es_canje), cantidad in grupos.items():
+    for (pid, es_canje, p_pactado, nom_pr), cantidad in grupos.items():
         prod = productos[pid]
         costo = float(prod.get("precio_costo") or 0)
         if es_canje:
@@ -727,13 +731,14 @@ def crear_venta(venta: VentaIn, request: Request):
             items_rpc.append({"producto_id": prod["id"], "cantidad": cantidad,
                               "precio_unitario": 0.0, "costo_unitario": costo})
         else:
-            precio = float(prod.get("precio_venta") or 0)
+            precio = float(p_pactado) if p_pactado is not None else float(prod.get("precio_venta") or 0)
             linea = round(precio * cantidad, 2)
             subtotal += linea
             unitario = round(precio * (1 - venta.descuento_pct / 100), 2)
             linea_desc = round(cantidad * unitario, 2)
             total += linea_desc
-            detalle.append({"producto_id": prod["id"], "nombre": prod["nombre"],
+            nombre_mostrar = f"{prod['nombre']} [{nom_pr}]" if nom_pr else prod["nombre"]
+            detalle.append({"producto_id": prod["id"], "nombre": nombre_mostrar,
                             "cantidad": _num(cantidad), "precio": _num(precio), "total": _num(linea_desc),
                             "es_canje": False, "puntos_canje": 0})
             items_rpc.append({"producto_id": prod["id"], "cantidad": cantidad,
@@ -3250,3 +3255,350 @@ def completar_setup_wizard(datos: SetupWizardIn):
             log.warning("No se pudo actualizar PIN de Cajero: %s", e)
 
     return {"ok": True, "mensaje": "Asistente completado exitosamente", "config": config_publica()}
+
+
+
+# ---------------------------------------------------------------------------
+# MÓDULO DE PROMOS Y COMBOS (100% EDITABLE + DESCUENTO DE STOCK REAL)
+# ---------------------------------------------------------------------------
+class PromoComponenteFijoIn(BaseModel):
+    producto_id: int
+    nombre: Optional[str] = ""
+    cantidad: float = Field(default=1.0, gt=0, le=10_000, allow_inf_nan=False)
+
+
+class PromoOpcionEleccionIn(BaseModel):
+    producto_id: int
+    nombre: Optional[str] = ""
+    extra: float = Field(default=0.0, ge=-1_000_000, le=10_000_000, allow_inf_nan=False)
+
+
+class PromoGrupoEleccionIn(BaseModel):
+    titulo: str = Field(default="Elegir opción", min_length=1, max_length=120)
+    cantidad: float = Field(default=1.0, gt=0, le=10_000, allow_inf_nan=False)
+    opciones: List[PromoOpcionEleccionIn] = Field(default_factory=list)
+
+
+class PromoIn(BaseModel):
+    nombre: str = Field(min_length=1, max_length=180)
+    categoria: str = Field(default="General", max_length=80)
+    descripcion: Optional[str] = Field(default="", max_length=300)
+    precio: float = Field(gt=0, le=100_000_000, allow_inf_nan=False)
+    fijos: List[PromoComponenteFijoIn] = Field(default_factory=list)
+    elecciones: List[PromoGrupoEleccionIn] = Field(default_factory=list)
+    activo: bool = True
+
+
+class PromoPrecioRapidoIn(BaseModel):
+    precio: float = Field(gt=0, le=100_000_000, allow_inf_nan=False)
+    nombre: Optional[str] = None
+    descripcion: Optional[str] = None
+    categoria: Optional[str] = None
+
+
+def _promo_out(row: dict, prod_map: dict) -> dict:
+    try:
+        fijos_raw = json.loads(row.get("fijos_json") or "[]")
+    except Exception:
+        fijos_raw = []
+    try:
+        elecciones_raw = json.loads(row.get("elecciones_json") or "[]")
+    except Exception:
+        elecciones_raw = []
+
+    fijos_out = []
+    limites_combos = []
+    faltantes = []
+
+    for f in fijos_raw:
+        pid = int(f.get("producto_id") or 0)
+        cant = float(f.get("cantidad") or 1)
+        p_info = prod_map.get(pid)
+        nom = p_info["nombre"] if p_info else (f.get("nombre") or f"Producto #{pid}")
+        stk = float(p_info.get("stock_actual") or 0) if p_info else 0.0
+        posibles = int(stk // cant) if cant > 0 else 0
+        limites_combos.append(posibles)
+        if posibles <= 0:
+            faltantes.append(nom)
+        fijos_out.append({
+            "producto_id": pid,
+            "nombre": nom,
+            "cantidad": _num(cant),
+            "stock_actual": _num(stk),
+        })
+
+    elecciones_out = []
+    for grp in elecciones_raw:
+        cant_grp = float(grp.get("cantidad") or 1)
+        opciones_out = []
+        max_posibles_grp = 0
+        for op in grp.get("opciones", []):
+            pid = int(op.get("producto_id") or 0)
+            p_info = prod_map.get(pid)
+            nom = p_info["nombre"] if p_info else (op.get("nombre") or f"Producto #{pid}")
+            stk = float(p_info.get("stock_actual") or 0) if p_info else 0.0
+            pos_op = int(stk // cant_grp) if cant_grp > 0 else 0
+            if pos_op > max_posibles_grp:
+                max_posibles_grp = pos_op
+            opciones_out.append({
+                "producto_id": pid,
+                "nombre": nom,
+                "extra": _num(op.get("extra") or 0),
+                "stock_actual": _num(stk),
+                "disponible": pos_op > 0,
+            })
+        if opciones_out:
+            limites_combos.append(max_posibles_grp)
+            if max_posibles_grp <= 0:
+                faltantes.append(grp.get("titulo") or "Opción elegible")
+            elecciones_out.append({
+                "titulo": grp.get("titulo") or "Elegir opción",
+                "cantidad": _num(cant_grp),
+                "opciones": opciones_out,
+            })
+
+    combos_disp = min(limites_combos) if limites_combos else 999
+    return {
+        "id": int(row["id"]),
+        "nombre": row["nombre"],
+        "categoria": row.get("categoria") or "General",
+        "descripcion": row.get("descripcion") or "",
+        "precio": _num(row.get("precio_venta")),
+        "fijos": fijos_out,
+        "elecciones": elecciones_out,
+        "tiene_elecciones": len(elecciones_out) > 0,
+        "combos_disponibles": combos_disp,
+        "disponible": combos_disp > 0,
+        "faltantes": faltantes,
+        "activo": bool(row.get("activo", 1)),
+    }
+
+
+@app.get("/api/promos", dependencies=[Depends(requiere_sesion_api)])
+def listar_promos(incluir_inactivas: bool = False):
+    db = get_db()
+    prods = (
+        db.table("productos")
+        .select("id, nombre, stock_actual, precio_venta, precio_costo")
+        .eq("comercio_id", COMERCIO_ID)
+        .eq("activo", True)
+        .execute()
+        .data
+        or []
+    )
+    prod_map = {int(p["id"]): p for p in prods}
+
+    q = db.table("promos").select("*").eq("comercio_id", COMERCIO_ID)
+    if not incluir_inactivas:
+        q = q.eq("activo", True)
+    filas = q.order("id").execute().data or []
+    return [_promo_out(r, prod_map) for r in filas]
+
+
+@app.post("/api/promos", dependencies=[Depends(requiere_sesion_api), Depends(requiere_admin_api)])
+def crear_promo(datos: PromoIn, request: Request):
+    if not datos.fijos and not datos.elecciones:
+        raise HTTPException(400, "La promo debe tener al menos un producto fijo o un grupo de elección.")
+
+    db = get_db()
+    prods = (
+        db.table("productos")
+        .select("id, nombre, stock_actual, precio_venta")
+        .eq("comercio_id", COMERCIO_ID)
+        .eq("activo", True)
+        .execute()
+        .data
+        or []
+    )
+    prod_map = {int(p["id"]): p for p in prods}
+
+    fijos_limpios = []
+    for f in datos.fijos:
+        p_info = prod_map.get(int(f.producto_id))
+        if not p_info:
+            raise HTTPException(400, f"El producto fijo #{f.producto_id} no existe.")
+        fijos_limpios.append({
+            "producto_id": int(f.producto_id),
+            "nombre": p_info["nombre"],
+            "cantidad": float(f.cantidad),
+        })
+
+    elecciones_limpias = []
+    for grp in datos.elecciones:
+        if not grp.opciones:
+            continue
+        ops = []
+        for op in grp.opciones:
+            p_info = prod_map.get(int(op.producto_id))
+            if not p_info:
+                raise HTTPException(400, f"El producto de opción #{op.producto_id} no existe.")
+            ops.append({
+                "producto_id": int(op.producto_id),
+                "nombre": p_info["nombre"],
+                "extra": float(op.extra or 0),
+            })
+        elecciones_limpias.append({
+            "titulo": grp.titulo.strip() or "Elegir opción",
+            "cantidad": float(grp.cantidad),
+            "opciones": ops,
+        })
+
+    nuevo = {
+        "comercio_id": COMERCIO_ID,
+        "nombre": datos.nombre.strip(),
+        "categoria": (datos.categoria or "General").strip() or "General",
+        "descripcion": (datos.descripcion or "").strip(),
+        "precio_venta": round(float(datos.precio), 2),
+        "fijos_json": json.dumps(fijos_limpios, ensure_ascii=False),
+        "elecciones_json": json.dumps(elecciones_limpias, ensure_ascii=False),
+        "activo": 1 if datos.activo else 0,
+    }
+    res = db.table("promos").insert(nuevo).execute()
+    fila = res.data[0] if res.data else nuevo
+    _registrar_auditoria(request, "PROMO_CREADA", {"id": fila.get("id"), "nombre": nuevo["nombre"], "precio": nuevo["precio_venta"]})
+    return _promo_out(fila, prod_map)
+
+
+@app.put("/api/promos/{promo_id}", dependencies=[Depends(requiere_sesion_api), Depends(requiere_admin_api)])
+def actualizar_promo(promo_id: int, datos: PromoIn, request: Request):
+    if not datos.fijos and not datos.elecciones:
+        raise HTTPException(400, "La promo debe tener al menos un producto fijo o un grupo de elección.")
+
+    db = get_db()
+    existente = (
+        db.table("promos")
+        .select("*")
+        .eq("id", promo_id)
+        .eq("comercio_id", COMERCIO_ID)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    if not existente:
+        raise HTTPException(404, "Promo no encontrada.")
+
+    prods = (
+        db.table("productos")
+        .select("id, nombre, stock_actual, precio_venta")
+        .eq("comercio_id", COMERCIO_ID)
+        .eq("activo", True)
+        .execute()
+        .data
+        or []
+    )
+    prod_map = {int(p["id"]): p for p in prods}
+
+    fijos_limpios = []
+    for f in datos.fijos:
+        p_info = prod_map.get(int(f.producto_id))
+        nom = p_info["nombre"] if p_info else (f.nombre or f"Producto #{f.producto_id}")
+        fijos_limpios.append({
+            "producto_id": int(f.producto_id),
+            "nombre": nom,
+            "cantidad": float(f.cantidad),
+        })
+
+    elecciones_limpias = []
+    for grp in datos.elecciones:
+        if not grp.opciones:
+            continue
+        ops = []
+        for op in grp.opciones:
+            p_info = prod_map.get(int(op.producto_id))
+            nom = p_info["nombre"] if p_info else (op.nombre or f"Producto #{op.producto_id}")
+            ops.append({
+                "producto_id": int(op.producto_id),
+                "nombre": nom,
+                "extra": float(op.extra or 0),
+            })
+        elecciones_limpias.append({
+            "titulo": grp.titulo.strip() or "Elegir opción",
+            "cantidad": float(grp.cantidad),
+            "opciones": ops,
+        })
+
+    cambios = {
+        "nombre": datos.nombre.strip(),
+        "categoria": (datos.categoria or "General").strip() or "General",
+        "descripcion": (datos.descripcion or "").strip(),
+        "precio_venta": round(float(datos.precio), 2),
+        "fijos_json": json.dumps(fijos_limpios, ensure_ascii=False),
+        "elecciones_json": json.dumps(elecciones_limpias, ensure_ascii=False),
+        "activo": 1 if datos.activo else 0,
+    }
+    res = db.table("promos").update(cambios).eq("id", promo_id).eq("comercio_id", COMERCIO_ID).execute()
+    fila = res.data[0] if res.data else {**existente[0], **cambios}
+    _registrar_auditoria(request, "PROMO_EDITADA", {"id": promo_id, "nombre": cambios["nombre"], "precio": cambios["precio_venta"]})
+    return _promo_out(fila, prod_map)
+
+
+@app.patch("/api/promos/{promo_id}/precio", dependencies=[Depends(requiere_sesion_api), Depends(requiere_admin_api)])
+def actualizar_precio_promo_rapido(promo_id: int, datos: PromoPrecioRapidoIn, request: Request):
+    db = get_db()
+    existente = (
+        db.table("promos")
+        .select("*")
+        .eq("id", promo_id)
+        .eq("comercio_id", COMERCIO_ID)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    if not existente:
+        raise HTTPException(404, "Promo no encontrada.")
+
+    cambios = {"precio_venta": round(float(datos.precio), 2)}
+    if datos.nombre is not None and datos.nombre.strip():
+        cambios["nombre"] = datos.nombre.strip()
+    if datos.descripcion is not None:
+        cambios["descripcion"] = datos.descripcion.strip()
+    if datos.categoria is not None and datos.categoria.strip():
+        cambios["categoria"] = datos.categoria.strip()
+
+    res = db.table("promos").update(cambios).eq("id", promo_id).eq("comercio_id", COMERCIO_ID).execute()
+    fila = res.data[0] if res.data else {**existente[0], **cambios}
+
+    prods = (
+        db.table("productos")
+        .select("id, nombre, stock_actual, precio_venta")
+        .eq("comercio_id", COMERCIO_ID)
+        .eq("activo", True)
+        .execute()
+        .data
+        or []
+    )
+    prod_map = {int(p["id"]): p for p in prods}
+    _registrar_auditoria(request, "PROMO_PRECIO_ACTUALIZADO", {"id": promo_id, "precio": cambios["precio_venta"]})
+    return _promo_out(fila, prod_map)
+
+
+@app.delete("/api/promos/{promo_id}", dependencies=[Depends(requiere_sesion_api), Depends(requiere_admin_api)])
+def eliminar_promo(promo_id: int, request: Request):
+    db = get_db()
+    existente = (
+        db.table("promos")
+        .select("id, nombre")
+        .eq("id", promo_id)
+        .eq("comercio_id", COMERCIO_ID)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    if not existente:
+        raise HTTPException(404, "Promo no encontrada.")
+    db.table("promos").update({"activo": 0}).eq("id", promo_id).eq("comercio_id", COMERCIO_ID).execute()
+    _registrar_auditoria(request, "PROMO_ELIMINADA", {"id": promo_id, "nombre": existente[0]["nombre"]})
+    return {"ok": True, "id": promo_id}
+
+
+@app.post("/api/promos/restaurar-catalogo", dependencies=[Depends(requiere_sesion_api), Depends(requiere_admin_api)])
+def restaurar_catalogo_bebidas_endpoint(request: Request):
+    from local_db import sembrar_catalogo_bebidas
+    db = get_db()
+    conn = db.pool.get_connection()
+    res = sembrar_catalogo_bebidas(conn, comercio_id=COMERCIO_ID, forzar=True)
+    _registrar_auditoria(request, "CATALOGO_BEBIDAS_RESTAURADO", res)
+    return res

@@ -38,7 +38,12 @@ La primera vez que abras el sistema verás un asistente guiado de 4 pasos:
 
 ## 3. Uso Diario en el Mostrador
 
-### A. Ventas y Punto de Venta (POS)
+### A. Ventas, Promos y Punto de Venta (POS)
+- **Selector Superior (Promos y Combos vs Productos Sueltos):**
+  - **Promos y Combos:** Ideal para venta ágil de combos de bebidas (Fernet + Coca, Smirnoff + Speed/Monster, Gin + Tónica, Packs x6 de Cerveza, etc.).
+  - **Promos Fijas en 1 toque:** Tocás **`+ Sumar`** y el combo entra directo al carrito descontando automáticamente todas las botellas individuales del stock (ej: `-1 Fernet Branca 1lt` y `-2 Coca-Cola 2,25L`).
+  - **Promos con Elección (Opción A):** Si la promo permite elegir sabor o gaseosa (ej: *Sprite o Coca 2,25L*, o *Smirnoff Clásico vs Tropical +$ 500*), al tocar **`+ Sumar`** se abre una ventana rápida para tocar con el dedo qué botella lleva el cliente. Descuenta la botella exacta elegida y suma el adicional si corresponde.
+  - **Botón rápido de Envío:** Contás con el botón **`+ Envío $1.500`** en 1 toque y aviso visual de compra mínima sugerida (`$ 7.000`).
 - **Búsqueda rápida:** Podés escribir parte del nombre, marca o pasar el lector de código de barras.
 - **Cobro en 1 toque:**
   - Efectivo (calcula el vuelto exacto).
@@ -47,10 +52,15 @@ La primera vez que abras el sistema verás un asistente guiado de 4 pasos:
 - **Comprobante por WhatsApp:**
   - Al finalizar la venta, tocás el botón de WhatsApp y se abre el mensaje con el desglose del ticket (*formato 100% limpio sin caracteres extraños ni rombos*).
 
-### B. Inventario y Control de Stock
-- **Alta de productos:** Nombre, código de barras, categoría, costo, precio de venta y stock mínimo.
+### B. Inventario y Promos 100% Editables
+- **Edición total de Productos Sueltos:** Podés crear, editar precios, costos, stock, código o dar de baja cualquier bebida o artículo de kiosco.
+- **Edición total de Promos y Combos:** Desde la pestaña **`Promos y Combos`** en Inventario (o tocando el ícono de lápiz en cualquier tarjeta del mostrador), podés:
+  - Cambiar el precio de venta de una promo al instante.
+  - Editar el nombre, categoría o descripción.
+  - Agregar o quitar qué botellas fijas descuenta del stock y en qué cantidad.
+  - Agregar o quitar grupos de elección (Opción A) y definir recargos opcionales (`+$ 500`, etc.).
 - **Fotos de productos:** Podés sacar fotos con la cámara del celular. El sistema las comprime a menos de 35 KB para que el catálogo sea ultra veloz y no sature la memoria.
-- **Semáforo de stock:** Los productos con stock bajo aparecen en rojo para saber qué reponer.
+- **Semáforo de stock:** Los productos con stock bajo aparecen en rojo y las promos calculan automáticamente cuántos combos podés armar según el stock real de sus botellas.
 
 ### C. Clientes y Cuentas Corrientes (Fiados)
 - **Cero etiquetas innecesarias:** Estar al día es el estado normal de un cliente. 

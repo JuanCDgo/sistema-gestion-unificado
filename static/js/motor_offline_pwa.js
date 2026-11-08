@@ -125,6 +125,7 @@
       seq: {
         categorias: 1,
         productos: 1,
+        promos: 1,
         clientes: 1,
         ventas: 1,
         detalle_ventas: 1,
@@ -140,6 +141,7 @@
       ],
       categorias: [],
       productos: [],
+      promos: [],
       clientes: [],
       ventas: [],
       detalle_ventas: [],
@@ -160,6 +162,154 @@
     };
   }
 
+  const CATEGORIAS_BEBIDAS_SEED = ["Botellas y Destilados", "Gaseosas, Aguas y Jugos", "Energizantes", "Cervezas", "Whisky", "Vinos", "Espumantes y Sidra", "Licores", "Hielo y Boutique", "Kiosco, Chocolates y Postres", "Snacks", "Vapers y Cigarrillos", "Servicios y Envíos"];
+  const PRODUCTOS_BEBIDAS_SEED = [["Fernet Branca 1lt", "Botellas y Destilados", 24500, 36], ["Fernet Branca 750cc", "Botellas y Destilados", 18000, 36], ["Fernet Branca 450cc", "Botellas y Destilados", 14500, 24], ["Fernet Branca Menta", "Botellas y Destilados", 13500, 24], ["Fernet Dorado Edición Limitada", "Botellas y Destilados", 20000, 0], ["Amargo Obrero", "Botellas y Destilados", 6000, 18], ["Absolut", "Botellas y Destilados", 27500, 18], ["Skyy", "Botellas y Destilados", 11300, 30], ["Skyy Jungle", "Botellas y Destilados", 12000, 24], ["Smirnoff", "Botellas y Destilados", 11000, 36], ["Smirnoff Tropical", "Botellas y Destilados", 11500, 30], ["Lata Smirnoff Frutos Rojos", "Botellas y Destilados", 4300, 24], ["Sernova", "Botellas y Destilados", 9000, 24], ["Frizzé", "Botellas y Destilados", 4600, 24], ["Dr Lemon", "Botellas y Destilados", 4600, 24], ["Campari", "Botellas y Destilados", 11500, 24], ["Aperol", "Botellas y Destilados", 11000, 24], ["Gancia", "Botellas y Destilados", 9500, 24], ["Ramazzotti", "Botellas y Destilados", 8500, 18], ["Cynar", "Botellas y Destilados", 10500, 12], ["Cinzano", "Botellas y Destilados", 11000, 12], ["Carpano", "Botellas y Destilados", 7900, 12], ["Gin Heráclito", "Botellas y Destilados", 17500, 18], ["Gin Hendricks", "Botellas y Destilados", 60000, 6], ["Gin Bombay", "Botellas y Destilados", 33500, 12], ["Gin Tanqueray Flor de Sevilla", "Botellas y Destilados", 30000, 12], ["Gin Beefeater 24", "Botellas y Destilados", 45000, 10], ["Gin Beefeater Saborizado", "Botellas y Destilados", 36000, 12], ["Gin Beefeater Original 750cc", "Botellas y Destilados", 31000, 12], ["Gin Beefeater Original 1lt", "Botellas y Destilados", 36000, 12], ["Gin Bulldog", "Botellas y Destilados", 32000, 10], ["Gin Aconcagua", "Botellas y Destilados", 19000, 18], ["Gin Aconcagua en Lata", "Botellas y Destilados", 8000, 24], ["Gin Heredero (Pink / Pomelo / Naranja)", "Botellas y Destilados", 18000, 18], ["Gin Llave Seco", "Botellas y Destilados", 14000, 18], ["Gin Gordon", "Botellas y Destilados", 16500, 18], ["Ginebra Llave", "Botellas y Destilados", 14000, 12], ["Ron Coco Bongo", "Botellas y Destilados", 10500, 18], ["Ron Bacardi Oro", "Botellas y Destilados", 26500, 12], ["Ron Bacardi Peach Red", "Botellas y Destilados", 17000, 12], ["Ron Malibú", "Botellas y Destilados", 20000, 12], ["Ron Cayman", "Botellas y Destilados", 8000, 18], ["Jägermeister 700cc", "Botellas y Destilados", 36000, 12], ["Holdmoser", "Botellas y Destilados", 25200, 12], ["Caña Legui", "Botellas y Destilados", 7200, 12], ["Tequila José Cuervo", "Botellas y Destilados", 58500, 8], ["Piña Colada", "Botellas y Destilados", 9000, 12], ["Granadina", "Botellas y Destilados", 4800, 12], ["Coca-Cola 2,25L", "Gaseosas, Aguas y Jugos", 5800, 72], ["Coca-Cola 1,5L", "Gaseosas, Aguas y Jugos", 4500, 72], ["Sprite 2,25L", "Gaseosas, Aguas y Jugos", 5800, 48], ["Sprite 1,5L", "Gaseosas, Aguas y Jugos", 4500, 48], ["Fanta 2,25L", "Gaseosas, Aguas y Jugos", 5800, 36], ["Fanta 1,5L", "Gaseosas, Aguas y Jugos", 4500, 36], ["Coca / Sprite / Fanta Retornable 2L", "Gaseosas, Aguas y Jugos", 4500, 36], ["Coca-Cola de Vidrio", "Gaseosas, Aguas y Jugos", 3500, 24], ["Lata Coca / Sprite / Fanta", "Gaseosas, Aguas y Jugos", 2100, 48], ["Coca / Sprite 500ml", "Gaseosas, Aguas y Jugos", 2600, 36], ["Paso de los Toros Pomelo 1,5L", "Gaseosas, Aguas y Jugos", 4000, 48], ["Paso de los Toros Tónica 1,5L", "Gaseosas, Aguas y Jugos", 4000, 48], ["Lata Paso de los Toros Pomelo", "Gaseosas, Aguas y Jugos", 1500, 24], ["Lata Schweppes", "Gaseosas, Aguas y Jugos", 2000, 24], ["Pritty 1,5L", "Gaseosas, Aguas y Jugos", 2600, 36], ["Pritty 2,25L", "Gaseosas, Aguas y Jugos", 3200, 48], ["Pritty 3L", "Gaseosas, Aguas y Jugos", 4100, 36], ["Secco 3L", "Gaseosas, Aguas y Jugos", 3000, 36], ["Seven Up / Pepsi 2L", "Gaseosas, Aguas y Jugos", 4100, 24], ["Pepsi 1,5L", "Gaseosas, Aguas y Jugos", 2700, 0], ["Baggio 1L", "Gaseosas, Aguas y Jugos", 2500, 48], ["Jugo Smudis Naranja 1L", "Gaseosas, Aguas y Jugos", 3500, 24], ["Cepita 1L", "Gaseosas, Aguas y Jugos", 3700, 24], ["Cepita 1,5L", "Gaseosas, Aguas y Jugos", 4200, 24], ["Gatorade 500ml", "Gaseosas, Aguas y Jugos", 2200, 0], ["Powerade Rojo / Azul 500ml", "Gaseosas, Aguas y Jugos", 2100, 24], ["Powerade Azul 1L", "Gaseosas, Aguas y Jugos", 3200, 0], ["Levité Naranja / Pomelo", "Gaseosas, Aguas y Jugos", 2700, 24], ["Aquarius Pomelo 500ml", "Gaseosas, Aguas y Jugos", 1500, 24], ["Aquarius Manzana / Pera 1,5L", "Gaseosas, Aguas y Jugos", 4100, 24], ["Agua Saborizada Fresh", "Gaseosas, Aguas y Jugos", 2100, 24], ["Agua Mineral / Soda 500ml", "Gaseosas, Aguas y Jugos", 1500, 36], ["Agua Mineral 1L", "Gaseosas, Aguas y Jugos", 1700, 36], ["Soda Grande", "Gaseosas, Aguas y Jugos", 2100, 24], ["Speed XL 500cc", "Energizantes", 3200, 72], ["Speed 250cc", "Energizantes", 2000, 72], ["Monster 500cc", "Energizantes", 3700, 60], ["Red Bull 250cc", "Energizantes", 3700, 60], ["Cerveza 361", "Cervezas", 2500, 36], ["Brahma Botella", "Cervezas", 4500, 36], ["Quilmes Botella", "Cervezas", 4300, 36], ["Andes Rubia Botella", "Cervezas", 4800, 24], ["Andes IPA Botella", "Cervezas", 4800, 24], ["Andes Roja Botella", "Cervezas", 4800, 24], ["Corona 710cc", "Cervezas", 6000, 24], ["Corona 330cc", "Cervezas", 4100, 48], ["Patagonia Botella", "Cervezas", 6000, 24], ["Stella Artois Botella", "Cervezas", 6000, 24], ["Heineken Botella", "Cervezas", 6400, 24], ["Lata Schneider", "Cervezas", 2800, 72], ["Lata Premium Grolsch", "Cervezas", 3800, 48], ["Lata Quilmes", "Cervezas", 2700, 72], ["Lata Quilmes Sin Alcohol", "Cervezas", 2700, 36], ["Latón Quilmes", "Cervezas", 3900, 48], ["Lata Brahma", "Cervezas", 2700, 72], ["Latón Brahma", "Cervezas", 3900, 48], ["Lata Andes Negra", "Cervezas", 3200, 48], ["Lata Stella Artois", "Cervezas", 3500, 48], ["Latón Stella Artois", "Cervezas", 4400, 48], ["Lata Heineken", "Cervezas", 4500, 48], ["Latón Heineken", "Cervezas", 6100, 48], ["Johnnie Walker Gold Label", "Whisky", 130000, 4], ["Johnnie Walker Double Black", "Whisky", 90000, 6], ["Johnnie Walker Black Label", "Whisky", 83000, 6], ["Johnnie Walker Red Label 750cc", "Whisky", 44000, 12], ["Jack Daniels Fire 1lt", "Whisky", 80000, 6], ["Jack Daniels Honey", "Whisky", 65000, 8], ["Jack Daniels Clásico", "Whisky", 65000, 8], ["Gentleman Jack Daniels", "Whisky", 95000, 4], ["Chivas Regal", "Whisky", 64000, 0], ["Jameson", "Whisky", 30700, 10], ["Jameson Black Barrel", "Whisky", 52000, 6], ["J&B", "Whisky", 35500, 8], ["Ballantine's", "Whisky", 35000, 8], ["Caballito Blanco", "Whisky", 20500, 12], ["Blenders", "Whisky", 12000, 18], ["Rutini Tinto", "Vinos", 20500, 12], ["Mosquita Muerta", "Vinos", 19800, 0], ["Catena Zapata", "Vinos", 18500, 12], ["Sapo de Otro Pozo", "Vinos", 16200, 12], ["Las Perdices Blanco Dulce / Tinto Malbec", "Vinos", 10000, 18], ["Pispi", "Vinos", 12300, 0], ["Santa Julia Chenin Dulce / Tinto", "Vinos", 10000, 24], ["Lata Santa Julia Chenin Dulce", "Vinos", 2800, 24], ["Santa Julia Malbec", "Vinos", 9000, 24], ["Trapiche Tinto Reserva", "Vinos", 10100, 0], ["Partridge Malbec", "Vinos", 7200, 18], ["Alma Mora Tinto", "Vinos", 7300, 18], ["Chacabuco Malbec", "Vinos", 8900, 18], ["Cordero con Piel de Lobo", "Vinos", 6500, 24], ["Prófugo Mr. Franc", "Vinos", 5500, 18], ["Cazador Cabernet Sauvignon", "Vinos", 4400, 18], ["Prófugo Especias", "Vinos", 4300, 18], ["Prófugo Frutos Rojos", "Vinos", 4300, 18], ["Otro Loco Más Tinto", "Vinos", 5700, 18], ["Lobo Negro", "Vinos", 4200, 18], ["Viñas de Balbo", "Vinos", 3800, 36], ["Quara", "Vinos", 2800, 24], ["Pecado Tinto", "Vinos", 2500, 24], ["Vino Toro Tetra", "Vinos", 2900, 48], ["Vino Blanco Toro Tetra", "Vinos", 2900, 36], ["Gata Flora Blanco Dulce", "Vinos", 7500, 18], ["Colón", "Vinos", 10000, 18], ["Colón Frutos Rojos / Durazno", "Vinos", 12500, 18], ["New Age", "Vinos", 5500, 24], ["Estancia Mendoza Chenin Dulce", "Vinos", 4000, 24], ["Marlo Blanco Dulce", "Vinos", 5300, 18], ["Norton Cosecha Tardía Blanco / Tinto Dulce", "Vinos", 4500, 24], ["Dilema Blanco Dulce", "Vinos", 5600, 24], ["Más Loco Que Una Cabra", "Vinos", 5600, 18], ["Santa Julia Espumante Classic", "Espumantes y Sidra", 8500, 18], ["Dada 7", "Espumantes y Sidra", 11000, 18], ["Rosé Espumante", "Espumantes y Sidra", 7000, 18], ["Chandon Extra Brut / Délice", "Espumantes y Sidra", 21400, 12], ["Mumm", "Espumantes y Sidra", 9800, 18], ["Renaissance", "Espumantes y Sidra", 6000, 18], ["Champagne DU", "Espumantes y Sidra", 6000, 24], ["Sidra Farruca", "Espumantes y Sidra", 2800, 24], ["Sheridans", "Licores", 50000, 6], ["Amarula Común / Vainilla", "Licores", 40000, 8], ["Baileys Original", "Licores", 40500, 8], ["Tía María Café", "Licores", 10000, 12], ["Tía María Crema", "Licores", 16500, 12], ["Tres Plumas (Huevo / Chocolate / DDL)", "Licores", 7500, 18], ["Hielo 1kg", "Hielo y Boutique", 2000, 50], ["Hielo 3kg", "Hielo y Boutique", 6000, 50], ["Hielo 12kg", "Hielo y Boutique", 12000, 30], ["Boutique Limón", "Hielo y Boutique", 3700, 20], ["Boutique Pomelo", "Hielo y Boutique", 3700, 20], ["Boutique Gin Tonic Botánicos", "Hielo y Boutique", 3700, 20], ["Frutos Congelados 100gr (Frutilla / Arándano / Mora)", "Hielo y Boutique", 2300, 20], ["Chicle Topline", "Kiosco, Chocolates y Postres", 600, 50], ["Chicle Topline 7ven", "Kiosco, Chocolates y Postres", 1200, 40], ["Chicle Topline Ultra", "Kiosco, Chocolates y Postres", 2400, 30], ["Menthoplus Negros / Miel", "Kiosco, Chocolates y Postres", 1000, 40], ["Flynn Paff Unidad", "Kiosco, Chocolates y Postres", 200, 100], ["Caja Bon o Bon Supreme Avellanas 140g", "Kiosco, Chocolates y Postres", 9500, 12], ["Chocolate Latte con Dedicatoria 60g", "Kiosco, Chocolates y Postres", 5000, 15], ["Alfajor Triple Terrabusi Blanco", "Kiosco, Chocolates y Postres", 2000, 24], ["Alfajor Milka Extra DDL Blanco / Negro", "Kiosco, Chocolates y Postres", 2000, 24], ["Alfajor Matilda", "Kiosco, Chocolates y Postres", 3000, 24], ["Alfajor Tatín Triple Blanco / Negro", "Kiosco, Chocolates y Postres", 1200, 36], ["Alfajor Fantoche Blanco / Negro", "Kiosco, Chocolates y Postres", 1300, 36], ["Alfajor Cofler Block Simple", "Kiosco, Chocolates y Postres", 1200, 30], ["Alfajor Bon o Bon Simple Blanco / Negro", "Kiosco, Chocolates y Postres", 1100, 36], ["Alfajor Bon o Bon Triple Negro", "Kiosco, Chocolates y Postres", 2000, 24], ["Alfajor Bon o Bon GOAT", "Kiosco, Chocolates y Postres", 2300, 24], ["Alfajor Cofler Block Triple", "Kiosco, Chocolates y Postres", 2000, 24], ["Alfajor Águila (Brownie / Dark / Negro / Blanco)", "Kiosco, Chocolates y Postres", 2000, 24], ["Alfajor Chocotorta Triple", "Kiosco, Chocolates y Postres", 2000, 0], ["Alfajor Tofi Negro Triple", "Kiosco, Chocolates y Postres", 2000, 24], ["Alfajor Rasta Negro / Blanco", "Kiosco, Chocolates y Postres", 2000, 36], ["Alfajor Barrigón Varios Sabores", "Kiosco, Chocolates y Postres", 2300, 36], ["Chocolate Arcor", "Kiosco, Chocolates y Postres", 1500, 24], ["Rocklets 40gr", "Kiosco, Chocolates y Postres", 2000, 24], ["Chocolate Graffiti Blanco / Negro", "Kiosco, Chocolates y Postres", 2100, 24], ["Chocolate Cofler Aireado 55gr", "Kiosco, Chocolates y Postres", 5000, 18], ["Chocolate Cofler Extra Grande", "Kiosco, Chocolates y Postres", 9500, 12], ["Cofler Extra 46gr", "Kiosco, Chocolates y Postres", 2700, 24], ["Cofler 46gr Relleno DDL", "Kiosco, Chocolates y Postres", 3000, 24], ["Cofler Tres Placeres / Rocklets 55g", "Kiosco, Chocolates y Postres", 4500, 18], ["Cofler Dubai 43g", "Kiosco, Chocolates y Postres", 4000, 18], ["Block 38gr Negro", "Kiosco, Chocolates y Postres", 2500, 24], ["Block 38gr Gold", "Kiosco, Chocolates y Postres", 2500, 24], ["Block 110gr", "Kiosco, Chocolates y Postres", 6000, 18], ["Block 170gr (Negro / Miti Miti)", "Kiosco, Chocolates y Postres", 11000, 12], ["Block 300gr Negro", "Kiosco, Chocolates y Postres", 17000, 10], ["Barra Cofler con DDL", "Kiosco, Chocolates y Postres", 2400, 24], ["Barra Block Max 60gr", "Kiosco, Chocolates y Postres", 2000, 24], ["Barra Bon o Bon XL Negro", "Kiosco, Chocolates y Postres", 2000, 24], ["Barra Bon o Bon Simple Blanco / Negro", "Kiosco, Chocolates y Postres", 1400, 24], ["Barra Cofler Chocolina XL", "Kiosco, Chocolates y Postres", 2000, 24], ["Barra Cofler Chocolina Max", "Kiosco, Chocolates y Postres", 2000, 24], ["Chocolate Bon o Bon Relleno Chocolina 48g", "Kiosco, Chocolates y Postres", 2700, 24], ["Postre Tiramisú", "Kiosco, Chocolates y Postres", 7000, 12], ["Postre Oreo", "Kiosco, Chocolates y Postres", 7000, 12], ["Postre Chocotorta", "Kiosco, Chocolates y Postres", 7000, 12], ["Postre Turrón de Quaker", "Kiosco, Chocolates y Postres", 7000, 12], ["Postre Brownie con Franui", "Kiosco, Chocolates y Postres", 7000, 12], ["Lays Clásicas", "Snacks", 4400, 24], ["Lays Jamón Serrano / Queso Crema y Ciboulette", "Snacks", 4400, 24], ["3D", "Snacks", 4400, 24], ["Doritos", "Snacks", 4400, 24], ["Papas Quento 90gr (Consultar Sabores)", "Snacks", 3100, 30], ["Vaper The Black Sheep 25k (Cola y Lima)", "Vapers y Cigarrillos", 29000, 10], ["Vaper Ebcreate 40k (Winter Mint / Pink Lemonade)", "Vapers y Cigarrillos", 36000, 10], ["Vaper Ignite 40k (Grape Ice / Strawberry)", "Vapers y Cigarrillos", 36000, 10], ["Vaper Elfbar 15k (Mango Magic)", "Vapers y Cigarrillos", 26000, 10], ["Vaper Lost Vape 10k (Raspberry / Pineapple)", "Vapers y Cigarrillos", 17000, 12], ["Vaper Funky Lands 7k (Pink Grapefruit)", "Vapers y Cigarrillos", 13000, 12], ["Vaper Ebdesign 6k (Blue Razz / Strawberry Ice)", "Vapers y Cigarrillos", 12000, 12], ["Vaper Elfbar 5k (Kiwi Passion Fruit Guava)", "Vapers y Cigarrillos", 11000, 12], ["Vaper Ignite 2500 (Berries / Mint / Watermelon)", "Vapers y Cigarrillos", 9000, 15], ["Marlboro 20 Box (Común / Fusión / Sandía)", "Vapers y Cigarrillos", 6700, 40], ["Marlboro 20 Común", "Vapers y Cigarrillos", 6300, 40], ["Marlboro 10 (Común / Fusión)", "Vapers y Cigarrillos", 4200, 40], ["Marlboro Crafted Común", "Vapers y Cigarrillos", 4100, 30], ["Marlboro Crafted Convertible", "Vapers y Cigarrillos", 4100, 30], ["Marlboro Coral / Purple", "Vapers y Cigarrillos", 4500, 30], ["Philips 20 Común", "Vapers y Cigarrillos", 5700, 40], ["Philips 20 Box (Común / Convertible)", "Vapers y Cigarrillos", 6200, 40], ["Philips 20 Red", "Vapers y Cigarrillos", 2800, 30], ["Philips 10 (Común / Convertible)", "Vapers y Cigarrillos", 3900, 30], ["Chester 20 (Común / Convertible)", "Vapers y Cigarrillos", 5200, 30], ["Chester Box (Convertible / Uva)", "Vapers y Cigarrillos", 5500, 30], ["Chester 10 (Común / Convertible)", "Vapers y Cigarrillos", 3500, 30], ["Dolchester", "Vapers y Cigarrillos", 1800, 30], ["Red Point", "Vapers y Cigarrillos", 2200, 30], ["Master", "Vapers y Cigarrillos", 2100, 30], ["Mill", "Vapers y Cigarrillos", 2100, 30], ["Encendedor", "Vapers y Cigarrillos", 600, 50], ["Preservativos", "Vapers y Cigarrillos", 5300, 24], ["Envío a Domicilio", "Servicios y Envíos", 1500, 9999]];
+  const PROMOS_BEBIDAS_SEED = [{"nombre": "Promo Fernet 1lt + 2 Cocas 2,25L", "categoria": "Fernet", "descripcion": "1 Fernet Branca 1lt + 2 Coca-Cola 2,25L", "precio_venta": 35000, "fijos": [["Fernet Branca 1lt", 1], ["Coca-Cola 2,25L", 2]], "elecciones": []}, {"nombre": "Promo Fernet 750cc + Coca 2,25L", "categoria": "Fernet", "descripcion": "1 Fernet Branca 750cc + 1 Coca-Cola 2,25L", "precio_venta": 23000, "fijos": [["Fernet Branca 750cc", 1], ["Coca-Cola 2,25L", 1]], "elecciones": []}, {"nombre": "Promo Fernet 750cc + 2 Cocas 1,5L", "categoria": "Fernet", "descripcion": "1 Fernet Branca 750cc + 2 Coca-Cola 1,5L", "precio_venta": 25000, "fijos": [["Fernet Branca 750cc", 1], ["Coca-Cola 1,5L", 2]], "elecciones": []}, {"nombre": "Promo Fernet 450cc + Coca 1,5L", "categoria": "Fernet", "descripcion": "1 Fernet Branca 450cc + 1 Coca-Cola 1,5L", "precio_venta": 17000, "fijos": [["Fernet Branca 450cc", 1], ["Coca-Cola 1,5L", 1]], "elecciones": []}, {"nombre": "Promo Fernet Menta + Sprite o Coca 2,25L", "categoria": "Fernet", "descripcion": "1 Fernet Menta + 1 Gaseosa 2,25L a elección", "precio_venta": 18000, "fijos": [["Fernet Branca Menta", 1]], "elecciones": [{"titulo": "Elegí la gaseosa 2,25L", "cantidad": 1, "opciones": [{"producto": "Sprite 2,25L", "extra": 0}, {"producto": "Coca-Cola 2,25L", "extra": 0}]}]}, {"nombre": "Promo Smirnoff + 2 Speed XL", "categoria": "Vodka", "descripcion": "Smirnoff Clásico (Tropical +$500) + 2 Speed XL 500cc", "precio_venta": 16000, "fijos": [["Speed XL 500cc", 2]], "elecciones": [{"titulo": "Elegí el sabor de Smirnoff", "cantidad": 1, "opciones": [{"producto": "Smirnoff", "extra": 0}, {"producto": "Smirnoff Tropical", "extra": 500}]}]}, {"nombre": "Promo Smirnoff + 4 Speed 250cc", "categoria": "Vodka", "descripcion": "1 Smirnoff + 4 latas Speed 250cc", "precio_venta": 17500, "fijos": [["Speed 250cc", 4]], "elecciones": [{"titulo": "Elegí el sabor de Smirnoff", "cantidad": 1, "opciones": [{"producto": "Smirnoff", "extra": 0}, {"producto": "Smirnoff Tropical", "extra": 500}]}]}, {"nombre": "Promo Smirnoff + 2 Monster", "categoria": "Vodka", "descripcion": "Smirnoff Clásico (Tropical +$500) + 2 Monster 500cc", "precio_venta": 16500, "fijos": [["Monster 500cc", 2]], "elecciones": [{"titulo": "Elegí el sabor de Smirnoff", "cantidad": 1, "opciones": [{"producto": "Smirnoff", "extra": 0}, {"producto": "Smirnoff Tropical", "extra": 500}]}]}, {"nombre": "Promo Smirnoff + Baggio 1L", "categoria": "Vodka", "descripcion": "Smirnoff Clásico (Tropical +$500) + 1 Baggio 1L", "precio_venta": 13500, "fijos": [["Baggio 1L", 1]], "elecciones": [{"titulo": "Elegí el sabor de Smirnoff", "cantidad": 1, "opciones": [{"producto": "Smirnoff", "extra": 0}, {"producto": "Smirnoff Tropical", "extra": 500}]}]}, {"nombre": "Promo Smirnoff + Paso de los Toros o Sprite 1,5L", "categoria": "Vodka", "descripcion": "Smirnoff (Tropical +$500) + 1 Gaseosa 1,5L a elección", "precio_venta": 14500, "fijos": [], "elecciones": [{"titulo": "Elegí el sabor de Smirnoff", "cantidad": 1, "opciones": [{"producto": "Smirnoff", "extra": 0}, {"producto": "Smirnoff Tropical", "extra": 500}]}, {"titulo": "Elegí la gaseosa 1,5L", "cantidad": 1, "opciones": [{"producto": "Paso de los Toros Pomelo 1,5L", "extra": 0}, {"producto": "Sprite 1,5L", "extra": 0}]}]}, {"nombre": "Promo Smirnoff + 4 Red Bull", "categoria": "Vodka", "descripcion": "Smirnoff Clásico (Tropical +$500) + 4 Red Bull 250cc", "precio_venta": 22500, "fijos": [["Red Bull 250cc", 4]], "elecciones": [{"titulo": "Elegí el sabor de Smirnoff", "cantidad": 1, "opciones": [{"producto": "Smirnoff", "extra": 0}, {"producto": "Smirnoff Tropical", "extra": 500}]}]}, {"nombre": "Promo Sernova + 2 Speed XL", "categoria": "Vodka", "descripcion": "1 Sernova + 2 Speed XL 500cc", "precio_venta": 13000, "fijos": [["Sernova", 1], ["Speed XL 500cc", 2]], "elecciones": []}, {"nombre": "Promo Sernova + 2 Monster", "categoria": "Vodka", "descripcion": "1 Sernova + 2 Monster 500cc", "precio_venta": 14000, "fijos": [["Sernova", 1], ["Monster 500cc", 2]], "elecciones": []}, {"nombre": "Promo Skyy + 2 Speed XL", "categoria": "Vodka", "descripcion": "1 Skyy Clásico + 2 Speed XL 500cc", "precio_venta": 16500, "fijos": [["Skyy", 1], ["Speed XL 500cc", 2]], "elecciones": []}, {"nombre": "Promo Skyy Jungle + 2 Speed XL", "categoria": "Vodka", "descripcion": "1 Skyy Jungle + 2 Speed XL 500cc", "precio_venta": 17500, "fijos": [["Skyy Jungle", 1], ["Speed XL 500cc", 2]], "elecciones": []}, {"nombre": "Promo Skyy + 2 Monster", "categoria": "Vodka", "descripcion": "1 Skyy Clásico + 2 Monster 500cc", "precio_venta": 17500, "fijos": [["Skyy", 1], ["Monster 500cc", 2]], "elecciones": []}, {"nombre": "Promo Skyy Jungle + 2 Monster", "categoria": "Vodka", "descripcion": "1 Skyy Jungle + 2 Monster 500cc", "precio_venta": 18500, "fijos": [["Skyy Jungle", 1], ["Monster 500cc", 2]], "elecciones": []}, {"nombre": "Promo Skyy + Sprite o Paso de los Toros 1,5L", "categoria": "Vodka", "descripcion": "1 Skyy + 1 Gaseosa 1,5L a elección", "precio_venta": 15500, "fijos": [["Skyy", 1]], "elecciones": [{"titulo": "Elegí la gaseosa 1,5L", "cantidad": 1, "opciones": [{"producto": "Sprite 1,5L", "extra": 0}, {"producto": "Paso de los Toros Pomelo 1,5L", "extra": 0}]}]}, {"nombre": "Promo Skyy + Baggio 1L", "categoria": "Vodka", "descripcion": "1 Skyy + 1 Baggio 1L", "precio_venta": 14000, "fijos": [["Skyy", 1], ["Baggio 1L", 1]], "elecciones": []}, {"nombre": "Promo Skyy + 4 Red Bull", "categoria": "Vodka", "descripcion": "1 Skyy + 4 Red Bull 250cc", "precio_venta": 22500, "fijos": [["Skyy", 1], ["Red Bull 250cc", 4]], "elecciones": []}, {"nombre": "Promo Absolut + 4 Speed XL", "categoria": "Vodka", "descripcion": "1 Absolut + 4 Speed XL 500cc", "precio_venta": 37000, "fijos": [["Absolut", 1], ["Speed XL 500cc", 4]], "elecciones": []}, {"nombre": "Promo Absolut + 4 Monster", "categoria": "Vodka", "descripcion": "1 Absolut + 4 Monster 500cc", "precio_venta": 38000, "fijos": [["Absolut", 1], ["Monster 500cc", 4]], "elecciones": []}, {"nombre": "Promo Absolut + 4 Red Bull", "categoria": "Vodka", "descripcion": "1 Absolut + 4 Red Bull 250cc", "precio_venta": 38000, "fijos": [["Absolut", 1], ["Red Bull 250cc", 4]], "elecciones": []}, {"nombre": "Promo Ron Cayman + 2 Speed XL", "categoria": "Ron y Whisky", "descripcion": "1 Ron Cayman + 2 Speed XL 500cc", "precio_venta": 11500, "fijos": [["Ron Cayman", 1], ["Speed XL 500cc", 2]], "elecciones": []}, {"nombre": "Promo Ron Coco Bongo + 2 Speed XL", "categoria": "Ron y Whisky", "descripcion": "1 Ron Coco Bongo + 2 Speed XL 500cc", "precio_venta": 14500, "fijos": [["Ron Coco Bongo", 1], ["Speed XL 500cc", 2]], "elecciones": []}, {"nombre": "Promo Ron Coco Bongo + Coca 1,5L", "categoria": "Ron y Whisky", "descripcion": "1 Ron Coco Bongo + 1 Coca-Cola 1,5L", "precio_venta": 13500, "fijos": [["Ron Coco Bongo", 1], ["Coca-Cola 1,5L", 1]], "elecciones": []}, {"nombre": "Promo Ron Malibú + Baggio 1L", "categoria": "Ron y Whisky", "descripcion": "1 Ron Malibú + 1 Baggio 1L", "precio_venta": 18000, "fijos": [["Ron Malibú", 1], ["Baggio 1L", 1]], "elecciones": []}, {"nombre": "Promo Ron Malibú + Coca-Cola 1,5L", "categoria": "Ron y Whisky", "descripcion": "1 Ron Malibú + 1 Coca-Cola 1,5L", "precio_venta": 19000, "fijos": [["Ron Malibú", 1], ["Coca-Cola 1,5L", 1]], "elecciones": []}, {"nombre": "Promo Ron Bacardi Peach Red + 2 Speed XL", "categoria": "Ron y Whisky", "descripcion": "1 Bacardi Peach Red + 2 Speed XL 500cc", "precio_venta": 21000, "fijos": [["Ron Bacardi Peach Red", 1], ["Speed XL 500cc", 2]], "elecciones": []}, {"nombre": "Promo Bacardi + Coca 2,25L", "categoria": "Ron y Whisky", "descripcion": "1 Ron Bacardi Oro + 1 Coca-Cola 2,25L", "precio_venta": 28500, "fijos": [["Ron Bacardi Oro", 1], ["Coca-Cola 2,25L", 1]], "elecciones": []}, {"nombre": "Promo Whisky Caballito Blanco + Coca o Sprite 2,25L", "categoria": "Ron y Whisky", "descripcion": "1 Caballito Blanco + 1 Gaseosa 2,25L a elección", "precio_venta": 25000, "fijos": [["Caballito Blanco", 1]], "elecciones": [{"titulo": "Elegí la gaseosa 2,25L", "cantidad": 1, "opciones": [{"producto": "Coca-Cola 2,25L", "extra": 0}, {"producto": "Sprite 2,25L", "extra": 0}]}]}, {"nombre": "Promo Whisky Blenders + Coca o Sprite 2,25L", "categoria": "Ron y Whisky", "descripcion": "1 Blenders + 1 Gaseosa 2,25L a elección", "precio_venta": 17500, "fijos": [["Blenders", 1]], "elecciones": [{"titulo": "Elegí la gaseosa 2,25L", "cantidad": 1, "opciones": [{"producto": "Coca-Cola 2,25L", "extra": 0}, {"producto": "Sprite 2,25L", "extra": 0}]}]}, {"nombre": "Promo Ginebra + Sprite 2,25L", "categoria": "Aperitivos", "descripcion": "1 Ginebra Llave + 1 Sprite 2,25L", "precio_venta": 17500, "fijos": [["Ginebra Llave", 1], ["Sprite 2,25L", 1]], "elecciones": []}, {"nombre": "Promo Ramazzotti + Paso de los Toros 1,5L", "categoria": "Aperitivos", "descripcion": "1 Ramazzotti + 1 Paso de los Toros 1,5L", "precio_venta": 12500, "fijos": [["Ramazzotti", 1]], "elecciones": [{"titulo": "Elegí Paso de los Toros", "cantidad": 1, "opciones": [{"producto": "Paso de los Toros Tónica 1,5L", "extra": 0}, {"producto": "Paso de los Toros Pomelo 1,5L", "extra": 0}]}]}, {"nombre": "Promo Gancia + Sprite 2,25L", "categoria": "Aperitivos", "descripcion": "1 Gancia + 1 Sprite 2,25L", "precio_venta": 14500, "fijos": [["Gancia", 1], ["Sprite 2,25L", 1]], "elecciones": []}, {"nombre": "Promo Gancia + Sprite 1,5L", "categoria": "Aperitivos", "descripcion": "1 Gancia + 1 Sprite 1,5L", "precio_venta": 13500, "fijos": [["Gancia", 1], ["Sprite 1,5L", 1]], "elecciones": []}, {"nombre": "Promo Aperol + Baggio 1L", "categoria": "Aperitivos", "descripcion": "1 Aperol + 1 Baggio 1L", "precio_venta": 14200, "fijos": [["Aperol", 1], ["Baggio 1L", 1]], "elecciones": []}, {"nombre": "Promo Aperol + Champagne DU", "categoria": "Aperitivos", "descripcion": "1 Aperol + 1 Champagne DU", "precio_venta": 16000, "fijos": [["Aperol", 1], ["Champagne DU", 1]], "elecciones": []}, {"nombre": "Promo Campari + Baggio 1L", "categoria": "Aperitivos", "descripcion": "1 Campari + 1 Baggio 1L", "precio_venta": 13500, "fijos": [["Campari", 1], ["Baggio 1L", 1]], "elecciones": []}, {"nombre": "Promo Jägermeister 700cc + 4 Red Bull", "categoria": "Aperitivos", "descripcion": "1 Jägermeister 700cc + 4 Red Bull 250cc", "precio_venta": 47500, "fijos": [["Jägermeister 700cc", 1], ["Red Bull 250cc", 4]], "elecciones": []}, {"nombre": "Promo Holdmoser + 4 Red Bull", "categoria": "Aperitivos", "descripcion": "1 Holdmoser + 4 Red Bull 250cc", "precio_venta": 35000, "fijos": [["Holdmoser", 1], ["Red Bull 250cc", 4]], "elecciones": []}, {"nombre": "Promo Gin Heráclito", "categoria": "Gin", "descripcion": "1 Gin Heráclito + 1 Gaseosa 1,5L a elección", "precio_venta": 20000, "fijos": [["Gin Heráclito", 1]], "elecciones": [{"titulo": "Elegí acompañante 1,5L", "cantidad": 1, "opciones": [{"producto": "Paso de los Toros Tónica 1,5L", "extra": 0}, {"producto": "Paso de los Toros Pomelo 1,5L", "extra": 0}, {"producto": "Sprite 1,5L", "extra": 0}]}]}, {"nombre": "Promo Gin Llave Seco", "categoria": "Gin", "descripcion": "1 Gin Llave Seco + 1 Gaseosa 1,5L a elección", "precio_venta": 17000, "fijos": [["Gin Llave Seco", 1]], "elecciones": [{"titulo": "Elegí acompañante 1,5L", "cantidad": 1, "opciones": [{"producto": "Paso de los Toros Tónica 1,5L", "extra": 0}, {"producto": "Paso de los Toros Pomelo 1,5L", "extra": 0}, {"producto": "Sprite 1,5L", "extra": 0}]}]}, {"nombre": "Promo Gin Beefeater 24", "categoria": "Gin", "descripcion": "1 Gin Beefeater 24 + 1 Gaseosa 1,5L a elección", "precio_venta": 48000, "fijos": [["Gin Beefeater 24", 1]], "elecciones": [{"titulo": "Elegí acompañante 1,5L", "cantidad": 1, "opciones": [{"producto": "Paso de los Toros Tónica 1,5L", "extra": 0}, {"producto": "Paso de los Toros Pomelo 1,5L", "extra": 0}, {"producto": "Sprite 1,5L", "extra": 0}]}]}, {"nombre": "Promo Gin Bombay", "categoria": "Gin", "descripcion": "1 Gin Bombay + 1 Gaseosa 1,5L a elección", "precio_venta": 35000, "fijos": [["Gin Bombay", 1]], "elecciones": [{"titulo": "Elegí acompañante 1,5L", "cantidad": 1, "opciones": [{"producto": "Paso de los Toros Tónica 1,5L", "extra": 0}, {"producto": "Paso de los Toros Pomelo 1,5L", "extra": 0}, {"producto": "Sprite 1,5L", "extra": 0}]}]}, {"nombre": "Promo Gin Tanqueray", "categoria": "Gin", "descripcion": "1 Gin Tanqueray + 1 Gaseosa 1,5L a elección", "precio_venta": 33000, "fijos": [["Gin Tanqueray Flor de Sevilla", 1]], "elecciones": [{"titulo": "Elegí acompañante 1,5L", "cantidad": 1, "opciones": [{"producto": "Paso de los Toros Tónica 1,5L", "extra": 0}, {"producto": "Paso de los Toros Pomelo 1,5L", "extra": 0}, {"producto": "Sprite 1,5L", "extra": 0}]}]}, {"nombre": "Promo Gin Bulldog", "categoria": "Gin", "descripcion": "1 Gin Bulldog + 1 Gaseosa 1,5L a elección", "precio_venta": 35000, "fijos": [["Gin Bulldog", 1]], "elecciones": [{"titulo": "Elegí acompañante 1,5L", "cantidad": 1, "opciones": [{"producto": "Paso de los Toros Tónica 1,5L", "extra": 0}, {"producto": "Paso de los Toros Pomelo 1,5L", "extra": 0}, {"producto": "Sprite 1,5L", "extra": 0}]}]}, {"nombre": "Promo Gin Beefeater Original 1Lt", "categoria": "Gin", "descripcion": "1 Gin Beefeater 1Lt + 1 Gaseosa 1,5L a elección", "precio_venta": 39000, "fijos": [["Gin Beefeater Original 1lt", 1]], "elecciones": [{"titulo": "Elegí acompañante 1,5L", "cantidad": 1, "opciones": [{"producto": "Paso de los Toros Tónica 1,5L", "extra": 0}, {"producto": "Paso de los Toros Pomelo 1,5L", "extra": 0}, {"producto": "Sprite 1,5L", "extra": 0}]}]}, {"nombre": "Promo Gin Beefeater Original 750cc", "categoria": "Gin", "descripcion": "1 Gin Beefeater 750cc + 1 Gaseosa 1,5L a elección", "precio_venta": 34000, "fijos": [["Gin Beefeater Original 750cc", 1]], "elecciones": [{"titulo": "Elegí acompañante 1,5L", "cantidad": 1, "opciones": [{"producto": "Paso de los Toros Tónica 1,5L", "extra": 0}, {"producto": "Paso de los Toros Pomelo 1,5L", "extra": 0}, {"producto": "Sprite 1,5L", "extra": 0}]}]}, {"nombre": "Promo Gin Beefeater Saborizado", "categoria": "Gin", "descripcion": "1 Gin Beefeater Saborizado + 1 Gaseosa 1,5L a elección", "precio_venta": 39000, "fijos": [["Gin Beefeater Saborizado", 1]], "elecciones": [{"titulo": "Elegí acompañante 1,5L", "cantidad": 1, "opciones": [{"producto": "Paso de los Toros Tónica 1,5L", "extra": 0}, {"producto": "Paso de los Toros Pomelo 1,5L", "extra": 0}, {"producto": "Sprite 1,5L", "extra": 0}]}]}, {"nombre": "Promo Gin Aconcagua", "categoria": "Gin", "descripcion": "1 Gin Aconcagua + 1 Gaseosa 1,5L a elección", "precio_venta": 22000, "fijos": [["Gin Aconcagua", 1]], "elecciones": [{"titulo": "Elegí acompañante 1,5L", "cantidad": 1, "opciones": [{"producto": "Paso de los Toros Tónica 1,5L", "extra": 0}, {"producto": "Paso de los Toros Pomelo 1,5L", "extra": 0}, {"producto": "Sprite 1,5L", "extra": 0}]}]}, {"nombre": "Promo Gin Heredero", "categoria": "Gin", "descripcion": "1 Gin Heredero + 1 Gaseosa 1,5L a elección", "precio_venta": 21000, "fijos": [["Gin Heredero (Pink / Pomelo / Naranja)", 1]], "elecciones": [{"titulo": "Elegí acompañante 1,5L", "cantidad": 1, "opciones": [{"producto": "Paso de los Toros Tónica 1,5L", "extra": 0}, {"producto": "Paso de los Toros Pomelo 1,5L", "extra": 0}, {"producto": "Sprite 1,5L", "extra": 0}]}]}, {"nombre": "Promo Gin Gordon", "categoria": "Gin", "descripcion": "1 Gin Gordon + 1 Gaseosa 1,5L a elección", "precio_venta": 19000, "fijos": [["Gin Gordon", 1]], "elecciones": [{"titulo": "Elegí acompañante 1,5L", "cantidad": 1, "opciones": [{"producto": "Paso de los Toros Tónica 1,5L", "extra": 0}, {"producto": "Paso de los Toros Pomelo 1,5L", "extra": 0}, {"producto": "Sprite 1,5L", "extra": 0}]}]}, {"nombre": "Promo Vino Viñas de Balbo + 1 Pritty 2,25L", "categoria": "Vinos", "descripcion": "1 Viñas de Balbo + 1 Pritty 2,25L", "precio_venta": 8000, "fijos": [["Viñas de Balbo", 1], ["Pritty 2,25L", 1]], "elecciones": []}, {"nombre": "Promo Vino Toro (2 cajas) + Secco 3L", "categoria": "Vinos", "descripcion": "2 Vino Toro Tetra + 1 Secco 3L", "precio_venta": 9500, "fijos": [["Vino Toro Tetra", 2], ["Secco 3L", 1]], "elecciones": []}, {"nombre": "Promo Vino Toro (3 cajas) + Secco 3L", "categoria": "Vinos", "descripcion": "3 Vino Toro Tetra + 1 Secco 3L", "precio_venta": 12000, "fijos": [["Vino Toro Tetra", 3], ["Secco 3L", 1]], "elecciones": []}, {"nombre": "Promo Vino Toro (2 cajas) + Pritty 2,25L", "categoria": "Vinos", "descripcion": "2 Vino Toro Tetra + 1 Pritty 2,25L", "precio_venta": 9500, "fijos": [["Vino Toro Tetra", 2], ["Pritty 2,25L", 1]], "elecciones": []}, {"nombre": "Promo Vino Toro (3 cajas) + 1 Pritty 3L", "categoria": "Vinos", "descripcion": "3 Vino Toro Tetra + 1 Pritty 3L", "precio_venta": 12000, "fijos": [["Vino Toro Tetra", 3], ["Pritty 3L", 1]], "elecciones": []}, {"nombre": "Promo Vino Toro (2 cajas) + Coca 2,25L", "categoria": "Vinos", "descripcion": "2 Vino Toro Tetra + 1 Coca-Cola 2,25L", "precio_venta": 12000, "fijos": [["Vino Toro Tetra", 2], ["Coca-Cola 2,25L", 1]], "elecciones": []}, {"nombre": "Promo Vino Blanco Toro (2 cajas) + Sprite 2,25L", "categoria": "Vinos", "descripcion": "2 Vino Blanco Toro Tetra + 1 Sprite 2,25L", "precio_venta": 12000, "fijos": [["Vino Blanco Toro Tetra", 2], ["Sprite 2,25L", 1]], "elecciones": []}, {"nombre": "Pack x6 Corona 330cc", "categoria": "Packs Cerveza", "descripcion": "6 unidades de Corona 330cc", "precio_venta": 31000, "fijos": [["Corona 330cc", 6]], "elecciones": []}, {"nombre": "Pack x6 Lata Schneider", "categoria": "Packs Cerveza", "descripcion": "6 latas de Schneider", "precio_venta": 15600, "fijos": [["Lata Schneider", 6]], "elecciones": []}, {"nombre": "Pack x6 Lata Premium Grolsch", "categoria": "Packs Cerveza", "descripcion": "6 latas de Grolsch", "precio_venta": 21500, "fijos": [["Lata Premium Grolsch", 6]], "elecciones": []}, {"nombre": "Pack x6 Lata Quilmes", "categoria": "Packs Cerveza", "descripcion": "6 latas de Quilmes Clásica", "precio_venta": 14700, "fijos": [["Lata Quilmes", 6]], "elecciones": []}, {"nombre": "Pack x6 Lata Quilmes Sin Alcohol", "categoria": "Packs Cerveza", "descripcion": "6 latas de Quilmes 0.0%", "precio_venta": 14700, "fijos": [["Lata Quilmes Sin Alcohol", 6]], "elecciones": []}, {"nombre": "Pack x6 Latón Quilmes", "categoria": "Packs Cerveza", "descripcion": "6 latones de Quilmes", "precio_venta": 14800, "fijos": [["Latón Quilmes", 6]], "elecciones": []}, {"nombre": "Pack x6 Lata Brahma", "categoria": "Packs Cerveza", "descripcion": "6 latas de Brahma", "precio_venta": 14700, "fijos": [["Lata Brahma", 6]], "elecciones": []}, {"nombre": "Pack x6 Latón Brahma", "categoria": "Packs Cerveza", "descripcion": "6 latones de Brahma", "precio_venta": 14800, "fijos": [["Latón Brahma", 6]], "elecciones": []}, {"nombre": "Pack x6 Lata Andes Negra", "categoria": "Packs Cerveza", "descripcion": "6 latas de Andes Negra", "precio_venta": 17400, "fijos": [["Lata Andes Negra", 6]], "elecciones": []}, {"nombre": "Pack x6 Lata Stella Artois", "categoria": "Packs Cerveza", "descripcion": "6 latas de Stella Artois", "precio_venta": 19800, "fijos": [["Lata Stella Artois", 6]], "elecciones": []}, {"nombre": "Pack x6 Latón Stella Artois", "categoria": "Packs Cerveza", "descripcion": "6 latones de Stella Artois", "precio_venta": 16200, "fijos": [["Latón Stella Artois", 6]], "elecciones": []}, {"nombre": "Pack x6 Lata Heineken", "categoria": "Packs Cerveza", "descripcion": "6 latas de Heineken", "precio_venta": 25000, "fijos": [["Lata Heineken", 6]], "elecciones": []}, {"nombre": "Pack x6 Latón Heineken", "categoria": "Packs Cerveza", "descripcion": "6 latones de Heineken", "precio_venta": 34600, "fijos": [["Latón Heineken", 6]], "elecciones": []}, {"nombre": "Promo 2x Alfajor Barrigón", "categoria": "Kiosco", "descripcion": "2 Alfajores Barrigón varios sabores", "precio_venta": 4000, "fijos": [["Alfajor Barrigón Varios Sabores", 2]], "elecciones": []}, {"nombre": "Promo 2x Flynn Paff", "categoria": "Kiosco", "descripcion": "2 Caramelos Flynn Paff", "precio_venta": 300, "fijos": [["Flynn Paff Unidad", 2]], "elecciones": []}];
+
+  function sembrarCatalogoBebidasEnDB(db, forzar = false) {
+    db.categorias = Array.isArray(db.categorias) ? db.categorias : [];
+    db.productos = Array.isArray(db.productos) ? db.productos : [];
+    db.promos = Array.isArray(db.promos) ? db.promos : [];
+    db.seq = db.seq || {};
+    if (!db.seq.categorias) db.seq.categorias = db.categorias.length + 1;
+    if (!db.seq.productos) db.seq.productos = db.productos.length + 1;
+    if (!db.seq.promos) db.seq.promos = db.promos.length + 1;
+
+    const prodsActivos = db.productos.filter((p) => p.activo !== false).length;
+    const promosActivas = db.promos.filter((pr) => pr.activo !== false).length;
+    if (!forzar && prodsActivos > 0 && promosActivas > 0) {
+      return { ok: true, sembrado: false };
+    }
+
+    const ahora = ahoraISO();
+    const catMap = {};
+    for (const nomCat of CATEGORIAS_BEBIDAS_SEED) {
+      let c = db.categorias.find((x) => String(x.nombre).toLowerCase() === nomCat.toLowerCase());
+      if (!c) {
+        c = {
+          id: db.seq.categorias++,
+          comercio_id: 1,
+          nombre: nomCat,
+          descripcion: '',
+          activo: true,
+          fecha_baja: null,
+          created_at: ahora,
+        };
+        db.categorias.push(c);
+      } else {
+        c.activo = true;
+        c.fecha_baja = null;
+      }
+      catMap[nomCat] = c.id;
+    }
+
+    const prodNameToId = {};
+    for (const p of db.productos) {
+      prodNameToId[p.nombre] = p.id;
+    }
+
+    let idx = 1;
+    for (const item of PRODUCTOS_BEBIDAS_SEED) {
+      const [prodNom, catNom, precioVta, stockIni] = item;
+      const catId = catMap[catNom] || null;
+      if (prodNameToId[prodNom]) {
+        if (forzar) {
+          const ex = db.productos.find((x) => x.id === prodNameToId[prodNom]);
+          if (ex) {
+            ex.categoria_id = catId;
+            ex.precio_venta = Number(precioVta);
+            ex.precio_costo = redondear2(Number(precioVta) * 0.7);
+            ex.activo = true;
+          }
+        }
+      } else {
+        const pid = db.seq.productos++;
+        const codigo = `BEB-${String(idx).padStart(3, '0')}`;
+        db.productos.push({
+          id: pid,
+          comercio_id: 1,
+          codigo,
+          nombre: prodNom,
+          categoria_id: catId,
+          unidad_medida: 'unid',
+          precio_costo: redondear2(Number(precioVta) * 0.7),
+          margen_ganancia: 42.86,
+          usa_precio_manual: true,
+          precio_venta: Number(precioVta),
+          stock_actual: Number(stockIni),
+          stock_minimo: 5,
+          puntos_canje: 0,
+          imagen_url: '',
+          activo: true,
+          fecha_baja: null,
+          created_at: ahora,
+        });
+        prodNameToId[prodNom] = pid;
+      }
+      idx++;
+    }
+
+    if (promosActivas === 0 || forzar) {
+      for (const pRaw of PROMOS_BEBIDAS_SEED) {
+        const fijosRes = (pRaw.fijos || [])
+          .map((f) => {
+            const pNom = Array.isArray(f) ? f[0] : f.producto;
+            const cant = Array.isArray(f) ? f[1] : f.cantidad;
+            return {
+              producto_id: prodNameToId[pNom] || 0,
+              nombre: pNom,
+              cantidad: Number(cant || 1),
+            };
+          })
+          .filter((f) => f.producto_id > 0);
+
+        const eleccionesRes = (pRaw.elecciones || [])
+          .map((g) => ({
+            titulo: g.titulo || 'Elegir opción',
+            cantidad: Number(g.cantidad || 1),
+            opciones: (g.opciones || [])
+              .map((op) => {
+                const pNom = Array.isArray(op) ? op[0] : op.producto;
+                const ext = Array.isArray(op) ? op[1] : op.extra;
+                return {
+                  producto_id: prodNameToId[pNom] || 0,
+                  nombre: pNom,
+                  extra: Number(ext || 0),
+                };
+              })
+              .filter((op) => op.producto_id > 0),
+          }))
+          .filter((g) => g.opciones.length > 0);
+
+        let exPr = db.promos.find((x) => String(x.nombre).toLowerCase() === String(pRaw.nombre).toLowerCase());
+        if (exPr) {
+          if (forzar) {
+            exPr.categoria = pRaw.categoria || 'General';
+            exPr.descripcion = pRaw.descripcion || '';
+            exPr.precio_venta = Number(pRaw.precio_venta ?? pRaw.precio ?? 0);
+            exPr.fijos = fijosRes;
+            exPr.elecciones = eleccionesRes;
+            exPr.activo = true;
+          }
+        } else {
+          db.promos.push({
+            id: db.seq.promos++,
+            comercio_id: 1,
+            nombre: pRaw.nombre,
+            categoria: pRaw.categoria || 'General',
+            descripcion: pRaw.descripcion || '',
+            precio_venta: Number(pRaw.precio_venta ?? pRaw.precio ?? 0),
+            fijos: fijosRes,
+            elecciones: eleccionesRes,
+            activo: true,
+            created_at: ahora,
+          });
+        }
+      }
+    }
+    return { ok: true, sembrado: true };
+  }
+
   let _dbCache = null;
   let _dbCacheSerializado = '';
 
@@ -176,6 +326,7 @@
           parsed.seq = { ...crearEstadoInicial().seq, ...(parsed.seq || {}) };
           parsed.categorias = Array.isArray(parsed.categorias) ? parsed.categorias : [];
           parsed.productos = Array.isArray(parsed.productos) ? parsed.productos : [];
+          parsed.promos = Array.isArray(parsed.promos) ? parsed.promos : [];
           parsed.clientes = Array.isArray(parsed.clientes) ? parsed.clientes : [];
           parsed.ventas = Array.isArray(parsed.ventas) ? parsed.ventas : [];
           parsed.detalle_ventas = Array.isArray(parsed.detalle_ventas) ? parsed.detalle_ventas : [];
@@ -185,6 +336,9 @@
           parsed.auditoria_movimientos = Array.isArray(parsed.auditoria_movimientos) ? parsed.auditoria_movimientos : [];
           parsed.usuarios = Array.isArray(parsed.usuarios) && parsed.usuarios.length ? parsed.usuarios : crearEstadoInicial().usuarios;
           parsed.estado_backup = parsed.estado_backup || crearEstadoInicial().estado_backup;
+          if (!parsed.productos.length || !parsed.promos.length) {
+            sembrarCatalogoBebidasEnDB(parsed, false);
+          }
           _dbCache = parsed;
           _dbCacheSerializado = raw;
           return _dbCache;
@@ -195,6 +349,7 @@
     }
     if (!_dbCache) {
       _dbCache = crearEstadoInicial();
+      sembrarCatalogoBebidasEnDB(_dbCache, false);
       _dbCacheSerializado = JSON.stringify(_dbCache);
       try {
         localStorage.setItem(STORAGE_KEY, _dbCacheSerializado);
@@ -633,6 +788,83 @@
       stock_minimo: Number(p.stock_minimo ?? 0),
       imagen: p.imagen_url || p.imagen || '',
       puntos_canje: Number(p.puntos_canje || 0),
+    };
+  }
+
+  function formatearPromoOut(db, pr) {
+    const prodMap = {};
+    for (const p of db.productos) {
+      if (p.activo !== false) prodMap[p.id] = p;
+    }
+    const fijosRaw = Array.isArray(pr.fijos) ? pr.fijos : [];
+    const eleccionesRaw = Array.isArray(pr.elecciones) ? pr.elecciones : [];
+
+    const fijosOut = [];
+    const limitesCombos = [];
+    const faltantes = [];
+
+    for (const f of fijosRaw) {
+      const pid = Number(f.producto_id || 0);
+      const cant = Number(f.cantidad || 1);
+      const pInfo = prodMap[pid];
+      const nom = pInfo ? pInfo.nombre : (f.nombre || `Producto #${pid}`);
+      const stk = pInfo ? Number(pInfo.stock_actual ?? pInfo.stock ?? 0) : 0;
+      const posibles = cant > 0 ? Math.floor(stk / cant) : 0;
+      limitesCombos.push(posibles);
+      if (posibles <= 0) faltantes.push(nom);
+      fijosOut.push({
+        producto_id: pid,
+        nombre: nom,
+        cantidad: cant,
+        stock_actual: stk,
+      });
+    }
+
+    const eleccionesOut = [];
+    for (const grp of eleccionesRaw) {
+      const cantGrp = Number(grp.cantidad || 1);
+      const opcionesOut = [];
+      let maxPosiblesGrp = 0;
+      for (const op of (grp.opciones || [])) {
+        const pid = Number(op.producto_id || 0);
+        const pInfo = prodMap[pid];
+        const nom = pInfo ? pInfo.nombre : (op.nombre || `Producto #${pid}`);
+        const stk = pInfo ? Number(pInfo.stock_actual ?? pInfo.stock ?? 0) : 0;
+        const posOp = cantGrp > 0 ? Math.floor(stk / cantGrp) : 0;
+        if (posOp > maxPosiblesGrp) maxPosiblesGrp = posOp;
+        opcionesOut.push({
+          producto_id: pid,
+          nombre: nom,
+          extra: Number(op.extra || 0),
+          stock_actual: stk,
+          disponible: posOp > 0,
+        });
+      }
+      if (opcionesOut.length > 0) {
+        limitesCombos.push(maxPosiblesGrp);
+        if (maxPosiblesGrp <= 0) faltantes.push(grp.titulo || 'Opción elegible');
+        eleccionesOut.push({
+          titulo: grp.titulo || 'Elegir opción',
+          cantidad: cantGrp,
+          opciones: opcionesOut,
+        });
+      }
+    }
+
+    const combosDisp = limitesCombos.length ? Math.min(...limitesCombos) : 999;
+    return {
+      id: Number(pr.id),
+      nombre: pr.nombre,
+      categoria: pr.categoria || 'General',
+      descripcion: pr.descripcion || '',
+      precio: Number(pr.precio_venta ?? pr.precio ?? 0),
+      fijos: fijosOut,
+      elecciones: eleccionesOut,
+      tiene_elecciones: eleccionesOut.length > 0,
+      combos_disponibles: combosDisp,
+      disponible: combosDisp > 0,
+      faltantes,
+      activo: pr.activo !== false,
     };
   }
 
@@ -1235,11 +1467,103 @@
       return respuestaJSON({ ok: true });
     }
 
-    // --- 3. Productos e Inventario ---
+    // --- 3. Productos, Promos e Inventario ---
     if (path === '/api/productos' && method === 'GET') {
       return respuestaJSON(
         db.productos.filter((p) => p.activo !== false).map((p) => formatearProductoOut(db, p))
       );
+    }
+
+    if (path === '/api/promos' && method === 'GET') {
+      const incInactivas = urlObj.searchParams.get('incluir_inactivas') === 'true';
+      const lista = (db.promos || []).filter((pr) => incInactivas || pr.activo !== false);
+      return respuestaJSON(lista.map((pr) => formatearPromoOut(db, pr)));
+    }
+
+    if (path === '/api/promos/restaurar-catalogo' && method === 'POST') {
+      const ses = obtenerSesion();
+      if (!ses || ses.rol !== 'admin') {
+        return respuestaJSON({ detail: 'Solo el Dueño puede restaurar el catálogo' }, 403);
+      }
+      const res = sembrarCatalogoBebidasEnDB(db, true);
+      guardarDB(db, true, 'Catálogo de bebidas y promos restaurado');
+      return respuestaJSON(res);
+    }
+
+    if (path === '/api/promos' && method === 'POST') {
+      const ses = obtenerSesion();
+      if (!ses || ses.rol !== 'admin') {
+        return respuestaJSON({ detail: 'Solo el Dueño puede crear promos' }, 403);
+      }
+      const body = await leerBodyJSON(init);
+      const nombre = String(body.nombre || '').trim();
+      if (!nombre) return respuestaJSON({ detail: 'El nombre de la promo es obligatorio' }, 400);
+      const nuevaPromo = {
+        id: db.seq.promos++,
+        comercio_id: 1,
+        nombre,
+        categoria: String(body.categoria || 'General').trim() || 'General',
+        descripcion: String(body.descripcion || '').trim(),
+        precio_venta: redondear2(body.precio || 0),
+        fijos: Array.isArray(body.fijos) ? body.fijos : [],
+        elecciones: Array.isArray(body.elecciones) ? body.elecciones : [],
+        activo: body.activo !== false,
+        created_at: ahoraISO(),
+      };
+      db.promos = db.promos || [];
+      db.promos.push(nuevaPromo);
+      registrarAuditoria(db, 'PROMO_CREADA', { id: nuevaPromo.id, nombre: nuevaPromo.nombre, precio: nuevaPromo.precio_venta });
+      guardarDB(db, true, `Promo "${nuevaPromo.nombre}" creada`);
+      return respuestaJSON(formatearPromoOut(db, nuevaPromo), 201);
+    }
+
+    const matchPromoPrecio = path.match(/^\/api\/promos\/(\d+)\/precio$/);
+    if (matchPromoPrecio && (method === 'PATCH' || method === 'PUT')) {
+      const ses = obtenerSesion();
+      if (!ses || ses.rol !== 'admin') {
+        return respuestaJSON({ detail: 'Solo el Dueño puede modificar precios de promos' }, 403);
+      }
+      const prid = Number(matchPromoPrecio[1]);
+      const pr = (db.promos || []).find((x) => x.id === prid);
+      if (!pr) return respuestaJSON({ detail: 'Promo no encontrada' }, 404);
+      const body = await leerBodyJSON(init);
+      pr.precio_venta = redondear2(body.precio ?? pr.precio_venta);
+      if (body.nombre) pr.nombre = String(body.nombre).trim();
+      if (body.descripcion != null) pr.descripcion = String(body.descripcion).trim();
+      if (body.categoria) pr.categoria = String(body.categoria).trim();
+      registrarAuditoria(db, 'PROMO_PRECIO_ACTUALIZADO', { id: pr.id, nombre: pr.nombre, precio: pr.precio_venta });
+      guardarDB(db, true, `Precio de "${pr.nombre}" actualizado`);
+      return respuestaJSON(formatearPromoOut(db, pr));
+    }
+
+    const matchPromoId = path.match(/^\/api\/promos\/(\d+)$/);
+    if (matchPromoId) {
+      const ses = obtenerSesion();
+      if (!ses || ses.rol !== 'admin') {
+        return respuestaJSON({ detail: 'Solo el Dueño puede modificar promos' }, 403);
+      }
+      const prid = Number(matchPromoId[1]);
+      const pr = (db.promos || []).find((x) => x.id === prid);
+      if (!pr) return respuestaJSON({ detail: 'Promo no encontrada' }, 404);
+      if (method === 'PUT') {
+        const body = await leerBodyJSON(init);
+        pr.nombre = String(body.nombre || pr.nombre).trim();
+        pr.categoria = String(body.categoria || pr.categoria || 'General').trim();
+        pr.descripcion = String(body.descripcion ?? pr.descripcion ?? '').trim();
+        pr.precio_venta = redondear2(body.precio ?? pr.precio_venta);
+        if (Array.isArray(body.fijos)) pr.fijos = body.fijos;
+        if (Array.isArray(body.elecciones)) pr.elecciones = body.elecciones;
+        if (body.activo != null) pr.activo = Boolean(body.activo);
+        registrarAuditoria(db, 'PROMO_EDITADA', { id: pr.id, nombre: pr.nombre, precio: pr.precio_venta });
+        guardarDB(db, true, `Promo "${pr.nombre}" actualizada`);
+        return respuestaJSON(formatearPromoOut(db, pr));
+      }
+      if (method === 'DELETE') {
+        pr.activo = false;
+        registrarAuditoria(db, 'PROMO_ELIMINADA', { id: pr.id, nombre: pr.nombre });
+        guardarDB(db, true, `Promo "${pr.nombre}" eliminada`);
+        return respuestaJSON({ ok: true, id: pr.id });
+      }
     }
 
     if (path === '/api/bajas/productos' && method === 'GET') {
@@ -1721,14 +2045,25 @@
       let puntosCanjeados = 0;
       const detalleOut = [];
 
+      const acumuladoPorProd = {};
+      for (const it of items) {
+        const pid = Number(it.producto_id);
+        acumuladoPorProd[pid] = redondear4((acumuladoPorProd[pid] || 0) + Number(it.cantidad || 0));
+      }
+      for (const [pidStr, cantTotal] of Object.entries(acumuladoPorProd)) {
+        const prod = db.productos.find((p) => p.id === Number(pidStr) && p.activo !== false);
+        if (!prod) return respuestaJSON({ detail: 'Producto no disponible' }, 400);
+        if (cantTotal > Number(prod.stock_actual || 0)) {
+          return respuestaJSON({ detail: `Stock insuficiente de ${prod.nombre} (disponible: ${prod.stock_actual})` }, 400);
+        }
+      }
+
       for (const it of items) {
         const prod = db.productos.find((p) => p.id === Number(it.producto_id) && p.activo !== false);
-        if (!prod) return respuestaJSON({ detail: 'Producto no disponible' }, 400);
         const cant = redondear4(it.cantidad);
-        if (cant > Number(prod.stock_actual || 0)) {
-          return respuestaJSON({ detail: `Stock insuficiente de ${prod.nombre}` }, 400);
-        }
-        const pLista = Number(prod.precio_venta || 0);
+        const pLista = (!it.es_canje && it.precio_unitario_pactado != null)
+          ? Number(it.precio_unitario_pactado)
+          : Number(prod.precio_venta || 0);
         let pUnit = 0;
         if (it.es_canje) {
           puntosCanjeados += Number(prod.puntos_canje || 0) * cant;
@@ -1737,10 +2072,11 @@
           pUnit = redondear2(pLista * factor);
           total += pUnit * cant;
         }
+        const etiquetaPromo = it.nombre_promo ? ` [${it.nombre_promo}]` : '';
         detalleOut.push({
           producto: prod,
           producto_id: prod.id,
-          nombre: prod.nombre + (it.es_canje ? ' (Canje)' : ''),
+          nombre: prod.nombre + (it.es_canje ? ' (Canje)' : etiquetaPromo),
           cantidad: cant,
           precio_unitario: pUnit,
           costo_unitario: Number(prod.precio_costo || 0),
