@@ -68,9 +68,17 @@ def inyectar_fallbacks_html(html_texto: str) -> str:
     return html_texto
 
 
+def _borrar_directorio_forzado(ruta: Path):
+    import stat
+    def _onexc(func, path, exc):
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
+    if ruta.exists():
+        shutil.rmtree(ruta, onexc=_onexc)
+
+
 def compilar_dist():
-    if OUT_DIR.exists():
-        shutil.rmtree(OUT_DIR)
+    _borrar_directorio_forzado(OUT_DIR)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
     client = TestClient(app)
@@ -182,8 +190,7 @@ def desplegar_gh_pages():
     except Exception as e:
         print(f"[Aviso] No se pudo hacer push automático a gh-pages: {e}")
     finally:
-        if git_dir.exists():
-            shutil.rmtree(git_dir, ignore_errors=True)
+        _borrar_directorio_forzado(git_dir)
 
 
 if __name__ == "__main__":
