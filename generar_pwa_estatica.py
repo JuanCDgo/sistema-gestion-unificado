@@ -165,18 +165,25 @@ def compilar_dist():
 
 
 def desplegar_gh_pages():
-    """Despliega la carpeta dist/ a la rama gh-pages del repositorio local."""
+    """Despliega exclusivamente el contenido de dist/ a la rama gh-pages sin ensuciar main."""
     compilar_dist()
     print("\nDesplegando 'dist/' en rama gh-pages...")
+    git_dir = OUT_DIR / ".git"
     try:
-        # Usamos git subtree o rama huérfana temporal
-        cmd = 'git subtree split --prefix dist -b gh-pages-temp'
-        subprocess.run(cmd, shell=True, check=True, cwd=BASE_DIR)
-        subprocess.run('git push -f origin gh-pages-temp:gh-pages', shell=True, check=True, cwd=BASE_DIR)
-        subprocess.run('git branch -D gh-pages-temp', shell=True, check=True, cwd=BASE_DIR)
+        rem = subprocess.check_output("git remote get-url origin", shell=True, cwd=BASE_DIR, text=True).strip()
+        if git_dir.exists():
+            shutil.rmtree(git_dir)
+        subprocess.run("git init", shell=True, check=True, cwd=OUT_DIR)
+        subprocess.run("git checkout -b gh-pages", shell=True, check=True, cwd=OUT_DIR)
+        subprocess.run("git add -A", shell=True, check=True, cwd=OUT_DIR)
+        subprocess.run('git commit -m "deploy: PWA estatica compilada desde dist/"', shell=True, check=True, cwd=OUT_DIR)
+        subprocess.run(f'git push -f "{rem}" gh-pages:gh-pages', shell=True, check=True, cwd=OUT_DIR)
         print("[OK] Despliegue en rama gh-pages completado.")
     except Exception as e:
         print(f"[Aviso] No se pudo hacer push automático a gh-pages: {e}")
+    finally:
+        if git_dir.exists():
+            shutil.rmtree(git_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":
