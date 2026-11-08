@@ -21,6 +21,7 @@ import os
 import re
 import secrets
 import sqlite3
+import sys
 import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -275,6 +276,19 @@ def _crear_esquema(conn: sqlite3.Connection) -> None:
     """)
 
     cur.execute("""
+    CREATE TABLE IF NOT EXISTS alertas_seguridad (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        comercio_id INTEGER NOT NULL REFERENCES comercios(id),
+        tipo TEXT NOT NULL DEFAULT 'intento_fuerza_bruta',
+        ip_origen TEXT NOT NULL DEFAULT '',
+        usuario_afectado TEXT NOT NULL DEFAULT '',
+        detalles TEXT NOT NULL DEFAULT '',
+        fecha_hora TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        leida INTEGER NOT NULL DEFAULT 0
+    );
+    """)
+
+    cur.execute("""
     CREATE TABLE IF NOT EXISTS promos (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         comercio_id INTEGER NOT NULL REFERENCES comercios(id),
@@ -292,6 +306,7 @@ def _crear_esquema(conn: sqlite3.Connection) -> None:
     # Índices esenciales
     cur.execute("CREATE INDEX IF NOT EXISTS idx_prod_comercio ON productos (comercio_id, nombre);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_promos_comercio ON promos (comercio_id, categoria, nombre);")
+    cur.execute("CREATE INDEX IF NOT EXISTS idx_alertas_seg ON alertas_seguridad (comercio_id, leida, fecha_hora DESC);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_cli_comercio ON clientes (comercio_id, nombre);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_ven_comercio ON ventas (comercio_id, fecha_hora DESC);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_det_venta ON detalle_ventas (venta_id);")
@@ -324,6 +339,7 @@ def _crear_esquema(conn: sqlite3.Connection) -> None:
         ("modo_operacion", "TEXT NOT NULL DEFAULT 'autonomo_offline'"),
         ("wizard_completado", "INTEGER NOT NULL DEFAULT 0"),
         ("rubro", "TEXT NOT NULL DEFAULT 'comercio_general'"),
+        ("clave_maestra_rescate", "TEXT NOT NULL DEFAULT 'RESCATE-BEBIDAS-7489'"),
     ]:
         if col_name not in cols_cfg:
             cur.execute(f"ALTER TABLE configuracion_negocio ADD COLUMN {col_name} {col_def};")
@@ -1245,6 +1261,68 @@ def _rpc_resetear_datos_comercio(conn: sqlite3.Connection, params: dict) -> dict
     except Exception:
         conn.execute("ROLLBACK;")
         raise
+
+
+# ---------------------------------------------------------------------------
+# Seguridad y Alertas
+# ---------------------------------------------------------------------------
+def registrar_alerta_seguridad(comercio_id: int, tipo: str, ip_origen: str, usuario_afectado: str, detalles: str, pool: Optional[ConnectionPool] = None) -> int:
+    """Registra un evento de seguridad (fuerza bruta, bloqueo, etc.)."""
+    conn = pool.get_connection() if pool else ConnectionPool._instance.get_connection() if hasattr(ConnectionPool, "_instance") else None
+    if conn is None:
+        return 0
+    try:
+        cur = conn.cursor()
+        ahora = _ahora_iso()
+        cur.execute(
+            """INSERT INTO alertas_seguridad (comercio_id, tipo, ip_origen, usuario_afectado, detalles, fecha_hora, leida)
+               VALUES (?, ?, ?, ?, ?, ?, 0);""",
+            (comercio_id, tipo, ip_origen, usuario_afectado, detalles, ahora),
+        )
+        conn.commit()
+        return cur.lastrowid or 0
+    except Exception as e:
+        log.warning("No se pudo registrar alerta de seguridad: %s", e)
+        return 0
+
+
+def listar_alertas_seguridad(comercio_id: int = 1, solo_no_leidas: bool = True, limite: int = 20, pool: Optional[ConnectionPool] = None) -> List[dict]:
+    """Lista eventos de seguridad."""
+    conn = pool.get_connection() if pool else ConnectionPool._instance.get_connection() if hasattr(ConnectionPool, "_instance") else None
+    if conn is None:
+        return []
+    try:
+        cur = conn.cursor()
+        if solo_no_leidas:
+            cur.execute(
+                """SELECT * FROM alertas_seguridad WHERE comercio_id = ? AND leida = 0 ORDER BY id DESC LIMIT ?;""",
+                (comercio_id, limite),
+            )
+        else:
+            cur.execute(
+                """SELECT * FROM alertas_seguridad WHERE comercio_id = ? ORDER BY id DESC LIMIT ?;""",
+                (comercio_id, limite),
+            )
+        return [dict(r) for r in cur.fetchall()]
+    except Exception:
+        return []
+
+
+def descartar_alerta_seguridad(comercio_id: int, alerta_id: int, pool: Optional[ConnectionPool] = None) -> bool:
+    """Marca una alerta de seguridad como leída."""
+    conn = pool.get_connection() if pool else ConnectionPool._instance.get_connection() if hasattr(ConnectionPool, "_instance") else None
+    if conn is None:
+        return False
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            """UPDATE alertas_seguridad SET leida = 1 WHERE comercio_id = ? AND id = ?;""",
+            (comercio_id, alerta_id),
+        )
+        conn.commit()
+        return True
+    except Exception:
+        return False
 
 
 # ---------------------------------------------------------------------------

@@ -47,6 +47,7 @@
     modo_operacion: 'autonomo_offline',
     wizard_completado: 0,
     rubro: 'comercio_general',
+    clave_maestra_rescate: 'RESCATE-BEBIDAS-7489',
   };
 
   function ahoraISO() {
@@ -133,6 +134,7 @@
         movimientos_cuenta: 1,
         cierres_caja: 1,
         auditoria: 1,
+        alertas_seguridad: 1,
       },
       config: { ...CONFIG_DEFAULT },
       usuarios: [
@@ -1417,19 +1419,52 @@
       if (!user) return respuestaJSON({ detail: 'Usuario no encontrado.' }, 401);
       const ahoraTs = Date.now();
       if (user.bloqueado_hasta && user.bloqueado_hasta > ahoraTs) {
-        const minRestan = Math.ceil((user.bloqueado_hasta - ahoraTs) / 60000);
-        return respuestaJSON({ detail: `Usuario bloqueado por ${minRestan} minutos por demasiados intentos.` }, 401);
+        const segRestan = Math.ceil((user.bloqueado_hasta - ahoraTs) / 1000);
+        return respuestaJSON({
+          detail: {
+            mensaje: `⛔ Acceso temporalmente bloqueado por seguridad. Podrás reintentar en ${segRestan} segundos.`,
+            bloqueado: true,
+            reintentar_en: segRestan,
+            intentos_restantes: 0,
+          }
+        }, 429);
       }
       if (user.pin !== pin) {
         user.intentos_fallidos = (user.intentos_fallidos || 0) + 1;
         if (user.intentos_fallidos >= 5) {
           user.intentos_fallidos = 0;
-          user.bloqueado_hasta = ahoraTs + 5 * 60 * 1000;
+          user.bloqueado_hasta = ahoraTs + 120 * 1000; // 2 minutos exactos
+          db.alertas_seguridad = db.alertas_seguridad || [];
+          db.alertas_seguridad.unshift({
+            id: (db.seq.alertas_seguridad = (db.seq.alertas_seguridad || 1) + 1),
+            comercio_id: 1,
+            tipo: 'intento_fuerza_bruta',
+            ip_origen: '127.0.0.1 (Offline)',
+            usuario_afectado: user.nombre,
+            detalles: `5 intentos fallidos consecutivos contra '${user.nombre}'. Dispositivo bloqueado por 2 minutos.`,
+            fecha_hora: new Date().toLocaleString('es-AR'),
+            leida: 0,
+          });
           guardarDB(db, false);
-          return respuestaJSON({ detail: 'Usuario bloqueado por 5 minutos por demasiados intentos.' }, 401);
+          return respuestaJSON({
+            detail: {
+              mensaje: '⛔ Acceso bloqueado por seguridad tras 5 intentos fallidos. Podrás reintentar en 120 segundos.',
+              bloqueado: true,
+              reintentar_en: 120,
+              intentos_restantes: 0,
+            }
+          }, 429);
         }
         guardarDB(db, false);
-        return respuestaJSON({ detail: `PIN incorrecto. Te quedan ${5 - user.intentos_fallidos} intentos.` }, 401);
+        const restan = 5 - user.intentos_fallidos;
+        return respuestaJSON({
+          detail: {
+            mensaje: `PIN incorrecto. Te quedan ${restan} intento${restan > 1 ? 's' : ''} antes de bloquear este dispositivo por 2 minutos.`,
+            bloqueado: false,
+            intentos_restantes: restan,
+            reintentar_en: 0,
+          }
+        }, 401);
       }
       user.intentos_fallidos = 0;
       user.bloqueado_hasta = 0;
@@ -1443,6 +1478,43 @@
       };
       guardarSesion(sesion);
       return respuestaJSON({ ok: true, ...sesion });
+    }
+
+    if (path === '/api/auth/recuperar-pin-dueno' && method === 'POST') {
+      const body = await leerBodyJSON(init);
+      const clave = String(body.clave_maestra || '').trim().toUpperCase();
+      const nuevoPin = String(body.nuevo_pin || '').trim();
+      const claveReal = String((db.config && db.config.clave_maestra_rescate) || 'RESCATE-BEBIDAS-7489').trim().toUpperCase();
+      if (!clave || clave !== claveReal) {
+        return respuestaJSON({ detail: { mensaje: 'Clave Maestra incorrecta.', bloqueado: false } }, 401);
+      }
+      if (!/^\d{4}$/.test(nuevoPin)) {
+        return respuestaJSON({ detail: { mensaje: 'El nuevo PIN debe tener exactamente 4 números.' } }, 400);
+      }
+      const admin = db.usuarios.find((u) => u.rol === 'admin');
+      if (admin) {
+        admin.pin = nuevoPin;
+        admin.intentos_fallidos = 0;
+        admin.bloqueado_hasta = 0;
+        guardarDB(db, false);
+      }
+      return respuestaJSON({ ok: true, mensaje: 'PIN del Dueño restablecido con éxito.' });
+    }
+
+    if (path === '/api/seguridad/alertas' && method === 'GET') {
+      const alertas = (db.alertas_seguridad || []).filter((a) => !a.leida);
+      return respuestaJSON(alertas.slice(0, 10));
+    }
+
+    if (path.startsWith('/api/seguridad/alertas/') && path.endsWith('/descartar') && method === 'POST') {
+      const partes = path.split('/');
+      const alId = Number(partes[4]);
+      const al = (db.alertas_seguridad || []).find((a) => a.id === alId);
+      if (al) {
+        al.leida = 1;
+        guardarDB(db, false);
+      }
+      return respuestaJSON({ ok: true });
     }
 
     if (path === '/api/logout' && method === 'POST') {

@@ -156,12 +156,37 @@
         <label for="loginPin">PIN de seguridad (4 números)</label>
       </div>
 
-      <p x-show="error" x-text="error" role="alert" class="text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-xl px-3.5 py-2.5"></p>
+      <!-- Banner de bloqueo con reloj en vivo -->
+      <div x-show="bloqueado" x-cloak class="p-3.5 bg-red-600 text-white rounded-xl text-xs font-semibold flex items-center justify-between shadow-md">
+        <div class="flex items-center gap-2">
+          <i data-lucide="shield-ban" class="w-4 h-4 shrink-0"></i>
+          <div>
+            <p class="font-bold">Acceso Bloqueado</p>
+            <p class="text-[11px] text-red-100 font-normal">Por reiterados intentos fallidos.</p>
+          </div>
+        </div>
+        <div class="px-2.5 py-1 bg-black/40 rounded-lg font-mono text-sm tracking-wider font-bold" x-text="segundosBloqueo + 's'"></div>
+      </div>
 
-      <button type="submit" :disabled="cargando"
+      <!-- Banner de advertencia de intentos restantes -->
+      <div x-show="!bloqueado && advertenciaIntentos" x-cloak class="p-3 bg-amber-50 border border-amber-300 text-amber-900 rounded-xl text-xs font-medium flex items-center gap-2">
+        <i data-lucide="alert-triangle" class="w-4 h-4 text-amber-600 shrink-0"></i>
+        <span x-text="advertenciaIntentos"></span>
+      </div>
+
+      <p x-show="error && !bloqueado" x-text="error" role="alert" class="text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-xl px-3.5 py-2.5"></p>
+
+      <button type="submit" :disabled="cargando || bloqueado"
               class="w-full h-14 btn-tactil-3d text-base tracking-wide flex items-center justify-center gap-2">
-        <span x-text="cargando ? 'Ingresando…' : 'Ingresar al Sistema'"></span>
+        <span x-text="bloqueado ? 'Dispositivo Bloqueado (' + segundosBloqueo + 's)' : (cargando ? 'Ingresando…' : 'Ingresar al Sistema')"></span>
       </button>
+
+      <!-- Botón de Rescate de PIN de Dueño -->
+      <div class="text-center pt-1">
+        <button type="button" @click="abrirModalRecuperar()" class="text-xs text-blue-600 hover:text-blue-800 font-medium hover:underline cursor-pointer">
+          ¿Olvidaste el PIN de Dueño?
+        </button>
+      </div>
     </form>
 
     <!-- Acceso rápido en Login para ver el QR Wi-Fi (conectar celulares en Modo B) o reabrir el asistente si aún no se configuró -->
@@ -175,6 +200,58 @@
               class="text-zinc-500 hover:text-zinc-900 font-medium underline cursor-pointer">
         Asistente Inicial
       </button>
+    </div>
+      <!-- Modal Recuperar PIN con Clave Maestra de Rescate -->
+    <div x-show="modalRecuperar" x-cloak
+         class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+      <div class="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-zinc-200 space-y-4 text-left">
+        <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
+          <div class="flex items-center gap-2 text-zinc-900 font-bold text-sm">
+            <i data-lucide="key" class="w-4 h-4 text-amber-600"></i>
+            <span>Recuperar PIN del Dueño</span>
+          </div>
+          <button type="button" @click="modalRecuperar = false" class="text-zinc-400 hover:text-zinc-600 font-bold text-sm">✕</button>
+        </div>
+
+        <p class="text-xs text-zinc-500">
+          Ingresá tu <strong>Clave Maestra de Rescate</strong> (definida en el Asistente Inicial o Configuración) para crear un nuevo PIN del Dueño al instante:
+        </p>
+
+        <form @submit.prevent="ejecutarRecuperarPin()" class="space-y-3">
+          <div>
+            <label class="block text-[11px] font-semibold text-zinc-600 mb-1">Clave Maestra de Rescate *</label>
+            <input type="text" x-model="recuperarForm.clave_maestra" required placeholder="Ej: RESCATE-BEBIDAS-7489"
+                   class="w-full px-3 py-2 rounded-xl border border-zinc-300 font-mono text-xs uppercase font-bold text-center bg-zinc-50 focus:bg-white focus:outline-none focus:border-zinc-900">
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="block text-[11px] font-semibold text-zinc-600 mb-1">Nuevo PIN (4 núm.) *</label>
+              <input type="password" x-model="recuperarForm.nuevo_pin" required inputmode="numeric" maxlength="4" placeholder="Ej: 1234"
+                     class="w-full px-3 py-2 rounded-xl border border-zinc-300 text-center font-bold text-base focus:outline-none focus:border-zinc-900">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-zinc-600 mb-1">Repetir PIN *</label>
+              <input type="password" x-model="recuperarForm.confirmar_pin" required inputmode="numeric" maxlength="4" placeholder="Ej: 1234"
+                     class="w-full px-3 py-2 rounded-xl border border-zinc-300 text-center font-bold text-base focus:outline-none focus:border-zinc-900">
+            </div>
+          </div>
+
+          <p x-show="recuperarError" x-text="recuperarError" class="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2"></p>
+          <p x-show="recuperarExito" x-text="recuperarExito" class="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2 font-medium"></p>
+
+          <div class="flex items-center gap-2 pt-2">
+            <button type="button" @click="modalRecuperar = false"
+                    class="flex-1 py-2.5 rounded-xl border border-zinc-300 text-xs font-semibold text-zinc-700 hover:bg-zinc-50 cursor-pointer">
+              Cancelar
+            </button>
+            <button type="submit" :disabled="recuperarCargando"
+                    class="flex-1 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold disabled:opacity-50 cursor-pointer">
+              <span x-text="recuperarCargando ? 'Restableciendo...' : 'Restablecer PIN'"></span>
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   </main>
 
@@ -459,16 +536,110 @@
           }
         },
 
+        iniciarCuentaRegresiva(segundos) {
+          this.bloqueado = true;
+          this.segundosBloqueo = segundos;
+          if (this.intervaloBloqueo) clearInterval(this.intervaloBloqueo);
+          this.intervaloBloqueo = setInterval(() => {
+            if (this.segundosBloqueo > 1) {
+              this.segundosBloqueo--;
+            } else {
+              this.segundosBloqueo = 0;
+              this.bloqueado = false;
+              this.error = '';
+              this.advertenciaIntentos = '';
+              clearInterval(this.intervaloBloqueo);
+              this.intervaloBloqueo = null;
+              this.$nextTick(() => this.$refs.inputPin && this.$refs.inputPin.focus());
+            }
+          }, 1000);
+        },
+
+        abrirModalRecuperar() {
+          this.modalRecuperar = true;
+          this.recuperarError = '';
+          this.recuperarExito = '';
+          this.recuperarForm = { clave_maestra: '', nuevo_pin: '', confirmar_pin: '' };
+          this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+        },
+
+        async ejecutarRecuperarPin() {
+          this.recuperarError = '';
+          this.recuperarExito = '';
+          const clave = this.recuperarForm.clave_maestra.trim();
+          const p1 = this.recuperarForm.nuevo_pin.trim();
+          const p2 = this.recuperarForm.confirmar_pin.trim();
+          if (!clave) { this.recuperarError = 'Ingresá la Clave Maestra de Rescate.'; return; }
+          if (!/^\d{4}$/.test(p1)) { this.recuperarError = 'El nuevo PIN debe tener exactamente 4 números.'; return; }
+          if (p1 !== p2) { this.recuperarError = 'Los PINs ingresados no coinciden.'; return; }
+
+          this.recuperarCargando = true;
+          try {
+            const res = await fetch('/api/auth/recuperar-pin-dueno', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ clave_maestra: clave, nuevo_pin: p1 }),
+            });
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              const msg = typeof d.detail === 'object' ? d.detail.mensaje : (d.detail || 'Error al restablecer PIN.');
+              if (res.status === 429) {
+                const segs = (typeof d.detail === 'object' && d.detail.reintentar_en) ? d.detail.reintentar_en : 120;
+                this.iniciarCuentaRegresiva(segs);
+              }
+              throw new Error(msg);
+            }
+            this.recuperarExito = '¡PIN restablecido con éxito! Ingresando al sistema...';
+            this.bloqueado = false;
+            if (this.intervaloBloqueo) clearInterval(this.intervaloBloqueo);
+            this.error = '';
+            this.advertenciaIntentos = '';
+            setTimeout(async () => {
+              this.modalRecuperar = false;
+              // Buscar usuario Dueño y autologin
+              const uAdmin = this.usuarios.find(u => u.rol === 'admin') || this.usuarios[0];
+              if (uAdmin) this.usuarioId = uAdmin.id;
+              this.pin = p1;
+              await this.ingresar();
+            }, 1200);
+          } catch (e) {
+            this.recuperarError = e.message;
+          } finally {
+            this.recuperarCargando = false;
+          }
+        },
+
+        copiarClaveRescateWizard() {
+          if (navigator.clipboard) {
+            navigator.clipboard.writeText(this.wizardDatos.clave_maestra_rescate || 'RESCATE-BEBIDAS-7489');
+            this.claveCopiadaWizard = true;
+            setTimeout(() => { this.claveCopiadaWizard = false; }, 2000);
+          }
+        },
+
         async ingresar() {
-          this.cargando = true; this.error = '';
+          if (this.bloqueado) return;
+          this.cargando = true; this.error = ''; this.advertenciaIntentos = '';
           try {
             const r = await fetch('/api/login', {
               method: 'POST', headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ usuario_id: Number(this.usuarioId), pin: this.pin })
             });
+            if (r.status === 429) {
+              const d = await r.json().catch(() => ({}));
+              const detalle = typeof d.detail === 'object' ? d.detail : { mensaje: d.detail, reintentar_en: 120 };
+              this.error = detalle.mensaje || 'Acceso temporalmente bloqueado por seguridad.';
+              this.iniciarCuentaRegresiva(Number(detalle.reintentar_en || 120));
+              this.pin = '';
+              return;
+            }
             if (r.status === 401 || r.status === 422) {
               const d = await r.json().catch(() => ({}));
-              this.error = r.status === 401 ? (d.detail || 'PIN incorrecto.') : 'El PIN tiene que ser de 4 números.';
+              const detalle = typeof d.detail === 'object' ? d.detail : { mensaje: d.detail };
+              this.error = r.status === 401 ? (detalle.mensaje || 'PIN incorrecto.') : 'El PIN tiene que ser de 4 números.';
+              if (detalle.intentos_restantes && detalle.intentos_restantes <= 2) {
+                this.advertenciaIntentos = `⚠️ Te quedan ${detalle.intentos_restantes} intento${detalle.intentos_restantes > 1 ? 's' : ''} antes de bloquear este dispositivo por 2 minutos.`;
+              }
               this.pin = '';
               this.$nextTick(() => this.$refs.inputPin && this.$refs.inputPin.focus());
               return;

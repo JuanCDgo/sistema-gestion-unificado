@@ -198,6 +198,28 @@
         </div>
       </div>
 
+      <!-- Clave Maestra de Rescate (Anti-Bloqueo de Emergencia) -->
+      <div class="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-1.5 text-left">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-1.5 text-amber-900 font-bold text-xs uppercase tracking-wider">
+            <i data-lucide="key" class="w-3.5 h-3.5 text-amber-700"></i>
+            <span>Clave Maestra de Rescate</span>
+          </div>
+          <span class="text-[10px] text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full font-semibold">Guardala ahora</span>
+        </div>
+        <p class="text-[11px] text-zinc-600">
+          Si alguna vez olvidás el PIN del Dueño o se bloquea el acceso, podrás restablecerlo desde el Login usando esta clave:
+        </p>
+        <div class="flex items-center gap-2">
+          <input type="text" x-model="wizardDatos.clave_maestra_rescate" readonly
+                 class="flex-1 px-3 py-1.5 rounded-lg border border-amber-300 bg-white font-mono text-xs font-bold text-amber-900 tracking-wider select-all text-center">
+          <button type="button" @click="copiarClaveRescateWizard()"
+                  class="px-2.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg text-xs font-semibold shrink-0 cursor-pointer">
+            <span x-text="claveCopiadaWizard ? '¡Copiada!' : 'Copiar'"></span>
+          </button>
+        </div>
+      </div>
+
       <!-- Lista dinámica de Cajeros -->
       <div class="space-y-2.5 pt-1">
         <div class="flex flex-wrap items-center justify-between gap-2">

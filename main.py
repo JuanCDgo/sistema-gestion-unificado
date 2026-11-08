@@ -29,6 +29,7 @@ load_dotenv(Path(os.getenv("POS_ENV_FILE") or BASE_DIR / ".env"), override=True)
 
 import io
 import json
+import math
 import logging
 import re
 import secrets
@@ -219,9 +220,10 @@ CONFIG_DEFAULT = {
     "modo_operacion": "autonomo_offline",
     "wizard_completado": 0,
     "rubro": "comercio_general",
+    "clave_maestra_rescate": "RESCATE-BEBIDAS-7489",
 }
 # clave_admin / clave_admin_hash: claves heredadas del login viejo, nunca se mandan al navegador.
-CAMPOS_SENSIBLES_CONFIG = {"smtp_password", "clave_admin", "clave_admin_hash"}
+CAMPOS_SENSIBLES_CONFIG = {"smtp_password", "clave_admin", "clave_admin_hash", "clave_maestra_rescate"}
 COLUMNAS_CONFIG_DB = set(CONFIG_DEFAULT.keys())
 
 
@@ -439,20 +441,112 @@ async def login_page(request: Request):
     return templates.TemplateResponse(request, "login.html", {"config": config_publica()})
 
 
+# ---------------------------------------------------------------------------
+# Rate Limiting y Blindaje Anti-Fuerza Bruta por IP
+# ---------------------------------------------------------------------------
+MAX_FALLOS_LOGIN = 5
+SEGUNDOS_BLOQUEO_IP = 120  # 2 minutos de bloqueo
+BLOQUEOS_LOGIN_IP: dict[str, dict] = {}
+
+
+def _obtener_ip_cliente(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client:
+        return request.client.host
+    return "127.0.0.1"
+
+
+def _chequear_bloqueo_ip(request: Request) -> None:
+    ip = _obtener_ip_cliente(request)
+    ahora = time.time()
+    estado = BLOQUEOS_LOGIN_IP.get(ip)
+    if estado and estado.get("bloqueado_hasta", 0) > ahora:
+        restante = math.ceil(estado["bloqueado_hasta"] - ahora)
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "mensaje": f"⛔ Acceso temporalmente bloqueado por seguridad. Podrás reintentar en {restante} segundos.",
+                "bloqueado": True,
+                "reintentar_en": restante,
+                "intentos_restantes": 0,
+            },
+        )
+
+
 @app.post("/api/login")
 def login(data: LoginIn, request: Request, response: Response):
-    limitar_intentos(request, bucket="auth_login", max_intentos=10, ventana_seg=60)
+    ip = _obtener_ip_cliente(request)
+    _chequear_bloqueo_ip(request)
+
     ver = get_db().rpc("verificar_login", {"p_usuario_id": data.usuario_id, "p_pin": data.pin}).execute().data or {}
     usuario = ver.get("usuario") or {}
     if ver.get("ok") and usuario.get("comercio_id") != COMERCIO_ID:
         ver = {"ok": False, "motivo": "usuario_invalido"}
+
+    ahora = time.time()
     if not ver.get("ok"):
-        motivo = ver.get("motivo")
-        if motivo == "pin_incorrecto":
-            raise HTTPException(401, f"PIN incorrecto. Te quedan {ver.get('intentos_restantes')} intentos.")
-        if motivo == "bloqueado":
-            raise HTTPException(401, _msg_bloqueo(ver))
-        raise HTTPException(401, "Usuario no válido.")
+        estado = BLOQUEOS_LOGIN_IP.get(ip)
+        if not estado or (ahora - estado.get("ultimo_intento", 0) > 600):
+            estado = {"intentos": 0, "bloqueado_hasta": 0, "ultimo_intento": ahora}
+
+        estado["intentos"] += 1
+        estado["ultimo_intento"] = ahora
+        BLOQUEOS_LOGIN_IP[ip] = estado
+
+        # Consultar nombre del usuario para el registro de seguridad
+        nom_usuario = "Usuario"
+        try:
+            u_row = get_db().table("usuarios").select("nombre").eq("id", data.usuario_id).limit(1).execute().data
+            if u_row:
+                nom_usuario = u_row[0].get("nombre", nom_usuario)
+        except Exception:
+            pass
+
+        if estado["intentos"] >= MAX_FALLOS_LOGIN:
+            estado["bloqueado_hasta"] = ahora + SEGUNDOS_BLOQUEO_IP
+            estado["intentos"] = 0
+
+            # Registrar Alerta de Seguridad
+            try:
+                ahora_ar = datetime.now(timezone(timedelta(hours=-3))).strftime("%Y-%m-%d %H:%M:%S")
+                get_db().table("alertas_seguridad").insert({
+                    "comercio_id": COMERCIO_ID,
+                    "tipo": "intento_fuerza_bruta",
+                    "ip_origen": ip,
+                    "usuario_afectado": nom_usuario,
+                    "detalles": f"5 intentos fallidos consecutivos contra '{nom_usuario}'. Dispositivo bloqueado por 2 minutos.",
+                    "fecha_hora": ahora_ar,
+                    "leida": 0,
+                }).execute()
+            except Exception as _e_al:
+                log.warning("No se pudo insertar alerta de seguridad: %s", _e_al)
+
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "mensaje": f"⛔ Acceso bloqueado por seguridad tras 5 intentos fallidos. Podrás reintentar en {SEGUNDOS_BLOQUEO_IP} segundos.",
+                    "bloqueado": True,
+                    "reintentar_en": SEGUNDOS_BLOQUEO_IP,
+                    "intentos_restantes": 0,
+                },
+            )
+        else:
+            restantes = MAX_FALLOS_LOGIN - estado["intentos"]
+            msg = f"PIN incorrecto. Te quedan {restantes} intento{'s' if restantes != 1 else ''} antes de bloquear este dispositivo por 2 minutos."
+            raise HTTPException(
+                status_code=401,
+                detail={
+                    "mensaje": msg,
+                    "bloqueado": False,
+                    "intentos_restantes": restantes,
+                    "reintentar_en": 0,
+                },
+            )
+
+    # Login exitoso: limpiar bloqueos acumulados para esta IP
+    BLOQUEOS_LOGIN_IP.pop(ip, None)
 
     ahora = time.time()
     if len(SESIONES_INFO) >= MAX_SESIONES_ACTIVAS:
@@ -2674,7 +2768,11 @@ class CambiarClaveIn(BaseModel):
 
 
 @app.get("/configuracion", response_class=HTMLResponse, dependencies=[Depends(requiere_sesion_html)])
+# Nota: en HTML se verifica el rol para redirigir si es cajero
 async def configuracion_page(request: Request):
+    info = _info_sesion(request)
+    if info.get("rol") != "admin":
+        return RedirectResponse("/?error=permiso_denegado", status_code=303)
     return templates.TemplateResponse(request, "configuracion.html", {
         "config": config_publica(incluir_mascara_smtp=True),
         "debe_cambiar_pin": bool(_info_sesion(request).get("debe_cambiar_pin")),
@@ -3042,6 +3140,9 @@ def resetear_datos_api(data: ResetDatosIn, request: Request):
 # ---------------------------------------------------------------------------
 @app.get("/auditoria", response_class=HTMLResponse, dependencies=[Depends(requiere_sesion_html)])
 async def auditoria_page(request: Request):
+    info = _info_sesion(request)
+    if info.get("rol") != "admin":
+        return RedirectResponse("/?error=permiso_denegado", status_code=303)
     return templates.TemplateResponse(request, "auditoria.html", {"config": config_publica()})
 
 
@@ -3133,7 +3234,7 @@ async def sincronizar_desde_celular_api(request: Request):
         return {"ok": False}
 
 
-@app.get("/api/backup-drive/estado", dependencies=[Depends(requiere_sesion_api)])
+@app.get("/api/backup-drive/estado", dependencies=[Depends(requiere_admin_api)])
 def obtener_estado_backup_drive_api():
     """Devuelve el estado del backup automático de la carpeta 'datos/' y la conexión Wi-Fi."""
     from backup_drive import (
@@ -3153,7 +3254,7 @@ def obtener_estado_backup_drive_api():
     }
 
 
-@app.post("/api/backup-drive/ejecutar-ahora", dependencies=[Depends(requiere_sesion_api)])
+@app.post("/api/backup-drive/ejecutar-ahora", dependencies=[Depends(requiere_admin_api)])
 def ejecutar_backup_drive_ahora_api():
     """Ejecuta de inmediato el respaldo de toda la carpeta 'datos/' y si hay Wi-Fi lo sube a Google Drive."""
     from backup_drive import ejecutar_backup_datos
@@ -3244,6 +3345,106 @@ def red_qr_svg():
     raise HTTPException(404, "No se pudo generar el codigo QR")
 
 
+class RecuperarPinIn(BaseModel):
+    clave_maestra: str = Field(min_length=6, max_length=64)
+    nuevo_pin: str = Field(pattern=r"^\d{4}$")
+
+
+@app.post("/api/auth/recuperar-pin-dueno")
+def recuperar_pin_dueno(data: RecuperarPinIn, request: Request):
+    """Permite al Dueño restablecer su PIN usando la Clave Maestra de Rescate sin depender de internet ni emails."""
+    ip = _obtener_ip_cliente(request)
+    _chequear_bloqueo_ip(request)
+
+    clave_ingresada = data.clave_maestra.strip().upper()
+    cfg = cargar_config()
+    clave_real = (cfg.get("clave_maestra_rescate") or "RESCATE-BEBIDAS-7489").strip().upper()
+
+    ahora = time.time()
+    if clave_ingresada != clave_real:
+        estado = BLOQUEOS_LOGIN_IP.get(ip, {"intentos": 0, "bloqueado_hasta": 0, "ultimo_intento": ahora})
+        estado["intentos"] += 1
+        estado["ultimo_intento"] = ahora
+        BLOQUEOS_LOGIN_IP[ip] = estado
+        if estado["intentos"] >= MAX_FALLOS_LOGIN:
+            estado["bloqueado_hasta"] = ahora + SEGUNDOS_BLOQUEO_IP
+            estado["intentos"] = 0
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "mensaje": f"⛔ Clave Maestra incorrecta. Dispositivo bloqueado por {SEGUNDOS_BLOQUEO_IP} segundos.",
+                    "bloqueado": True,
+                    "reintentar_en": SEGUNDOS_BLOQUEO_IP,
+                },
+            )
+        restantes = MAX_FALLOS_LOGIN - estado["intentos"]
+        raise HTTPException(
+            status_code=401,
+            detail={
+                "mensaje": f"Clave Maestra incorrecta. Te quedan {restantes} intentos.",
+                "bloqueado": False,
+                "intentos_restantes": restantes,
+            },
+        )
+
+    # Clave Maestra válida: restablecer el PIN del Dueño
+    try:
+        from local_db import hash_pin
+        nuevo_hash = hash_pin(data.nuevo_pin)
+        db = get_db()
+        u_admin = db.table("usuarios").select("id").eq("comercio_id", COMERCIO_ID).eq("rol", "admin").limit(1).execute().data
+        if not u_admin:
+            raise HTTPException(404, "No se encontró el usuario Dueño en la base de datos.")
+        admin_id = u_admin[0]["id"]
+        db.table("usuarios").update({
+            "pin_hash": nuevo_hash,
+            "intentos_fallidos": 0,
+            "bloqueado_hasta": None,
+        }).eq("id", admin_id).execute()
+
+        _registrar_auditoria(request, "recuperacion_pin_dueno", {"ip": ip, "motivo": "Uso de Clave Maestra de Rescate"})
+        BLOQUEOS_LOGIN_IP.pop(ip, None)
+        return {"ok": True, "mensaje": "PIN del Dueño restablecido con éxito. Ya podés ingresar con tu nuevo PIN."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        log.error("Error al restablecer PIN de Dueño: %s", e)
+        raise HTTPException(500, "Error interno al restablecer el PIN.")
+
+
+@app.get("/api/seguridad/alertas", dependencies=[Depends(requiere_admin_api)])
+def obtener_alertas_seguridad():
+    """Devuelve las alertas de seguridad no leídas para el panel del Dueño."""
+    try:
+        db = get_db()
+        filas = (
+            db.table("alertas_seguridad")
+            .select("*")
+            .eq("comercio_id", COMERCIO_ID)
+            .eq("leida", 0)
+            .order("id", desc=True)
+            .limit(10)
+            .execute()
+            .data
+            or []
+        )
+        return filas
+    except Exception as e:
+        log.warning("No se pudieron consultar alertas de seguridad: %s", e)
+        return []
+
+
+@app.post("/api/seguridad/alertas/{alerta_id}/descartar", dependencies=[Depends(requiere_admin_api)])
+def descartar_alerta_seguridad(alerta_id: int):
+    """Marca una alerta de seguridad como leída/descartada."""
+    try:
+        db = get_db()
+        db.table("alertas_seguridad").update({"leida": 1}).eq("id", alerta_id).eq("comercio_id", COMERCIO_ID).execute()
+        return {"ok": True}
+    except Exception as e:
+        raise HTTPException(500, f"Error al descartar alerta: {e}")
+
+
 class SetupWizardCajeroIn(BaseModel):
     nombre: str
     pin: str = "0000"
@@ -3259,6 +3460,7 @@ class SetupWizardIn(BaseModel):
     logo_imagen: Optional[str] = ""
     pin_dueno: Optional[str] = "1234"
     pin_cajero: Optional[str] = "0000"
+    clave_maestra_rescate: Optional[str] = "RESCATE-BEBIDAS-7489"
     cajeros: Optional[List[SetupWizardCajeroIn]] = None
 
 

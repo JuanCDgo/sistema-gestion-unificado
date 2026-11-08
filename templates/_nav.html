@@ -113,6 +113,26 @@
     }
 </style>
 
+<!-- Banner Flotante de Alerta de Seguridad para el Dueño -->
+<div x-show="esAdmin && alertaSeguridadActiva" x-cloak
+     class="fixed top-14 left-1/2 -translate-x-1/2 z-50 w-11/12 max-w-xl bg-red-600 text-white px-4 py-3 rounded-2xl shadow-2xl border border-red-400 flex items-center justify-between gap-3">
+  <div class="flex items-center gap-2.5">
+    <i data-lucide="shield-alert" class="w-5 h-5 text-amber-300 shrink-0"></i>
+    <div class="text-xs">
+      <p class="font-bold uppercase tracking-wider text-amber-200">Alerta de Seguridad</p>
+      <p x-text="alertaSeguridadTexto" class="font-medium"></p>
+    </div>
+  </div>
+  <div class="flex items-center gap-2 shrink-0">
+    <a href="/auditoria" class="px-2.5 py-1 bg-white text-red-700 font-bold text-xs rounded-lg hover:bg-red-50 transition-colors">
+      Ver
+    </a>
+    <button type="button" @click="descartarAlertaSeguridad()" class="text-white hover:text-red-200 text-xs font-semibold px-2 py-1 cursor-pointer">
+      ✕
+    </button>
+  </div>
+</div>
+
 {# Navegación compartida. Uso: {% set activa = 'pos' %}{% include '_nav.html' %} #}
 <div class="flex items-center gap-2 ml-auto flex-wrap justify-end" x-data="barraGlobal()" x-init="iniciarBarra()">
   <!-- Secciones principales en Escritorio (Desktop: md y superior) -->
@@ -553,6 +573,7 @@
         logo_imagen: '',
         pin_dueno: '1234',
         pin_dueno_conf: '1234',
+        clave_maestra_rescate: 'RESCATE-BEBIDAS-7489',
         cajeros: [
           { nombre: 'Cajero 1', pin: '1111' },
           { nombre: 'Cajero 2', pin: '2222' },
@@ -727,6 +748,39 @@
         }
       },
 
+      async chequearAlertasSeguridad() {
+        if (!this.esAdmin) return;
+        try {
+          const r = await fetch('/api/seguridad/alertas');
+          if (r.ok) {
+            const list = await r.json();
+            if (Array.isArray(list) && list.length > 0) {
+              const a = list[0];
+              this.alertaSeguridadId = a.id;
+              this.alertaSeguridadTexto = (a.detalles || 'Intentos fallidos de acceso') + ' (IP: ' + (a.ip_origen || '-') + ') - ' + (a.fecha_hora || '');
+              this.alertaSeguridadActiva = true;
+              this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
+            }
+          }
+        } catch (_) {}
+      },
+
+      async descartarAlertaSeguridad() {
+        if (!this.alertaSeguridadId) { this.alertaSeguridadActiva = false; return; }
+        try {
+          await fetch('/api/seguridad/alertas/' + this.alertaSeguridadId + '/descartar', { method: 'POST' });
+        } catch (_) {}
+        this.alertaSeguridadActiva = false;
+      },
+
+      copiarClaveRescateWizard() {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(this.wizardDatos.clave_maestra_rescate || 'RESCATE-BEBIDAS-7489');
+          this.claveCopiadaWizard = true;
+          setTimeout(() => { this.claveCopiadaWizard = false; }, 2000);
+        }
+      },
+
       async iniciarBarra() {
         this.aplicarLogoHeader();
         // Inyectar manifest PWA para instalación a pantalla completa en celular
@@ -751,6 +805,9 @@
             this.stockCriticoCount = Number.isFinite(n) && n >= 0 ? n : 0;
             this.usuarioNombre = d.usuario || '';
             this.esAdmin = (d.rol === 'admin');
+            if (this.esAdmin) {
+              await this.chequearAlertasSeguridad();
+            }
             this.usuarioRol = d.rol === 'admin' ? 'Dueño' : 'Empleado';
             this.debePin = !(!d.debe_cambiar_pin);
             if (d.backup) {
