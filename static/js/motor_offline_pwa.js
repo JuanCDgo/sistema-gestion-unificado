@@ -1287,11 +1287,124 @@
       });
     }
 
-    // --- 1. Autenticación y Barra ---
+    // --- 1. Autenticación, Usuarios y Barra ---
     if (path === '/api/usuarios-login' && method === 'GET') {
+      const activos = (db.usuarios || [])
+        .filter((u) => u.activo !== false)
+        .sort((a, b) => (a.rol === 'admin' ? -1 : 1) - (b.rol === 'admin' ? -1 : 1) || a.id - b.id);
       return respuestaJSON(
-        db.usuarios.filter((u) => u.activo).map((u) => ({ id: u.id, nombre: u.nombre, rol: u.rol }))
+        activos.map((u) => ({ id: u.id, nombre: u.nombre, rol: u.rol }))
       );
+    }
+
+    if (path === '/api/usuarios' && method === 'GET') {
+      const ses = obtenerSesion();
+      if (!ses || ses.rol !== 'admin') {
+        return respuestaJSON({ detail: 'Solo el Dueño puede gestionar usuarios' }, 403);
+      }
+      const lista = (db.usuarios || [])
+        .slice()
+        .sort((a, b) => (a.rol === 'admin' ? -1 : 1) - (b.rol === 'admin' ? -1 : 1) || a.id - b.id);
+      return respuestaJSON(
+        lista.map((u) => ({
+          id: u.id,
+          nombre: u.nombre,
+          rol: u.rol || 'cajero',
+          activo: u.activo !== false,
+          created_at: u.created_at || '',
+        }))
+      );
+    }
+
+    if (path === '/api/usuarios' && method === 'POST') {
+      const ses = obtenerSesion();
+      if (!ses || ses.rol !== 'admin') {
+        return respuestaJSON({ detail: 'Solo el Dueño puede crear cajeros' }, 403);
+      }
+      const body = await leerBodyJSON(init);
+      const nombre = String(body.nombre || '').trim();
+      const pin = String(body.pin || '').trim();
+      if (!nombre) return respuestaJSON({ detail: 'El nombre del cajero es obligatorio' }, 400);
+      if (!/^\d{4}$/.test(pin)) return respuestaJSON({ detail: 'El PIN debe tener exactamente 4 números' }, 400);
+
+      db.usuarios = db.usuarios || [];
+      const ex = db.usuarios.find((u) => String(u.nombre || '').toLowerCase() === nombre.toLowerCase());
+      if (ex) {
+        if (ex.activo !== false) {
+          return respuestaJSON({ detail: `Ya existe un usuario activo con el nombre "${nombre}"` }, 400);
+        }
+        ex.activo = true;
+        ex.pin = pin;
+        ex.intentos_fallidos = 0;
+        ex.bloqueado_hasta = 0;
+        registrarAuditoria(db, 'CAJERO_REACTIVADO', { id: ex.id, nombre: ex.nombre });
+        guardarDB(db, true, `Cajero "${ex.nombre}" reactivado`);
+        return respuestaJSON({ id: ex.id, nombre: ex.nombre, rol: ex.rol || 'cajero', activo: true });
+      }
+
+      const maxId = db.usuarios.reduce((m, u) => Math.max(m, Number(u.id || 0)), 0);
+      const nuevo = {
+        id: maxId + 1,
+        comercio_id: 1,
+        nombre,
+        pin,
+        rol: 'cajero',
+        activo: true,
+        created_at: ahoraISO(),
+      };
+      db.usuarios.push(nuevo);
+      registrarAuditoria(db, 'CAJERO_CREADO', { id: nuevo.id, nombre: nuevo.nombre });
+      guardarDB(db, true, `Cajero "${nuevo.nombre}" agregado`);
+      return respuestaJSON({ id: nuevo.id, nombre: nuevo.nombre, rol: 'cajero', activo: true }, 201);
+    }
+
+    const matchUsuarioId = path.match(/^\/api\/usuarios\/(\d+)$/);
+    if (matchUsuarioId) {
+      const ses = obtenerSesion();
+      if (!ses || ses.rol !== 'admin') {
+        return respuestaJSON({ detail: 'Solo el Dueño puede modificar cajeros' }, 403);
+      }
+      const uid = Number(matchUsuarioId[1]);
+      const u = (db.usuarios || []).find((x) => x.id === uid);
+      if (!u) return respuestaJSON({ detail: 'Usuario no encontrado' }, 404);
+
+      if (method === 'PUT') {
+        const body = await leerBodyJSON(init);
+        if (body.nombre != null) {
+          const nom = String(body.nombre).trim();
+          if (!nom) return respuestaJSON({ detail: 'El nombre no puede quedar vacío' }, 400);
+          if (db.usuarios.some((otro) => otro.id !== uid && String(otro.nombre || '').toLowerCase() === nom.toLowerCase())) {
+            return respuestaJSON({ detail: `Ya existe otro usuario llamado "${nom}"` }, 400);
+          }
+          u.nombre = nom;
+        }
+        if (body.pin != null && String(body.pin).trim() !== '') {
+          const p = String(body.pin).trim();
+          if (!/^\d{4}$/.test(p)) return respuestaJSON({ detail: 'El nuevo PIN debe tener 4 números' }, 400);
+          u.pin = p;
+          u.intentos_fallidos = 0;
+          u.bloqueado_hasta = 0;
+        }
+        if (body.activo != null) {
+          if (u.rol === 'admin' && !body.activo) {
+            return respuestaJSON({ detail: 'No se puede desactivar al Dueño' }, 400);
+          }
+          u.activo = Boolean(body.activo);
+        }
+        registrarAuditoria(db, 'USUARIO_ACTUALIZADO', { id: u.id, nombre: u.nombre, activo: u.activo });
+        guardarDB(db, true, `Usuario "${u.nombre}" actualizado`);
+        return respuestaJSON({ id: u.id, nombre: u.nombre, rol: u.rol, activo: u.activo !== false });
+      }
+
+      if (method === 'DELETE') {
+        if (u.rol === 'admin') {
+          return respuestaJSON({ detail: 'No se puede dar de baja al Dueño' }, 400);
+        }
+        u.activo = false;
+        registrarAuditoria(db, 'CAJERO_BAJA', { id: u.id, nombre: u.nombre });
+        guardarDB(db, true, `Cajero "${u.nombre}" dado de baja`);
+        return respuestaJSON({ ok: true, id: u.id });
+      }
     }
 
     if (path === '/api/login' && method === 'POST') {

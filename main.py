@@ -3602,3 +3602,188 @@ def restaurar_catalogo_bebidas_endpoint(request: Request):
     res = sembrar_catalogo_bebidas(conn, comercio_id=COMERCIO_ID, forzar=True)
     _registrar_auditoria(request, "CATALOGO_BEBIDAS_RESTAURADO", res)
     return res
+
+
+
+# ---------------------------------------------------------------------------
+# GESTIÓN DE EMPLEADOS / CAJEROS (ALTA, EDICIÓN DE NOMBRE/PIN Y BAJA)
+# ---------------------------------------------------------------------------
+class UsuarioCajeroIn(BaseModel):
+    nombre: str = Field(min_length=1, max_length=60)
+    pin: str = Field(pattern=r"^\d{4}$")
+
+
+class UsuarioCajeroUpdateIn(BaseModel):
+    nombre: Optional[str] = Field(default=None, max_length=60)
+    pin: Optional[str] = Field(default=None)
+    activo: Optional[bool] = None
+
+
+@app.get("/api/usuarios", dependencies=[Depends(requiere_sesion_api), Depends(requiere_admin_api)])
+def listar_usuarios_gestion():
+    db = get_db()
+    filas = (
+        db.table("usuarios")
+        .select("id, nombre, rol, activo, created_at")
+        .eq("comercio_id", COMERCIO_ID)
+        .order("id")
+        .execute()
+        .data
+        or []
+    )
+    # Ordenar Dueño (admin) primero y luego cajeros por id
+    filas_ord = sorted(filas, key=lambda u: (0 if u.get("rol") == "admin" else 1, int(u.get("id") or 0)))
+    return [
+        {
+            "id": int(u["id"]),
+            "nombre": u["nombre"],
+            "rol": u.get("rol") or "cajero",
+            "activo": bool(u.get("activo", 1)),
+            "created_at": u.get("created_at") or "",
+        }
+        for u in filas_ord
+    ]
+
+
+@app.post("/api/usuarios", dependencies=[Depends(requiere_sesion_api), Depends(requiere_admin_api)])
+def crear_usuario_cajero(datos: UsuarioCajeroIn, request: Request):
+    from local_db import hash_pin
+    nombre = datos.nombre.strip()
+    pin = datos.pin.strip()
+    if not nombre:
+        raise HTTPException(400, "El nombre del cajero/empleado es obligatorio.")
+    if len(pin) != 4 or not pin.isdigit():
+        raise HTTPException(400, "El PIN debe tener exactamente 4 números.")
+
+    db = get_db()
+    existentes = (
+        db.table("usuarios")
+        .select("*")
+        .eq("comercio_id", COMERCIO_ID)
+        .execute()
+        .data
+        or []
+    )
+    for ex in existentes:
+        if str(ex.get("nombre") or "").strip().lower() == nombre.lower():
+            if ex.get("activo"):
+                raise HTTPException(400, f"Ya existe un usuario activo con el nombre '{nombre}'.")
+            # Si estaba dado de baja, lo reactivamos con el nuevo PIN
+            res_up = (
+                db.table("usuarios")
+                .update({"activo": 1, "pin_hash": hash_pin(pin), "intentos_fallidos": 0, "bloqueado_hasta": None})
+                .eq("id", ex["id"])
+                .eq("comercio_id", COMERCIO_ID)
+                .execute()
+            )
+            fila_up = res_up.data[0] if res_up.data else {**ex, "activo": 1}
+            _registrar_auditoria(request, "CAJERO_REACTIVADO", {"id": ex["id"], "nombre": nombre})
+            return {
+                "id": int(fila_up["id"]),
+                "nombre": fila_up["nombre"],
+                "rol": fila_up.get("rol") or "cajero",
+                "activo": True,
+            }
+
+    nuevo = {
+        "comercio_id": COMERCIO_ID,
+        "nombre": nombre,
+        "pin_hash": hash_pin(pin),
+        "rol": "cajero",
+        "activo": 1,
+    }
+    res = db.table("usuarios").insert(nuevo).execute()
+    fila = res.data[0] if res.data else nuevo
+    _registrar_auditoria(request, "CAJERO_CREADO", {"id": fila.get("id"), "nombre": nombre})
+    return {
+        "id": int(fila["id"]),
+        "nombre": fila["nombre"],
+        "rol": fila.get("rol") or "cajero",
+        "activo": True,
+    }
+
+
+@app.put("/api/usuarios/{usuario_id}", dependencies=[Depends(requiere_sesion_api), Depends(requiere_admin_api)])
+def actualizar_usuario_cajero(usuario_id: int, datos: UsuarioCajeroUpdateIn, request: Request):
+    from local_db import hash_pin
+    db = get_db()
+    filas = (
+        db.table("usuarios")
+        .select("*")
+        .eq("id", usuario_id)
+        .eq("comercio_id", COMERCIO_ID)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    if not filas:
+        raise HTTPException(404, "Usuario no encontrado.")
+    actual = filas[0]
+
+    cambios = {}
+    if datos.nombre is not None:
+        nom_limpio = datos.nombre.strip()
+        if not nom_limpio:
+            raise HTTPException(400, "El nombre no puede quedar vacío.")
+        # Validar que no choque con otro usuario
+        todos = db.table("usuarios").select("id, nombre").eq("comercio_id", COMERCIO_ID).execute().data or []
+        for u in todos:
+            if int(u["id"]) != usuario_id and str(u.get("nombre") or "").strip().lower() == nom_limpio.lower():
+                raise HTTPException(400, f"Ya existe otro usuario llamado '{nom_limpio}'.")
+        cambios["nombre"] = nom_limpio
+
+    if datos.pin is not None and datos.pin.strip() != "":
+        pin_limpio = datos.pin.strip()
+        if len(pin_limpio) != 4 or not pin_limpio.isdigit():
+            raise HTTPException(400, "El nuevo PIN debe tener exactamente 4 números.")
+        cambios["pin_hash"] = hash_pin(pin_limpio)
+        cambios["intentos_fallidos"] = 0
+        cambios["bloqueado_hasta"] = None
+
+    if datos.activo is not None:
+        if actual.get("rol") == "admin" and not datos.activo:
+            raise HTTPException(400, "No se puede desactivar al usuario Dueño/Administrador.")
+        cambios["activo"] = 1 if datos.activo else 0
+
+    if not cambios:
+        return {
+            "id": int(actual["id"]),
+            "nombre": actual["nombre"],
+            "rol": actual.get("rol") or "cajero",
+            "activo": bool(actual.get("activo", 1)),
+        }
+
+    res = db.table("usuarios").update(cambios).eq("id", usuario_id).eq("comercio_id", COMERCIO_ID).execute()
+    fila = res.data[0] if res.data else {**actual, **cambios}
+    _registrar_auditoria(request, "USUARIO_ACTUALIZADO", {"id": usuario_id, "nombre": fila["nombre"], "activo": bool(fila.get("activo", 1))})
+    return {
+        "id": int(fila["id"]),
+        "nombre": fila["nombre"],
+        "rol": fila.get("rol") or "cajero",
+        "activo": bool(fila.get("activo", 1)),
+    }
+
+
+@app.delete("/api/usuarios/{usuario_id}", dependencies=[Depends(requiere_sesion_api), Depends(requiere_admin_api)])
+def eliminar_usuario_cajero(usuario_id: int, request: Request):
+    db = get_db()
+    filas = (
+        db.table("usuarios")
+        .select("*")
+        .eq("id", usuario_id)
+        .eq("comercio_id", COMERCIO_ID)
+        .limit(1)
+        .execute()
+        .data
+        or []
+    )
+    if not filas:
+        raise HTTPException(404, "Usuario no encontrado.")
+    actual = filas[0]
+    if actual.get("rol") == "admin":
+        raise HTTPException(400, "No se puede eliminar al usuario Dueño/Administrador.")
+
+    db.table("usuarios").update({"activo": 0}).eq("id", usuario_id).eq("comercio_id", COMERCIO_ID).execute()
+    _registrar_auditoria(request, "CAJERO_BAJA", {"id": usuario_id, "nombre": actual["nombre"]})
+    return {"ok": True, "id": usuario_id}

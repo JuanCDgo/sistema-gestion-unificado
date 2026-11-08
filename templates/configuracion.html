@@ -427,6 +427,145 @@
     </div>
 
     <!-- =================================================================== -->
+    <!-- 2.2 EQUIPO DE TRABAJO: GESTIÓN DE EMPLEADOS Y CAJEROS (OPCIÓN A)    -->
+    <!-- =================================================================== -->
+    <section id="cajeros" class="bg-white border border-gray-200 rounded-xl shadow-suave p-6 space-y-5">
+      <div class="flex flex-wrap items-start justify-between gap-3 border-b border-gray-100 pb-4">
+        <div>
+          <h2 class="text-base font-bold text-gray-900 flex items-center gap-2">
+            <i data-lucide="users" class="w-5 h-5 text-primario"></i>
+            Equipo de Trabajo: Empleados y Cajeros
+          </h2>
+          <p class="text-xs text-gray-500 mt-0.5">
+            Creá todos los cajeros que necesites con su propio nombre (ej: Franco, Lucas, Cajero 1, Cajero 2, Cajero 3) y su propio PIN de 4 números para saber quién atendió cada turno.
+          </p>
+        </div>
+        <span class="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200"
+              x-text="usuariosLista.filter(u => u.activo).length + ' usuarios activos en el Login'"></span>
+      </div>
+
+      <!-- Formulario Rápido para Agregar Nuevo Cajero -->
+      <form @submit.prevent="crearNuevoCajero()" class="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h3 class="text-xs font-bold uppercase tracking-wide text-gray-700">Agregar Nuevo Cajero / Empleado</h3>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-[11px] text-gray-400">Sugerencias rápidas:</span>
+            <button type="button" @click="nuevoCajero.nombre = 'Cajero 1'" class="text-[11px] px-2 py-0.5 rounded bg-white border border-gray-200 hover:bg-gray-100 text-gray-700 font-medium">Cajero 1</button>
+            <button type="button" @click="nuevoCajero.nombre = 'Cajero 2'" class="text-[11px] px-2 py-0.5 rounded bg-white border border-gray-200 hover:bg-gray-100 text-gray-700 font-medium">Cajero 2</button>
+            <button type="button" @click="nuevoCajero.nombre = 'Cajero 3'" class="text-[11px] px-2 py-0.5 rounded bg-white border border-gray-200 hover:bg-gray-100 text-gray-700 font-medium">Cajero 3</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+          <div class="sm:col-span-6">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Nombre del Empleado o Cajero *</label>
+            <input x-model="nuevoCajero.nombre" type="text" maxlength="50" required
+                   placeholder="Ej: Franco, Lucas, Micaela o Cajero 1…" class="campo bg-white font-medium">
+          </div>
+          <div class="sm:col-span-3">
+            <label class="block text-xs font-medium text-gray-600 mb-1">PIN Personal (4 números) *</label>
+            <input x-model="nuevoCajero.pin" type="text" inputmode="numeric" pattern="\d{4}" maxlength="4" required
+                   placeholder="Ej: 1111" class="campo bg-white font-mono font-bold text-center tracking-widest">
+          </div>
+          <div class="sm:col-span-3">
+            <button type="submit" :disabled="guardandoCajero"
+                    class="w-full py-2.5 px-4 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-sm">
+              <i data-lucide="user-plus" class="w-4 h-4"></i>
+              <span x-text="guardandoCajero ? 'Agregando…' : '+ Agregar Cajero'"></span>
+            </button>
+          </div>
+        </div>
+
+        <p x-show="errorCajero" x-text="errorCajero" class="text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2"></p>
+        <p x-show="okCajero" x-text="okCajero" class="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2"></p>
+      </form>
+
+      <!-- Lista de Usuarios Registrados -->
+      <div class="border border-gray-200 rounded-xl overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 text-xs uppercase tracking-wide text-gray-500 border-b border-gray-200">
+            <tr>
+              <th class="text-left font-semibold px-4 py-3">Usuario / Nombre</th>
+              <th class="text-left font-semibold px-3 py-3">Rol y Permisos</th>
+              <th class="text-center font-semibold px-3 py-3">Estado en Login</th>
+              <th class="text-right font-semibold px-4 py-3">Acciones (Cambiar Nombre / PIN)</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <template x-for="u in usuariosLista" :key="u.id">
+              <tr class="hover:bg-gray-50/70" :class="!u.activo ? 'opacity-55 bg-gray-50' : ''">
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-2">
+                    <span class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                          :class="u.rol === 'admin' ? 'bg-slate-900 text-white' : 'bg-blue-50 text-blue-700 border border-blue-200'"
+                          x-text="(u.nombre || 'U').slice(0, 1).toUpperCase()"></span>
+                    <div>
+                      <p class="font-bold text-gray-900" x-text="u.nombre"></p>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-3 py-3">
+                  <span class="text-xs font-semibold px-2.5 py-0.5 rounded border"
+                        :class="u.rol === 'admin' ? 'bg-amber-50 text-amber-900 border-amber-200' : 'bg-gray-100 text-gray-700 border-gray-200'"
+                        x-text="u.rol === 'admin' ? 'Dueño / Administrador (Acceso Total)' : 'Cajero / Mostrador (Ventas y Caja)'"></span>
+                </td>
+                <td class="px-3 py-3 text-center">
+                  <span class="text-xs font-bold px-2.5 py-0.5 rounded-full border"
+                        :class="u.activo ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-500 border-gray-200'"
+                        x-text="u.activo ? 'Activo' : 'De baja'"></span>
+                </td>
+                <td class="px-4 py-3 text-right whitespace-nowrap">
+                  <div class="inline-flex items-center gap-1.5 justify-end">
+                    <button type="button" @click="abrirEdicionCajero(u)"
+                            class="px-3 py-1.5 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 text-xs font-semibold text-gray-800">
+                      Cambiar Nombre / PIN
+                    </button>
+                    <button x-show="u.rol !== 'admin' && u.activo" type="button" @click="cambiarEstadoCajero(u, false)"
+                            class="px-2.5 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-xs font-semibold text-red-700"
+                            title="Quitar de la pantalla de Login">
+                      Dar de baja
+                    </button>
+                    <button x-show="u.rol !== 'admin' && !u.activo" type="button" @click="cambiarEstadoCajero(u, true)"
+                            class="px-2.5 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-xs font-semibold text-emerald-700">
+                      Reactivar
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Modal / Panel Inline para Editar Nombre o Resetear PIN de un Usuario -->
+      <div x-show="cajeroEditando" x-transition
+           class="bg-slate-50 border border-slate-300 rounded-xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <h4 class="text-xs font-bold uppercase text-slate-800"
+              x-text="cajeroEditando ? ('Editar Usuario: ' + cajeroEditando.nombre_original) : ''"></h4>
+          <button type="button" @click="cajeroEditando = null" class="text-xs text-gray-500 hover:text-gray-800 font-semibold">Cerrar ✕</button>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+          <div class="sm:col-span-5">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Nombre visible en el Login y Tickets</label>
+            <input type="text" x-model="formEditarCajero.nombre" maxlength="50" class="campo bg-white font-semibold">
+          </div>
+          <div class="sm:col-span-4">
+            <label class="block text-xs font-medium text-gray-600 mb-1">Nuevo PIN de 4 números (opcional)</label>
+            <input type="text" x-model="formEditarCajero.pin" inputmode="numeric" maxlength="4"
+                   placeholder="Dejar vacío para no cambiar" class="campo bg-white font-mono font-bold text-center tracking-widest">
+          </div>
+          <div class="sm:col-span-3 flex gap-2">
+            <button type="button" @click="guardarEdicionCajero()" :disabled="guardandoCajero"
+                    class="flex-1 py-2.5 px-3 rounded-lg bg-primario hover:bg-primario-oscuro text-white text-xs font-bold shadow-sm">
+              Guardar Cambios
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =================================================================== -->
     <!-- 2.5 BACKUP AUTOMÁTICO DE CARPETA DATOS EN GOOGLE DRIVE (WI-FI)      -->
     <!-- =================================================================== -->
     <section id="backup-drive" class="bg-white border-2 border-blue-200 rounded-xl shadow-suave p-6 space-y-6">
@@ -759,13 +898,20 @@
         pinRestaurarZip: '',
         restaurandoZipDatos: false,
 
-        // Acordeón Clave / PIN
+        // Acordeón Clave / PIN y Gestión de Cajeros
         acordeonClave: location.hash === '#seguridad',
         debePin: {{ 'true' if debe_cambiar_pin else 'false' }},
         formClave: { pin_actual: '', pin_nuevo: '', confirmar_nueva: '' },
         guardandoClave: false,
         errorClave: '',
         okClave: '',
+        usuariosLista: [],
+        nuevoCajero: { nombre: '', pin: '' },
+        cajeroEditando: null,
+        formEditarCajero: { id: null, nombre: '', pin: '' },
+        guardandoCajero: false,
+        errorCajero: '',
+        okCajero: '',
 
         // Backup & Restore
         backupArchivo: null,
@@ -800,6 +946,108 @@
             }
           } catch (_) {}
           this.cargarEstadoBackupDrive();
+          this.cargarUsuariosCajeros();
+        },
+
+        async cargarUsuariosCajeros() {
+          try {
+            const r = await fetch('/api/usuarios');
+            if (r.ok) {
+              this.usuariosLista = await r.json();
+            }
+          } catch (_) {}
+        },
+
+        async crearNuevoCajero() {
+          this.errorCajero = '';
+          this.okCajero = '';
+          const nom = String(this.nuevoCajero.nombre || '').trim();
+          const pin = String(this.nuevoCajero.pin || '').trim();
+          if (!nom) {
+            this.errorCajero = 'Ingresá el nombre del cajero o empleado.';
+            return;
+          }
+          if (!/^\d{4}$/.test(pin)) {
+            this.errorCajero = 'El PIN debe tener exactamente 4 números (ej: 1111, 2580).';
+            return;
+          }
+          this.guardandoCajero = true;
+          try {
+            const r = await fetch('/api/usuarios', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ nombre: nom, pin }),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.detail || 'No se pudo crear el cajero');
+            this.nuevoCajero = { nombre: '', pin: '' };
+            await this.cargarUsuariosCajeros();
+            this.okCajero = `Cajero "${d.nombre}" habilitado para ingresar con su propio PIN.`;
+          } catch (e) {
+            this.errorCajero = e.message;
+          } finally {
+            this.guardandoCajero = false;
+          }
+        },
+
+        abrirEdicionCajero(u) {
+          this.errorCajero = '';
+          this.okCajero = '';
+          this.cajeroEditando = { id: u.id, nombre_original: u.nombre };
+          this.formEditarCajero = { id: u.id, nombre: u.nombre, pin: '' };
+        },
+
+        async guardarEdicionCajero() {
+          if (!this.cajeroEditando) return;
+          this.errorCajero = '';
+          this.okCajero = '';
+          const nom = String(this.formEditarCajero.nombre || '').trim();
+          const pin = String(this.formEditarCajero.pin || '').trim();
+          if (!nom) {
+            this.errorCajero = 'El nombre no puede quedar vacío.';
+            return;
+          }
+          if (pin && !/^\d{4}$/.test(pin)) {
+            this.errorCajero = 'Si ingresás un nuevo PIN, debe tener exactamente 4 números.';
+            return;
+          }
+          this.guardandoCajero = true;
+          try {
+            const payload = { nombre: nom };
+            if (pin) payload.pin = pin;
+            const r = await fetch(`/api/usuarios/${this.cajeroEditando.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.detail || 'No se pudo actualizar el usuario');
+            this.cajeroEditando = null;
+            await this.cargarUsuariosCajeros();
+            this.okCajero = `Usuario "${d.nombre}" actualizado correctamente.`;
+          } catch (e) {
+            this.errorCajero = e.message;
+          } finally {
+            this.guardandoCajero = false;
+          }
+        },
+
+        async cambiarEstadoCajero(u, nuevoActivo) {
+          this.errorCajero = '';
+          this.okCajero = '';
+          try {
+            const r = await fetch(`/api/usuarios/${u.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ activo: Boolean(nuevoActivo) }),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.detail || 'No se pudo cambiar el estado del cajero');
+            await this.cargarUsuariosCajeros();
+            this.okCajero = nuevoActivo ? `Cajero "${u.nombre}" reactivado.` : `Cajero "${u.nombre}" dado de baja del Login.`;
+          } catch (e) {
+            this.errorCajero = e.message;
+          }
         },
 
         async cargarEstadoBackupDrive() {
