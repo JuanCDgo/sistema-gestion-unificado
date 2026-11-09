@@ -533,7 +533,8 @@
       sessionStorage.setItem('POS_BLOQUEAR_PIN', '1');
       await fetch('/api/logout', { method: 'POST' });
     } finally {
-      window.location.href = '/login';
+      const isGh = window.location.hostname.includes('github.io') || window.location.pathname.includes('/sistema-gestion-unificado');
+      window.location.href = isGh ? '/sistema-gestion-unificado/login.html' : 'login.html';
     }
   }
 

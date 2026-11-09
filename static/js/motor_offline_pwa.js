@@ -2982,9 +2982,24 @@
   });
 
   // =========================================================================
-  // 9. Control de Sesión Local y Bloqueo Inmediato por Salida
+  // 9. Control de Sesión Local y Bloqueo Inmediato por Salida (Compatible con GitHub Pages)
   // =========================================================================
-  const rutaActual = (window.location.pathname.replace(/\.html$/, '').replace(/\/+$/, '')) || '/';
+  const esGhPages = window.location.hostname.includes('github.io') || window.location.pathname.includes('/sistema-gestion-unificado');
+
+  function resolverDestinoApp(destino) {
+    if (!destino) return esGhPages ? '/sistema-gestion-unificado/index.html' : 'index.html';
+    if (destino === '/' || destino === '') return esGhPages ? '/sistema-gestion-unificado/index.html' : 'index.html';
+    let d = destino.replace(/^\//, '');
+    if (!d.endsWith('.html') && !d.includes('.html?') && !d.includes('.html#')) {
+      const partes = d.split(/([?#].*)/);
+      d = partes[0] + '.html' + (partes[1] || '');
+    }
+    return (esGhPages ? '/sistema-gestion-unificado/' : '') + d;
+  }
+
+  const pathNormal = (window.location.pathname.replace(/\.html$/, '').replace(/\/+$/, '')) || '/';
+  const esPantallaLogin = pathNormal.endsWith('/login') || window.location.pathname.includes('login.html');
+  const rutaActual = pathNormal;
 
   // Interceptar clicks en enlaces internos para no bloquear cuando el usuario navega entre pantallas de la app
   document.addEventListener('click', (e) => {
@@ -3012,17 +3027,23 @@
     guardarSesion(null);
   }
 
-  const sesionActiva = obtenerSesion();
-  if (!sesionActiva && rutaActual !== '/login') {
+  let sesionActiva = obtenerSesion();
+  // En demostración en GitHub Pages: auto-iniciar sesión Dueño para evitar bloqueos y 404
+  if (!sesionActiva && esGhPages && !esPantallaLogin) {
+    sesionActiva = { usuario_id: 1, usuario: 'Dueño', rol: 'admin', nombre: 'Dueño (Demo)', debe_cambiar_pin: false };
+    guardarSesion(sesionActiva);
+  }
+
+  if (!sesionActiva && !esPantallaLogin) {
     try {
       sessionStorage.setItem('POS_REDIRECT_DESPUES_LOGIN', window.location.pathname + window.location.search);
     } catch (_) {}
-    window.location.replace('/login');
-  } else if (sesionActiva && (sesionActiva.rol === 'cajero' || sesionActiva.rol === 'empleado') && (rutaActual === '/configuracion' || rutaActual === '/auditoria')) {
-    window.location.replace('/');
-  } else if (sesionActiva && sesionActiva.debe_cambiar_pin && rutaActual !== '/configuracion' && rutaActual !== '/login') {
+    window.location.replace(resolverDestinoApp('login'));
+  } else if (sesionActiva && (sesionActiva.rol === 'cajero' || sesionActiva.rol === 'empleado') && (pathNormal.endsWith('/configuracion') || pathNormal.endsWith('/auditoria'))) {
+    window.location.replace(resolverDestinoApp('/'));
+  } else if (sesionActiva && sesionActiva.debe_cambiar_pin && !pathNormal.endsWith('/configuracion') && !esPantallaLogin) {
     if (sesionActiva.rol === 'admin') {
-      window.location.replace('/configuracion#seguridad');
+      window.location.replace(resolverDestinoApp('configuracion#seguridad'));
     }
   }
 
@@ -3049,15 +3070,15 @@
           sessionStorage.setItem('POS_REDIRECT_DESPUES_LOGIN', window.location.pathname + window.location.search);
         } catch (_) {}
         guardarSesion(null);
-        if (rutaActual !== '/login') {
-          window.location.replace('/login');
+        if (!esPantallaLogin) {
+          window.location.replace(resolverDestinoApp('login'));
         }
       }
     }
   });
 
   // Temporizador de inactividad configurable (solo si el usuario configuró 'inactividad')
-  if (rutaActual !== '/login') {
+  if (!esPantallaLogin) {
     let timerInactividad = null;
     const resetTimerInactividad = () => {
       if (timerInactividad) clearTimeout(timerInactividad);
@@ -3072,7 +3093,7 @@
           sessionStorage.setItem('POS_REDIRECT_DESPUES_LOGIN', window.location.pathname + window.location.search);
         } catch (_) {}
         guardarSesion(null);
-        window.location.replace('/login');
+        window.location.replace(resolverDestinoApp('login'));
       }, minutos * 60 * 1000);
     };
     ['mousedown', 'keydown', 'touchstart', 'scroll'].forEach((ev) => {

@@ -65,6 +65,33 @@ def inyectar_fallbacks_html(html_texto: str) -> str:
 </head>"""
     html_texto = html_texto.replace("</head>", failsafe)
 
+    # 6. Adaptar enlaces absolutos a relativos .html para despliegue sin 404 en GitHub Pages
+    mapeos_enlaces = [
+        ('href="/inventario?tab=critico"', 'href="inventario.html?tab=critico"'),
+        ('href="/configuracion#backup-drive"', 'href="configuracion.html#backup-drive"'),
+        ('href="/configuracion#seguridad"', 'href="configuracion.html#seguridad"'),
+        ('href="/caja"', 'href="caja.html"'),
+        ('href="/inventario"', 'href="inventario.html"'),
+        ('href="/categorias"', 'href="categorias.html"'),
+        ('href="/clientes"', 'href="clientes.html"'),
+        ('href="/configuracion"', 'href="configuracion.html"'),
+        ('href="/auditoria"', 'href="auditoria.html"'),
+        ('href="/login"', 'href="login.html"'),
+        ('href="/"', 'href="index.html"'),
+        (':href="\'/caja?ticket=\'', ':href="\'caja.html?ticket=\''),
+        ('href="/manifest.json"', 'href="manifest.json"'),
+        ('src="/static/vendor/tailwind.js"', 'src="tailwind.js"'),
+        ('src="/static/js/motor_offline_pwa.js"', 'src="motor_offline_pwa.js"'),
+        ('src="/static/vendor/alpine.min.js"', 'src="alpine.min.js"'),
+        ('src="/static/vendor/lucide.min.js"', 'src="lucide.min.js"'),
+        ('src="/tailwind.js"', 'src="tailwind.js"'),
+        ('src="/motor_offline_pwa.js"', 'src="motor_offline_pwa.js"'),
+        ('src="/alpine.min.js"', 'src="alpine.min.js"'),
+        ('src="/lucide.min.js"', 'src="lucide.min.js"'),
+    ]
+    for orig, nuevo in mapeos_enlaces:
+        html_texto = html_texto.replace(orig, nuevo)
+
     return html_texto
 
 

@@ -651,7 +651,10 @@
               sessionStorage.setItem('POS_NAVEGANDO_INTERNO', String(Date.now()));
               sessionStorage.removeItem('POS_BLOQUEAR_PIN');
             } catch (_) {}
-            const destino = d.debe_cambiar_pin ? '/configuracion#seguridad' : (sessionStorage.getItem('POS_REDIRECT_DESPUES_LOGIN') || '/');
+            const isGh = window.location.hostname.includes('github.io') || window.location.pathname.includes('/sistema-gestion-unificado');
+            const defDest = isGh ? '/sistema-gestion-unificado/index.html' : 'index.html';
+            let destino = d.debe_cambiar_pin ? (isGh ? '/sistema-gestion-unificado/configuracion.html#seguridad' : 'configuracion.html#seguridad') : (sessionStorage.getItem('POS_REDIRECT_DESPUES_LOGIN') || defDest);
+            if (destino === '/' || destino === '/login') destino = defDest;
             try { sessionStorage.removeItem('POS_REDIRECT_DESPUES_LOGIN'); } catch (_) {}
             window.location.href = destino;
           } catch (e) { this.error = this.error || 'No se pudo conectar. Intentá de nuevo.'; }
