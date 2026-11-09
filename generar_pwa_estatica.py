@@ -80,6 +80,7 @@ def inyectar_fallbacks_html(html_texto: str) -> str:
         ('href="/"', 'href="index.html"'),
         (':href="\'/caja?ticket=\'', ':href="\'caja.html?ticket=\''),
         ('href="/manifest.json"', 'href="manifest.json"'),
+        ('href="/static/css/linear_dark.css"', 'href="linear_dark.css"'),
         ('src="/static/vendor/tailwind.js"', 'src="tailwind.js"'),
         ('src="/static/js/motor_offline_pwa.js"', 'src="motor_offline_pwa.js"'),
         ('src="/static/vendor/alpine.min.js"', 'src="alpine.min.js"'),
@@ -152,6 +153,8 @@ def compilar_dist():
     shutil.copy2(BASE_DIR / "static" / "vendor" / "tailwind.js", OUT_DIR / "tailwind.js")
     shutil.copy2(BASE_DIR / "static" / "vendor" / "alpine.min.js", OUT_DIR / "alpine.min.js")
     shutil.copy2(BASE_DIR / "static" / "vendor" / "lucide.min.js", OUT_DIR / "lucide.min.js")
+    if (BASE_DIR / "static" / "css" / "linear_dark.css").exists():
+        shutil.copy2(BASE_DIR / "static" / "css" / "linear_dark.css", OUT_DIR / "linear_dark.css")
     if (BASE_DIR / "static" / "icon-192.svg").exists():
         shutil.copy2(BASE_DIR / "static" / "icon-192.svg", OUT_DIR / "icon-192.svg")
     if (BASE_DIR / "static" / "icon-512.svg").exists():

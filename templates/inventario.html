@@ -13,7 +13,7 @@
       --color-primario-suave: color-mix(in srgb, var(--color-primario) 10%, white);
       --color-primario-oscuro: color-mix(in srgb, var(--color-primario) 85%, black);
     }
-    body { font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+    body { font-family: 'Figtree', system-ui, -apple-system, sans-serif; background-color: #0B0D13; color: #F1F4F9; }
     [x-cloak] { display: none !important; }
     .campo { width:100%; padding:.625rem .75rem; font-size:.875rem; background:#fff; border:1px solid #e5e7eb; border-radius:.5rem; }
     .campo:focus { outline:none; border-color:var(--color-primario); box-shadow:0 0 0 2px color-mix(in srgb, var(--color-primario) 20%, transparent); }
@@ -58,17 +58,18 @@
           primario: 'var(--color-primario)',
           'primario-suave': 'var(--color-primario-suave)',
           'primario-oscuro': 'var(--color-primario-oscuro)',
-          fondo: '#F7F9FA'
+          fondo: '#0B0D13'
         },
         boxShadow: { suave: '0 1px 2px rgba(16,24,40,0.04)' }
       } }
     }
   </script>
 
+  <link rel="stylesheet" href="/static/css/linear_dark.css">
   <link rel="manifest" href="/manifest.json">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#2563EB">
+  <meta name="theme-color" content="#0B0D13">
   <script src="/static/js/motor_offline_pwa.js"></script>
   <script defer src="/static/vendor/alpine.min.js"></script>
   <script src="/static/vendor/lucide.min.js"></script>
@@ -80,10 +81,10 @@
   <!-- Encabezado -->
   <header class="bg-white border-b border-gray-200 px-3 sm:px-8 py-2.5 flex flex-wrap items-center justify-between gap-2 sticky top-0 z-20">
     <div class="flex items-center gap-2 shrink-0 min-w-0">
-      <div data-brand-logo class="w-9 h-9 rounded-lg bg-primario text-white flex items-center justify-center overflow-hidden shrink-0">
+      <div data-brand-logo class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-700 text-white flex items-center justify-center overflow-hidden shrink-0 shadow-sm border border-emerald-400/20">
         <i data-lucide="store" class="w-5 h-5"></i>
       </div>
-      <span data-brand-nombre class="font-semibold text-sm sm:text-lg text-gray-900 truncate max-w-[160px] sm:max-w-[260px]" x-text="config.nombre_comercio"></span>
+      <span data-brand-nombre class="font-bold text-sm sm:text-base text-white truncate max-w-[160px] sm:max-w-[260px] tracking-tight" x-text="config.nombre_comercio"></span>
     </div>
     {% set activa = 'inventario' %}{% include '_nav.html' %}
   </header>
@@ -105,23 +106,23 @@
     <!-- Barra de sub-pestañas -->
     <nav class="flex gap-1.5 overflow-x-auto oculta-scroll bg-gray-100 p-1.5 rounded-xl border border-gray-200/80">
       <button type="button" @click="cambiarTab('catalogo')"
-              :class="tab === 'catalogo' ? 'bg-white text-primario shadow-suave' : 'text-gray-600 hover:text-gray-900'"
+              :class="tab === 'catalogo' ? 'bg-[#1E2230] text-emerald-400 border border-emerald-500/30 shadow-sm' : 'text-gray-600 hover:text-gray-900'"
               class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-colors">
         📋 Productos Sueltos (<span x-text="productos.length"></span>)
       </button>
       <button type="button" @click="cambiarTab('promos')"
-              :class="tab === 'promos' ? 'bg-white text-primario shadow-suave font-bold' : 'text-gray-600 hover:text-gray-900'"
+              :class="tab === 'promos' ? 'bg-[#1E2230] text-emerald-400 border border-emerald-500/30 shadow-sm font-bold' : 'text-gray-600 hover:text-gray-900'"
               class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-1.5">
         <span>Promos y Combos</span>
         <span class="px-1.5 py-0.5 text-[11px] font-mono rounded-full bg-slate-200 text-slate-800" x-text="promos.length"></span>
       </button>
       <button type="button" @click="cambiarTab('nuevo')"
-              :class="tab === 'nuevo' ? 'bg-white text-primario shadow-suave' : 'text-gray-600 hover:text-gray-900'"
+              :class="tab === 'nuevo' ? 'bg-[#1E2230] text-emerald-400 border border-emerald-500/30 shadow-sm' : 'text-gray-600 hover:text-gray-900'"
               class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-colors">
         ➕ Nuevo Producto
       </button>
       <button type="button" @click="cambiarTab('critico')"
-              :class="tab === 'critico' ? 'bg-white text-primario shadow-suave' : 'text-gray-600 hover:text-gray-900'"
+              :class="tab === 'critico' ? 'bg-[#1E2230] text-emerald-400 border border-emerald-500/30 shadow-sm' : 'text-gray-600 hover:text-gray-900'"
               class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-1.5">
         <span>🚨 Monitor de Stock Crítico</span>
         <span x-show="criticos.length > 0" x-text="criticos.length"
@@ -129,7 +130,7 @@
       </button>
       <button type="button" @click="cambiarTab('masiva')"
               x-show="esAdmin"
-              :class="tab === 'masiva' ? 'bg-white text-primario shadow-suave' : 'text-gray-600 hover:text-gray-900'"
+              :class="tab === 'masiva' ? 'bg-[#1E2230] text-emerald-400 border border-emerald-500/30 shadow-sm' : 'text-gray-600 hover:text-gray-900'"
               class="px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium whitespace-nowrap transition-colors">
         📥 Carga Masiva
       </button>
@@ -251,7 +252,7 @@
           <div class="grid grid-cols-3 bg-gray-100 p-0.5 rounded-lg text-xs font-medium">
             <template x-for="v in ['Compacta', 'Tarjetas', 'Tabla']" :key="v">
               <button type="button" @click="vistaCatalogo = v"
-                      :class="vistaCatalogo === v ? 'bg-white text-primario shadow-suave' : 'text-gray-600 hover:text-gray-900'"
+                      :class="vistaCatalogo === v ? 'bg-[#1E2230] text-emerald-400 border border-emerald-500/30 shadow-sm' : 'text-gray-600 hover:text-gray-900'"
                       class="py-1.5 rounded-md transition-colors" x-text="v"></button>
             </template>
           </div>
@@ -695,13 +696,13 @@
             <h3 class="font-semibold text-sm">📦 Ajustar Cantidad en Almacén</h3>
             <div class="grid grid-cols-3 gap-1.5 bg-gray-100 p-1 rounded-lg text-xs font-medium">
               <button type="button" @click="ajuste.modo = 'establecer'; ajuste.cantidad = productoAjuste.stock"
-                      :class="ajuste.modo === 'establecer' ? 'bg-white text-primario shadow-suave' : 'text-gray-600'"
+                      :class="ajuste.modo === 'establecer' ? 'bg-[#1E2230] text-emerald-400 border border-emerald-500/30 shadow-sm' : 'text-gray-600'"
                       class="py-1.5 rounded-md">Conteo Exacto</button>
               <button type="button" @click="ajuste.modo = 'sumar'; ajuste.cantidad = 10"
-                      :class="ajuste.modo === 'sumar' ? 'bg-white text-primario shadow-suave' : 'text-gray-600'"
+                      :class="ajuste.modo === 'sumar' ? 'bg-[#1E2230] text-emerald-400 border border-emerald-500/30 shadow-sm' : 'text-gray-600'"
                       class="py-1.5 rounded-md">+ Ingreso</button>
               <button type="button" @click="ajuste.modo = 'restar'; ajuste.cantidad = 1"
-                      :class="ajuste.modo === 'restar' ? 'bg-white text-primario shadow-suave' : 'text-gray-600'"
+                      :class="ajuste.modo === 'restar' ? 'bg-[#1E2230] text-emerald-400 border border-emerald-500/30 shadow-sm' : 'text-gray-600'"
                       class="py-1.5 rounded-md">− Salida / Merma</button>
             </div>
 
@@ -943,7 +944,7 @@
 
   <!-- Modal Editor Completo de Promo en Inventario -->
   <div x-show="modalPromoInv" x-transition.opacity
-       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/70"
+       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#07090D]/80 backdrop-blur-md"
        @keydown.escape.window="modalPromoInv = false" style="display:none;">
     <div class="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
       <div class="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-gray-50 shrink-0">
@@ -1052,7 +1053,7 @@
   </div>
 
   <!-- Confirmación de eliminación -->
-  <div x-show="aEliminar" x-transition.opacity class="fixed inset-0 z-40 flex items-center justify-center p-4 bg-gray-900/40">
+  <div x-show="aEliminar" x-transition.opacity class="fixed inset-0 z-40 flex items-center justify-center p-4 bg-[#07090D]/80 backdrop-blur-md">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 space-y-4" @click.outside="aEliminar = null">
       <h3 class="font-semibold text-lg">Dar de baja el producto</h3>
       <p class="text-sm text-gray-600">¿Dar de baja <strong x-text="aEliminar && aEliminar.nombre"></strong>? Deja de aparecer en el catálogo y en el POS, pero se conserva su historial y lo podés reactivar desde Dados de baja.</p>
