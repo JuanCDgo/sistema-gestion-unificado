@@ -228,13 +228,17 @@ COLUMNAS_CONFIG_DB = set(CONFIG_DEFAULT.keys())
 
 
 def _validar_imagen_url(url: Optional[str]) -> str:
-    """Valida que el enlace de imagen sea una URL HTTP/HTTPS, ruta local (/static/...) o vacío."""
+    """Valida que el enlace de imagen sea una URL HTTP/HTTPS, ruta local (/static/...), data URI base64 o vacío."""
     limpia = (url or "").strip()
     if not limpia:
         return ""
+    if limpia.startswith("data:image/"):
+        if len(limpia) > 5_000_000:
+            raise HTTPException(400, "La imagen en base64 supera el tamaño máximo permitido.")
+        return limpia
     if len(limpia) > 2048:
         raise HTTPException(400, "La URL de la imagen supera el largo máximo permitido (2048 caracteres).")
-    if limpia.startswith(("/static/", "static/")) or limpia.startswith("data:image/") or re.match(r"^https?://\S+$", limpia, flags=re.IGNORECASE):
+    if limpia.startswith(("/static/", "static/")) or re.match(r"^https?://\S+$", limpia, flags=re.IGNORECASE):
         return limpia
     raise HTTPException(400, "Ingresá un enlace válido (https://, http:// o ruta interna /static/...)")
 
@@ -620,7 +624,8 @@ def estado_barra(request: Request):
         criticos = sum(
             1
             for p in filas
-            if float(p.get("stock_actual") or 0) <= float(p.get("stock_minimo") or 0)
+            if float(p.get("stock_minimo") or 0) > 0
+            and float(p.get("stock_actual") or 0) <= float(p.get("stock_minimo") or 0)
         )
     except Exception as exc:
         log.error("Error al consultar stock crítico en estado_barra: %s", getattr(exc, "message", exc))
@@ -1796,10 +1801,13 @@ def editar_producto(
     return actualizado
 
 
-@app.delete("/api/inventario/productos/{producto_id}", dependencies=[Depends(requiere_sesion_api), Depends(requiere_admin_api)])
+@app.delete("/api/inventario/productos/{producto_id}", dependencies=[Depends(requiere_sesion_api)])
 def eliminar_producto(producto_id: int, request: Request):
     db = get_db()
     prod = _buscar_producto(db, producto_id)
+    info = _info_sesion(request)
+    if info.get("rol") != "admin" and float(prod.get("stock_actual") or 0) > 0:
+        raise HTTPException(403, "Solo el Dueño puede dar de baja productos que aún tienen stock positivo.")
     _dar_de_baja(db, "productos", producto_id)
     _registrar_auditoria(request, "BAJA_PRODUCTO", {
         "producto_id": producto_id,
@@ -1884,17 +1892,20 @@ def actualizar_stock_minimo(producto_id: int, data: StockMinimoIn, request: Requ
 
 @app.get("/api/inventario/stock-critico", dependencies=[Depends(requiere_sesion_api)])
 def stock_critico():
-    """Productos con stock <= stock mínimo, de mayor a menor faltante."""
+    """Productos con stock <= stock mínimo (cuando stock_minimo > 0), priorizando agotados (stock 0)."""
     db = get_db()
     cats = {c["id"]: c["nombre"] for c in _categorias_db(db)}
     filas = db.table("productos").select("*").eq("comercio_id", COMERCIO_ID).eq("activo", True).execute().data or []
     criticos = []
     for p in filas:
         actual, minimo = float(p.get("stock_actual") or 0), float(p.get("stock_minimo") or 0)
-        if actual <= minimo:
-            criticos.append({**_producto_out(p, cats.get(p.get("categoria_id"), SIN_CATEGORIA)),
-                             "deficit": _num(round(minimo - actual, 3))})
-    criticos.sort(key=lambda x: x["deficit"], reverse=True)
+        if minimo > 0 and actual <= minimo:
+            criticos.append({
+                **_producto_out(p, cats.get(p.get("categoria_id"), SIN_CATEGORIA)),
+                "deficit": _num(round(minimo - actual, 3)),
+                "agotado": actual <= 0,
+            })
+    criticos.sort(key=lambda x: (0 if x["agotado"] else 1, -x["deficit"]))
     return criticos
 
 
@@ -2755,13 +2766,16 @@ def cerrar_caja(data: CerrarCajaIn):
 # ---------------------------------------------------------------------------
 # Configuración del negocio (persistida en Supabase: tabla configuracion_negocio)
 # ---------------------------------------------------------------------------
+MAX_LEN_IMAGEN = 5_000_000  # Permite tanto URLs como imágenes comprimidas en base64 (data:image/...)
+
+
 class ConfigIn(BaseModel):
     nombre_comercio: str = Field(min_length=1, max_length=60)
     telefono: str = Field(default="", max_length=20)
     moneda: str = Field(min_length=1, max_length=5)
     color_primario: str = Field(pattern=r"^#[0-9a-fA-F]{6}$")
-    logo_imagen: Optional[str] = Field(default=None, max_length=2048)
-    qr_imagen: Optional[str] = Field(default=None, max_length=2048)
+    logo_imagen: Optional[str] = Field(default=None, max_length=MAX_LEN_IMAGEN)
+    qr_imagen: Optional[str] = Field(default=None, max_length=MAX_LEN_IMAGEN)
     titular_cuenta: Optional[str] = Field(default=None, max_length=80)
     banco: Optional[str] = Field(default=None, max_length=60)
     alias: Optional[str] = Field(default=None, max_length=60)
@@ -2783,9 +2797,9 @@ class ConfigIn(BaseModel):
 
 
 class ImagenUrlIn(BaseModel):
-    url: str = Field(default="", max_length=2048)
-    logo_imagen: Optional[str] = Field(default=None, max_length=2048)
-    qr_imagen: Optional[str] = Field(default=None, max_length=2048)
+    url: str = Field(default="", max_length=MAX_LEN_IMAGEN)
+    logo_imagen: Optional[str] = Field(default=None, max_length=MAX_LEN_IMAGEN)
+    qr_imagen: Optional[str] = Field(default=None, max_length=MAX_LEN_IMAGEN)
 
 
 class CambiarClaveIn(BaseModel):

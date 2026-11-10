@@ -517,21 +517,17 @@
       </button>
     </div>
   </div>
-</div>
-
-
-
 
   <!-- Modal Conectar Celular / QR en Red -->
   <div x-show="modalRedQR" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
        @keydown.escape.window="modalRedQR = false">
-    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center space-y-4" @click.outside="modalRedQR = false">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center space-y-4 border border-gray-200" @click.outside="modalRedQR = false">
       <div class="flex items-center justify-between pb-2 border-b border-gray-100">
         <h3 class="font-bold text-gray-900 text-base flex items-center gap-2">
           <i data-lucide="smartphone" class="w-5 h-5 text-primario"></i>
           Conectar Celular o Tablet
         </h3>
-        <button type="button" @click="modalRedQR = false" class="text-slate-500 hover:text-gray-600 text-lg leading-none">&times;</button>
+        <button type="button" @click="modalRedQR = false" class="text-slate-500 hover:text-gray-600 text-lg leading-none cursor-pointer">&times;</button>
       </div>
 
       <p class="text-xs text-gray-600">
@@ -548,7 +544,7 @@
       </div>
 
       <button type="button" @click="modalRedQR = false"
-              class="w-full py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 font-semibold text-xs text-slate-200 transition-colors">
+              class="w-full py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 font-semibold text-xs text-gray-700 transition-colors cursor-pointer">
         Cerrar
       </button>
     </div>
@@ -556,6 +552,7 @@
 
   <!-- Inclusión del Asistente de Primer Arranque (Setup Wizard) -->
   {% include "_wizard.html" %}
+</div>
 
 <script>
   async function cerrarSesion() {

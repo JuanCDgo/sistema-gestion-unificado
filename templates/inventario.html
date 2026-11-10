@@ -753,17 +753,36 @@
     </section>
 
     <!-- =================================================================== -->
-    <!-- TAB 5: 🚨 MONITOR DE STOCK CRÍTICO                                   -->
+    <!-- TAB 5: 🚨 MONITOR DE STOCK CRÍTICO Y SIN STOCK                      -->
     <!-- =================================================================== -->
     <section x-show="tab === 'critico'" class="space-y-4">
       <div x-show="criticos.length === 0" class="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl p-6 text-sm font-medium">
-        🎉 ¡Excelente! No hay productos con stock igual o inferior a su mínimo configurado.
+        🎉 ¡Excelente! No hay productos sin stock ni por debajo de su mínimo configurado.
       </div>
 
       <template x-if="criticos.length > 0">
         <div class="space-y-3">
-          <div class="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3 text-sm">
-            ⚠️ Se encontraron <strong x-text="criticos.length"></strong> artículos con necesidad de reposición inmediata.
+          <div class="bg-amber-50 border border-amber-200 text-amber-900 rounded-xl px-4 py-3.5 text-sm flex flex-wrap items-center justify-between gap-3">
+            <div class="space-y-0.5">
+              <div>
+                ⚠️ Se encontraron <strong x-text="criticos.length"></strong> artículos en alerta:
+                <strong class="text-red-700" x-text="criticos.filter(x => Number(x.stock) <= 0).length + ' SIN STOCK (0 unid.)'"></strong>
+                y <strong class="text-amber-800" x-text="criticos.filter(x => Number(x.stock) > 0).length + ' con stock bajo'"></strong>.
+              </div>
+              <p class="text-xs text-amber-800/90">
+                Para los productos en <strong>0 unidades</strong>, indicá si se van a reponer, si no llevan alerta o deshabilitalos del catálogo.
+              </p>
+            </div>
+            <div x-show="criticos.some(x => Number(x.stock) <= 0)" class="flex flex-wrap items-center gap-2">
+              <button type="button" @click="marcarAgotadosNoReponer()"
+                      class="px-3 py-1.5 rounded-lg border border-amber-300 bg-white hover:bg-amber-100 text-amber-900 text-xs font-semibold transition-colors">
+                🔕 Quitar alerta a agotados (0)
+              </button>
+              <button type="button" @click="deshabilitarTodosAgotados()"
+                      class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors">
+                🚫 Deshabilitar todos los sin stock (<span x-text="criticos.filter(x => Number(x.stock) <= 0).length"></span>)
+              </button>
+            </div>
           </div>
 
           <div class="bg-white border border-gray-200 rounded-xl shadow-suave overflow-x-auto">
@@ -773,25 +792,51 @@
                   <th class="text-left font-medium px-4 py-3">Código</th>
                   <th class="text-left font-medium px-4 py-3">Producto</th>
                   <th class="text-left font-medium px-3 py-3">Categoría</th>
+                  <th class="text-center font-medium px-3 py-3">Estado</th>
                   <th class="text-right font-medium px-3 py-3">Stock Actual</th>
                   <th class="text-right font-medium px-3 py-3">Stock Mínimo</th>
-                  <th class="text-right font-medium px-3 py-3">Déficit / Faltante</th>
-                  <th class="text-right font-medium px-4 py-3">Acción</th>
+                  <th class="text-right font-medium px-4 py-3">¿Se va a reponer? / Acción</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-gray-100">
                 <template x-for="p in criticos" :key="p.id">
-                  <tr class="hover:bg-red-50/30">
+                  <tr :class="Number(p.stock) <= 0 ? 'bg-red-50/20 hover:bg-red-50/40' : 'hover:bg-amber-50/30'">
                     <td class="px-4 py-3 font-mono text-xs text-gray-600" x-text="'#' + (p.codigo || p.id)"></td>
                     <td class="px-4 py-3 font-semibold" x-text="p.nombre"></td>
                     <td class="px-3 py-3 text-gray-600" x-text="p.categoria"></td>
-                    <td class="px-3 py-3 text-right font-bold text-red-600" x-text="p.stock"></td>
+                    <td class="px-3 py-3 text-center">
+                      <span x-show="Number(p.stock) <= 0"
+                            class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-red-700 border border-red-200">
+                        SIN STOCK (0)
+                      </span>
+                      <span x-show="Number(p.stock) > 0"
+                            class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                        STOCK BAJO (Faltan <span class="ml-0.5" x-text="p.deficit"></span>)
+                      </span>
+                    </td>
+                    <td class="px-3 py-3 text-right font-bold"
+                        :class="Number(p.stock) <= 0 ? 'text-red-600' : 'text-amber-700'"
+                        x-text="p.stock"></td>
                     <td class="px-3 py-3 text-right text-gray-600" x-text="p.stock_minimo"></td>
-                    <td class="px-3 py-3 text-right font-semibold text-amber-700" x-text="p.deficit"></td>
                     <td class="px-4 py-3 text-right">
-                      <button @click="irAAjuste(p)" class="px-3 py-1 rounded-lg bg-primario-suave text-primario text-xs font-semibold hover:opacity-80">
-                        🔄 Reponer
-                      </button>
+                      <div class="inline-flex flex-wrap items-center justify-end gap-1.5">
+                        <button type="button" @click="irAAjuste(p)"
+                                title="Cargar ingreso de mercadería"
+                                class="px-2.5 py-1 rounded-lg bg-primario-suave text-primario text-xs font-semibold hover:opacity-80">
+                          🔄 Sí, reponer
+                        </button>
+                        <button type="button" @click="noReponerProducto(p)"
+                                title="Poner stock mínimo en 0 para que deje de alertar"
+                                class="px-2.5 py-1 rounded-lg border border-gray-300 bg-white text-gray-700 text-xs font-semibold hover:bg-gray-100">
+                          🔕 No reponer
+                        </button>
+                        <button type="button" x-show="esAdmin || Number(p.stock) <= 0"
+                                @click="confirmarEliminar(p)"
+                                title="Deshabilitar producto del catálogo y POS"
+                                class="px-2.5 py-1 rounded-lg border border-red-200 bg-red-50 text-red-700 text-xs font-semibold hover:bg-red-100">
+                          🚫 Deshabilitar
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 </template>
@@ -1489,7 +1534,58 @@
             this.avisar(`Producto "${b.nombre}" reactivado.`);
           } catch (e) { this.errorGlobal = e.message; }
         },
-        confirmarEliminar(p) { if (!this.esAdmin) return; this.aEliminar = p; },
+        confirmarEliminar(p) {
+          if (!this.esAdmin && Number(p.stock || 0) > 0) return;
+          this.aEliminar = p;
+        },
+        async noReponerProducto(p) {
+          if (!confirm(`¿Confirmás que "${p.nombre}" NO se va a reponer por ahora?\n\nSu stock mínimo pasará a 0 para quitarlo de las alertas de reposición.`)) return;
+          try {
+            const r = await fetch(`/api/inventario/productos/${p.id}/stock-minimo`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ stock_minimo: 0 }),
+            });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.detail || 'No se pudo actualizar la alerta del producto');
+            await this.cargar();
+            this.avisar(`"${p.nombre}" marcado como sin reposición (alerta desactivada).`);
+          } catch (e) {
+            this.errorGlobal = e.message;
+          }
+        },
+        async marcarAgotadosNoReponer() {
+          const agotados = this.criticos.filter(x => Number(x.stock) <= 0);
+          if (!agotados.length) return;
+          if (!confirm(`¿Quitar la alerta de reposición a los ${agotados.length} productos que están en 0 unidades?`)) return;
+          try {
+            for (const p of agotados) {
+              await fetch(`/api/inventario/productos/${p.id}/stock-minimo`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ stock_minimo: 0 }),
+              });
+            }
+            await this.cargar();
+            this.avisar(`Se quitaron las alertas de ${agotados.length} productos sin stock.`);
+          } catch (e) {
+            this.errorGlobal = e.message;
+          }
+        },
+        async deshabilitarTodosAgotados() {
+          const agotados = this.criticos.filter(x => Number(x.stock) <= 0);
+          if (!agotados.length) return;
+          if (!confirm(`¿Deshabilitar del catálogo los ${agotados.length} productos SIN STOCK (0 unidades)?\n\nDejarán de aparecer en el Punto de Venta y podrás reactivarlos cuando vuelva a entrar mercadería.`)) return;
+          try {
+            for (const p of agotados) {
+              await fetch(`/api/inventario/productos/${p.id}`, { method: 'DELETE' });
+            }
+            await this.cargar();
+            this.avisar(`Se deshabilitaron ${agotados.length} productos sin stock.`);
+          } catch (e) {
+            this.errorGlobal = e.message;
+          }
+        },
         async eliminar() {
           try {
             const r = await fetch(`/api/inventario/productos/${this.aEliminar.id}`, { method: 'DELETE' });
@@ -1535,6 +1631,8 @@
           this.busquedaAjuste = '';
           this.ajuste.producto_id = p.id;
           this.alCambiarProductoAjuste();
+          this.ajuste.modo = 'sumar';
+          this.ajuste.cantidad = Math.max(1, Number(p.deficit || p.stock_minimo || 6));
           this.tab = 'ajuste';
           window.scrollTo({ top: 0, behavior: 'smooth' });
         },

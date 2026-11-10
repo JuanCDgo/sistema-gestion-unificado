@@ -1588,7 +1588,7 @@
       const ses = obtenerSesion() || { usuario_id: 1, usuario: 'Dueño', rol: 'admin', debe_cambiar_pin: false };
       const cfg = db.config || CONFIG_DEFAULT;
       const criticos = db.productos.filter(
-        (p) => p.activo !== false && Number(p.stock_actual ?? p.stock ?? 0) <= Number(p.stock_minimo ?? 0)
+        (p) => p.activo !== false && Number(p.stock_minimo ?? 0) > 0 && Number(p.stock_actual ?? p.stock ?? 0) <= Number(p.stock_minimo ?? 0)
       ).length;
       return respuestaJSON({
         usuario: ses.usuario,
@@ -1824,12 +1824,14 @@
 
     if (path === '/api/inventario/stock-critico' && method === 'GET') {
       const criticos = db.productos
-        .filter((p) => p.activo !== false && Number(p.stock_actual ?? p.stock ?? 0) <= Number(p.stock_minimo ?? 0))
+        .filter((p) => p.activo !== false && Number(p.stock_minimo ?? 0) > 0 && Number(p.stock_actual ?? p.stock ?? 0) <= Number(p.stock_minimo ?? 0))
         .map((p) => {
           const out = formatearProductoOut(db, p);
           out.deficit = Math.max(0, redondear4(out.stock_minimo - out.stock));
+          out.agotado = Number(out.stock || 0) <= 0;
           return out;
-        });
+        })
+        .sort((a, b) => (a.agotado === b.agotado ? b.deficit - a.deficit : a.agotado ? -1 : 1));
       return respuestaJSON(criticos);
     }
 
@@ -1939,8 +1941,9 @@
       }
       if (method === 'DELETE') {
         const ses = obtenerSesion();
-        if (!ses || ses.rol !== 'admin') {
-          return respuestaJSON({ detail: 'Solo el Dueño puede dar de baja productos' }, 403);
+        const stockAct = Number(prod.stock_actual ?? prod.stock ?? 0);
+        if ((!ses || ses.rol !== 'admin') && stockAct > 0) {
+          return respuestaJSON({ detail: 'Solo el Dueño puede dar de baja productos con stock positivo' }, 403);
         }
         prod.activo = false;
         prod.fecha_baja = ahoraISO();
@@ -2991,6 +2994,14 @@
     const a = ev.target && ev.target.closest ? ev.target.closest('a[href]') : null;
     if (!a) return;
     const href = a.getAttribute('href') || '';
+
+    const esGhPagesActual = window.location.hostname.includes('github.io') || window.location.pathname.includes('/sistema-gestion-unificado');
+    const dbActual = cargarDB();
+    const modoActual = localStorage.getItem('POS_MODO_OPERACION') || (dbActual.config && dbActual.config.modo_operacion) || 'servidor_central';
+    // Si corre sobre el servidor FastAPI en Modo B (Servidor Central), dejar que FastAPI descargue nativamente el PDF, Excel o ZIP
+    if (!esGhPagesActual && modoActual === 'servidor_central') {
+      return;
+    }
 
     const matchTicketPdf = href.match(/^\/api\/ventas\/(\d+)\/ticket\.pdf/);
     if (matchTicketPdf) {

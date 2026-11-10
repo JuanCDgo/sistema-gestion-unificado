@@ -314,19 +314,54 @@ html.tema-claro nav.hidden.md\:flex {
   border-color: #E2E8F0 !important;
 }
 
-html.tema-claro nav.hidden.md\:flex a {
+html.tema-claro nav.hidden.md\:flex a,
+html.tema-claro nav.hidden.md\:flex > div.relative > button {
   color: #475569 !important;
 }
-html.tema-claro nav.hidden.md\:flex a:hover {
+html.tema-claro nav.hidden.md\:flex a:hover,
+html.tema-claro nav.hidden.md\:flex > div.relative > button:hover {
   color: #0F172A !important;
   background-color: #E2E8F0 !important;
 }
 
-html.tema-claro nav.hidden.md\:flex a.font-semibold {
+html.tema-claro nav.hidden.md\:flex a.font-semibold,
+html.tema-claro nav.hidden.md\:flex > div.relative > button.font-semibold {
   background-color: #FFFFFF !important;
   color: #059669 !important;
   border-color: #CBD5E1 !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Menú desplegable "Más" y tarjeta de Usuario en Modo Claro */
+html.tema-claro nav.hidden.md\:flex > div.relative > div.absolute {
+  background-color: #FFFFFF !important;
+  border-color: #E2E8F0 !important;
+  box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.14) !important;
+}
+html.tema-claro nav.hidden.md\:flex > div.relative > div.absolute > div {
+  border-color: #F1F5F9 !important;
+}
+html.tema-claro nav.hidden.md\:flex > div.relative > div.absolute a {
+  color: #1E293B !important;
+}
+html.tema-claro nav.hidden.md\:flex > div.relative > div.absolute a:hover {
+  background-color: #F1F5F9 !important;
+  color: #059669 !important;
+}
+
+html.tema-claro header .hidden.sm\:flex.items-center.gap-1\.5 {
+  background-color: #F1F5F9 !important;
+  border-color: #E2E8F0 !important;
+}
+html.tema-claro header .hidden.sm\:flex.items-center.gap-1\.5 span.text-slate-200 {
+  color: #0F172A !important;
+}
+html.tema-claro header .hidden.sm\:flex.items-center.gap-1\.5 button {
+  color: #475569 !important;
+}
+html.tema-claro header .hidden.sm\:flex.items-center.gap-1\.5 button:hover {
+  color: #0F172A !important;
+  background-color: #E2E8F0 !important;
 }
 
 /* Barra inferior móvil en Modo Claro */
