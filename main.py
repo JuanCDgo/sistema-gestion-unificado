@@ -955,20 +955,19 @@ def crear_venta(venta: VentaIn, request: Request):
 
     cfg = cargar_config()
     fecha_str = _ahora_local().strftime("%d/%m/%Y %H:%M")
-    whatsapp_url = ""
-    if cliente_out.get("telefono"):
-        msg = armar_mensaje_whatsapp_ticket({
-            "negocio_nombre": cfg.get("nombre_comercio", "Mi Comercio"),
-            "cliente_nombre": cliente_out["nombre"],
-            "venta_id": venta_id,
-            "fecha": fecha_str,
-            "forma_pago": forma_pago_db_str,
-            "total": total,
-            "puntos_ganados": puntos_ganados,
-            "puntos_canjeados": puntos_canjeados,
-            "puntos_balance": cliente_out.get("puntos", 0),
-        })
-        whatsapp_url = armar_url_whatsapp(cliente_out["telefono"], msg)
+    msg = armar_mensaje_whatsapp_ticket({
+        "negocio_nombre": cfg.get("nombre_comercio", "Mi Comercio"),
+        "cliente_nombre": cliente_out["nombre"],
+        "venta_id": venta_id,
+        "fecha": fecha_str,
+        "forma_pago": forma_pago_db_str,
+        "items": detalle,
+        "total": total,
+        "puntos_ganados": puntos_ganados,
+        "puntos_canjeados": puntos_canjeados,
+        "puntos_balance": cliente_out.get("puntos", 0),
+    })
+    whatsapp_url = armar_url_whatsapp(cliente_out.get("telefono"), msg)
 
     return {
         "id": venta_id,
@@ -991,9 +990,112 @@ def crear_venta(venta: VentaIn, request: Request):
     }
 
 
+@app.get("/api/ventas/{venta_id}/ticket.html", response_class=HTMLResponse, dependencies=[Depends(requiere_sesion_html)])
+def ver_ticket_html(venta_id: int, request: Request, canjeados: float = 0.0):
+    """Comprobante térmico interactivo en HTML (100% amigable para celulares y sin advertencias de descarga)."""
+    from tickets import armar_mensaje_whatsapp_ticket, armar_url_whatsapp
+    db = get_db()
+    filas_v = db.table("ventas").select("*").eq("id", venta_id).eq("comercio_id", COMERCIO_ID).limit(1).execute().data or []
+    if not filas_v:
+        raise HTTPException(404, "Ticket no encontrado")
+    v = filas_v[0]
+
+    cliente_nombre = "Consumidor Final"
+    cliente_telefono = ""
+    puntos_balance = 0.0
+    if v.get("cliente_id"):
+        cli_filas = (
+            db.table("clientes")
+            .select("nombre, telefono, puntos")
+            .eq("id", v["cliente_id"])
+            .eq("comercio_id", COMERCIO_ID)
+            .limit(1)
+            .execute()
+            .data or []
+        )
+        if cli_filas:
+            cliente_nombre = cli_filas[0].get("nombre") or "Consumidor Final"
+            cliente_telefono = cli_filas[0].get("telefono") or ""
+            puntos_balance = float(cli_filas[0].get("puntos") or 0)
+
+    renglones = (db.table("detalle_ventas").select("*, productos(nombre)")
+                 .eq("venta_id", venta_id).execute().data or [])
+    items_out = []
+    subtotal_calculado = 0.0
+    for r in renglones:
+        cant = float(r.get("cantidad") or 0)
+        if cant <= 0:
+            continue
+        pr = r.get("productos")
+        if isinstance(pr, list):
+            pr = pr[0] if pr else None
+        nombre_p = pr.get("nombre") if pr else "Artículo"
+        p_unit = float(r.get("precio_unitario") or 0)
+        subt = round(cant * p_unit, 2)
+        subtotal_calculado += subt
+        items_out.append({
+            "nombre": nombre_p + (" (Canje)" if p_unit == 0 else ""),
+            "cantidad": _num(cant),
+            "precio_unitario": _num(p_unit),
+            "subtotal": _num(subt),
+        })
+
+    fecha_raw = v.get("fecha_hora") or v.get("fecha") or ""
+    try:
+        dt = datetime.fromisoformat(str(fecha_raw).replace("Z", "+00:00")).astimezone(TZ_AR)
+        fecha_hora = dt.strftime("%d/%m/%Y %H:%M")
+    except Exception:
+        fecha_hora = _ahora_local().strftime("%d/%m/%Y %H:%M")
+
+    pts_netos = float(v.get("puntos_ganados") or 0)
+    total_v = float(v.get("total_venta") or 0)
+    if v.get("cliente_id"):
+        pts_ganados = _puntos_por_monto(total_v) if total_v > 0 else 0.0
+        pts_canje = canjeados if canjeados > 0 else max(0.0, round(pts_ganados - pts_netos, 2))
+    else:
+        pts_ganados, pts_canje = 0.0, 0
+
+    cfg = cargar_config()
+    msg = armar_mensaje_whatsapp_ticket({
+        "negocio_nombre": cfg.get("nombre_comercio", "Mi Comercio"),
+        "cliente_nombre": cliente_nombre,
+        "venta_id": venta_id,
+        "fecha": fecha_hora,
+        "forma_pago": v.get("forma_pago") or "Efectivo",
+        "items": items_out,
+        "total": total_v,
+        "puntos_ganados": pts_ganados,
+        "puntos_canjeados": pts_canje,
+        "puntos_balance": puntos_balance,
+    })
+    whatsapp_url = armar_url_whatsapp(cliente_telefono, msg)
+
+    ticket_data = {
+        "venta_id": venta_id,
+        "fecha_hora": fecha_hora,
+        "cliente_nombre": cliente_nombre,
+        "cliente_telefono": cliente_telefono,
+        "forma_pago": v.get("forma_pago") or "Efectivo",
+        "renglones": items_out,
+        "items": items_out,
+        "subtotal": _num(round(subtotal_calculado, 2)),
+        "descuento": _num(round(float(v.get("descuento") or 0), 2)),
+        "descuento_pct": _num(float(v.get("descuento_pct") or 0)),
+        "total": _num(total_v),
+        "paga_con": _num(float(v.get("paga_con") or 0)) if v.get("paga_con") else None,
+        "vuelto": _num(float(v.get("vuelto") or 0)) if v.get("vuelto") else None,
+        "puntos_ganados": _num(pts_ganados) if pts_ganados > 0 else None,
+        "puntos_canjeados": _num(pts_canje) if pts_canje > 0 else None,
+        "puntos_balance": _num(puntos_balance) if v.get("cliente_id") else None,
+        "whatsapp_url": whatsapp_url,
+    }
+
+    return templates.TemplateResponse(request, "ticket.html", {"ticket": ticket_data, "config": cfg})
+
+
 @app.get("/api/ventas/{venta_id}/ticket.pdf", dependencies=[Depends(requiere_sesion_api)])
-def descargar_ticket_pdf(venta_id: int, canjeados: float = 0.0):
-    """Genera y descarga el comprobante térmico de 80 mm en formato PDF."""
+def descargar_ticket_pdf(venta_id: int, request: Request, canjeados: float = 0.0):
+    """Genera el comprobante térmico de 80 mm en PDF (inline para visualización directa en celulares sin bloqueos de descarga)."""
     from tickets import generar_pdf_ticket_termico
     db = get_db()
     filas_v = db.table("ventas").select("*").eq("id", venta_id).eq("comercio_id", COMERCIO_ID).limit(1).execute().data or []
@@ -1066,10 +1168,11 @@ def descargar_ticket_pdf(venta_id: int, canjeados: float = 0.0):
         "telefono_negocio": cfg.get("telefono") or "",
     }, nombre_negocio=cfg.get("nombre_comercio", "Mi Comercio"))
 
+    disposicion = "attachment" if request.query_params.get("descargar") == "1" else "inline"
     return Response(
         pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="ticket_{venta_id}.pdf"'},
+        headers={"Content-Disposition": f'{disposicion}; filename="ticket_{venta_id}.pdf"'},
     )
 
 
@@ -2601,8 +2704,8 @@ def registrar_movimiento_caja_api(data: MovimientoCajaIn, request: Request):
 
 
 @app.get("/api/caja/cierre.pdf", dependencies=[Depends(requiere_sesion_api)])
-def descargar_pdf_cierre_api(fecha: Optional[str] = None):
-    """Genera y descarga el reporte PDF oficial del Cierre de Caja Diario."""
+def descargar_pdf_cierre_api(request: Request, fecha: Optional[str] = None):
+    """Genera el reporte PDF oficial del Cierre de Caja Diario (inline para visualización directa)."""
     from tickets import generar_pdf_cierre_caja
     fecha_uso = fecha or _ahora_local().strftime("%Y-%m-%d")
     resumen = _calcular_arqueo_dia(get_db(), fecha_uso)
@@ -2612,10 +2715,11 @@ def descargar_pdf_cierre_api(fecha: Optional[str] = None):
         resumen=resumen,
         nombre_negocio=cfg.get("nombre_comercio", "Mi Comercio"),
     )
+    disposicion = "attachment" if request.query_params.get("descargar") == "1" else "inline"
     return Response(
         pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="Cierre_Caja_{fecha_uso}.pdf"'},
+        headers={"Content-Disposition": f'{disposicion}; filename="Cierre_Caja_{fecha_uso}.pdf"'},
     )
 
 

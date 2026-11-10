@@ -640,36 +640,32 @@
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <a :href="'/api/ventas/' + ventaOk.id + '/ticket.pdf?canjeados=' + (ventaOk.puntos_canjeados || 0)"
+              <a :href="'/api/ventas/' + ventaOk.id + '/ticket.html'"
                  target="_blank" rel="noopener"
-                 @click="cerrarComprobante()"
-                 class="py-2 px-3 rounded-lg bg-white hover:bg-gray-50 text-gray-800 border border-gray-300 text-xs font-semibold flex items-center justify-center gap-1.5 shadow-suave">
-                📄 Descargar Ticket (PDF 80mm)
+                 class="py-2.5 px-3 rounded-xl bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm">
+                📄 Ver / Imprimir Comprobante
               </a>
 
-              <template x-if="ventaOk.cliente && ventaOk.cliente.telefono && ventaOk.whatsapp_url">
-                <a :href="ventaOk.whatsapp_url" target="_blank" rel="noopener"
-                   @click="cerrarComprobante()"
-                   class="py-2 px-3 rounded-lg bg-[#25D366] hover:bg-[#1fb857] text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-suave">
-                  📲 Enviar por WhatsApp
-                </a>
-              </template>
-              <template x-if="!ventaOk.cliente || !ventaOk.cliente.telefono">
-                <span class="py-2 px-3 rounded-lg bg-gray-100 text-gray-600 border border-gray-200 text-xs font-medium flex items-center justify-center">
-                  ℹ️ Sin teléfono para WhatsApp
-                </span>
-              </template>
+              <a :href="ventaOk.whatsapp_url || ('https://api.whatsapp.com/send?text=' + encodeURIComponent('Comprobante Ticket #' + ventaOk.id))"
+                 target="_blank" rel="noopener"
+                 class="py-2.5 px-3 rounded-xl bg-[#25D366] hover:bg-[#1fb857] text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm">
+                <span x-text="ventaOk.cliente && ventaOk.cliente.telefono ? '📲 Enviar a ' + ventaOk.cliente.telefono : '📲 Compartir por WhatsApp'"></span>
+              </a>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <a :href="'/caja?ticket=' + ventaOk.id"
-                 @click="cerrarComprobante()"
-                 class="py-2 px-3 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors">
-                Corregir / Devolver en Caja
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <button type="button" @click="enviarWhatsAppNumero(ventaOk)"
+                      class="py-2 px-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-semibold flex items-center justify-center gap-1">
+                📞 Enviar a otro celular
+              </button>
+              <a :href="'/api/ventas/' + ventaOk.id + '/ticket.pdf?canjeados=' + (ventaOk.puntos_canjeados || 0)"
+                 target="_blank" rel="noopener"
+                 class="py-2 px-2 rounded-lg bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-xs font-medium flex items-center justify-center gap-1">
+                💾 Archivo PDF
               </a>
               <button type="button" @click="cerrarComprobante()"
-                      class="py-2 px-3 rounded-lg bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 text-xs font-semibold transition-colors">
-                ✖️ Cerrar Comprobante
+                      class="py-2 px-2 rounded-lg bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 text-xs font-semibold">
+                ✖️ Cerrar
               </button>
             </div>
           </div>
@@ -1963,6 +1959,34 @@
             this.drawerAbierto = false;
           }
         }
+      },
+
+      enviarWhatsAppNumero(venta) {
+        if (!venta) return;
+        const tel = prompt('Ingresá el número de celular del cliente (ej: 2302 123456):', '');
+        if (!tel || !tel.trim()) return;
+        let d = tel.replace(/\D/g, '').replace(/^0+/, '');
+        if (d.startsWith('54')) {
+          d = d.slice(2);
+          if (d.length === 11 && d.startsWith('9')) d = d.slice(1);
+        }
+        if (d.length === 12 && d.includes('15')) {
+          for (const la of [2, 3, 4]) {
+            if (d.slice(la, la + 2) === '15') {
+              d = d.slice(0, la) + d.slice(la + 2);
+              break;
+            }
+          }
+        }
+        const telFinal = d.length === 10 ? '549' + d : (d.startsWith('549') ? d : '549' + d);
+        const urlBase = venta.whatsapp_url || '';
+        let texto = '';
+        if (urlBase.includes('text=')) {
+          texto = urlBase.split('text=')[1].split('&')[0];
+        } else {
+          texto = encodeURIComponent(`Comprobante de compra Ticket #${venta.id}`);
+        }
+        window.open(`https://api.whatsapp.com/send?phone=${telFinal}&text=${texto}`, '_blank');
       },
 
       cerrarComprobante() {

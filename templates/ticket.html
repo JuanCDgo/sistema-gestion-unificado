@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ticket #{{ ticket.venta_id }} · {{ config.nombre_comercio }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, monospace;
+      background-color: #F1F5F9;
+      color: #0F172A;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .acciones-barra {
+      width: 100%;
+      max-width: 360px;
+      margin-bottom: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .acciones-fila {
+      display: flex;
+      gap: 8px;
+      width: 100%;
+    }
+    .btn {
+      flex: 1;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #CBD5E1;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      text-decoration: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: opacity .15s ease;
+    }
+    .btn:active { opacity: 0.8; }
+    .btn-print { background-color: #0F172A; color: #FFFFFF; border-color: #0F172A; }
+    .btn-wsp { background-color: #25D366; color: #FFFFFF; border-color: #1EBE5D; }
+    .btn-pdf { background-color: #FFFFFF; color: #0F172A; }
+    .btn-cerrar { background-color: #E2E8F0; color: #334155; border-color: #CBD5E1; }
+
+    .ticket-papel {
+      width: 100%;
+      max-width: 360px;
+      background-color: #FFFFFF;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.08), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+      padding: 20px 18px;
+      border: 1px solid #E2E8F0;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    .logo-comercio {
+      display: block;
+      max-width: 80px;
+      max-height: 80px;
+      object-fit: contain;
+      margin: 0 auto 10px auto;
+    }
+    .negocio-nombre {
+      font-size: 16px;
+      font-weight: 900;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+    .negocio-sub {
+      font-size: 11px;
+      text-align: center;
+      color: #475569;
+      margin-bottom: 2px;
+    }
+    .separador {
+      border: none;
+      border-top: 1px dashed #94A3B8;
+      margin: 10px 0;
+    }
+    .fila-dato {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 3px;
+    }
+    .tabla-items {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 6px 0;
+      font-size: 12px;
+    }
+    .tabla-items th {
+      border-bottom: 1px solid #0F172A;
+      padding: 4px 0;
+      text-align: left;
+      font-size: 11px;
+    }
+    .tabla-items td {
+      padding: 5px 0;
+      vertical-align: top;
+      border-bottom: 1px dashed #E2E8F0;
+    }
+    .cant-col { width: 32px; font-weight: bold; }
+    .subt-col { text-align: right; font-weight: bold; width: 80px; }
+    .total-box {
+      margin-top: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 17px;
+      font-weight: 900;
+    }
+    .puntos-box {
+      background-color: #FEF3C7;
+      border: 1px solid #FDE68A;
+      color: #92400E;
+      border-radius: 8px;
+      padding: 6px 8px;
+      font-size: 11px;
+      margin-top: 8px;
+    }
+    .gracias {
+      text-align: center;
+      font-size: 12px;
+      margin-top: 12px;
+      font-weight: 600;
+    }
+
+    @media print {
+      body {
+        background-color: #FFFFFF !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      .no-print {
+        display: none !important;
+      }
+      .ticket-papel {
+        box-shadow: none !important;
+        border: none !important;
+        border-radius: 0 !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        padding: 4mm !important;
+      }
+      @page {
+        margin: 0;
+        size: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Barra de Acciones Móvil/PC -->
+  <div class="acciones-barra no-print">
+    <div class="acciones-fila">
+      <button onclick="window.print()" class="btn btn-print">
+        🖨️ Imprimir Ticket
+      </button>
+      <a href="{{ ticket.whatsapp_url }}" target="_blank" rel="noopener" class="btn btn-wsp">
+        📲 Compartir por WhatsApp
+      </a>
+    </div>
+    <div class="acciones-fila">
+      <a href="/api/ventas/{{ ticket.venta_id }}/ticket.pdf" target="_blank" class="btn btn-pdf">
+        📄 Ver PDF
+      </a>
+      <button onclick="window.close()" class="btn btn-cerrar">
+        ✖️ Cerrar
+      </button>
+    </div>
+  </div>
+
+  <!-- Comprobante Térmico 80mm -->
+  <main class="ticket-papel">
+    {% if config.logo_imagen %}
+      <img src="{{ config.logo_imagen }}" alt="Logo" class="logo-comercio">
+    {% endif %}
+
+    <h1 class="negocio-nombre">{{ config.nombre_comercio }}</h1>
+    {% if config.direccion %}
+      <p class="negocio-sub">{{ config.direccion }}</p>
+    {% endif %}
+    {% if config.telefono %}
+      <p class="negocio-sub">Tel: {{ config.telefono }}</p>
+    {% endif %}
+    <p class="negocio-sub" style="font-weight:bold;margin-top:4px;">TICKET DE VENTA</p>
+
+    <hr class="separador">
+
+    <div class="fila-dato">
+      <span><strong>Ticket:</strong> #{{ ticket.venta_id }}</span>
+      <span><strong>Fecha:</strong> {{ ticket.fecha_hora }}</span>
+    </div>
+    <div class="fila-dato">
+      <span><strong>Cliente:</strong> {{ ticket.cliente_nombre }}</span>
+      <span><strong>Pago:</strong> {{ ticket.forma_pago }}</span>
+    </div>
+
+    <hr class="separador">
+
+    <table class="tabla-items">
+      <thead>
+        <tr>
+          <th class="cant-col">Cant</th>
+          <th>Detalle</th>
+          <th class="subt-col">Subtotal</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for it in ticket.renglones %}
+          <tr>
+            <td class="cant-col">{{ it.cantidad }}</td>
+            <td>
+              <div>{{ it.nombre }}</div>
+              <div style="font-size:10px;color:#64748B;">{{ config.moneda }} {{ it.precio_unitario }} c/u</div>
+            </td>
+            <td class="subt-col">{{ config.moneda }} {{ it.subtotal }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <hr class="separador">
+
+    {% if ticket.descuento and ticket.descuento > 0 %}
+      <div class="fila-dato" style="color:#64748B;">
+        <span>Subtotal:</span>
+        <span>{{ config.moneda }} {{ ticket.subtotal }}</span>
+      </div>
+      <div class="fila-dato" style="color:#DC2626;">
+        <span>Descuento ({{ ticket.descuento_pct }}%):</span>
+        <span>-{{ config.moneda }} {{ ticket.descuento }}</span>
+      </div>
+    {% endif %}
+
+    <div class="total-box">
+      <span>TOTAL:</span>
+      <span>{{ config.moneda }} {{ ticket.total }}</span>
+    </div>
+
+    {% if ticket.paga_con and ticket.vuelto and ticket.vuelto > 0 %}
+      <div class="fila-dato" style="margin-top:6px;font-size:11px;color:#475569;">
+        <span>Abona con: {{ config.moneda }} {{ ticket.paga_con }}</span>
+        <span>Vuelto: {{ config.moneda }} {{ ticket.vuelto }}</span>
+      </div>
+    {% endif %}
+
+    {% if ticket.puntos_ganados or ticket.puntos_canjeados %}
+      <div class="puntos-box">
+        {% if ticket.puntos_canjeados and ticket.puntos_canjeados > 0 %}
+          <div>• Canjeados: -{{ ticket.puntos_canjeados }} pts</div>
+        {% endif %}
+        {% if ticket.puntos_ganados and ticket.puntos_ganados > 0 %}
+          <div>• Ganados en esta compra: +{{ ticket.puntos_ganados }} pts</div>
+        {% endif %}
+        {% if ticket.puntos_balance is not none %}
+          <div>• <strong>Balance disponible: {{ ticket.puntos_balance }} pts</strong></div>
+        {% endif %}
+      </div>
+    {% endif %}
+
+    <hr class="separador">
+    <p class="gracias">¡Muchas gracias por su compra!</p>
+  </main>
+
+</body>
+</html>

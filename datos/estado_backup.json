@@ -4,9 +4,9 @@
   "ultimo_backup_local": "10/11/2026",
   "ultimo_backup_nube": "10/11/2026",
   "ultimo_estado": "ok_local_wifi",
-  "ultimo_mensaje": "Carpeta 'datos' respaldada en Wi-Fi (10/11/2026 · 217.9 KB) lista en 'C:\\Users\\juanm\\.gemini\\antigravity\\scratch\\sistema-gestion-unificado\\datos\\backups_drive'.",
+  "ultimo_mensaje": "Carpeta 'datos' respaldada en Wi-Fi (10/11/2026 · 216.0 KB) lista en 'C:\\Users\\juanm\\.gemini\\antigravity\\scratch\\sistema-gestion-unificado\\datos\\backups_drive'.",
   "ultimo_archivo_zip": "C:\\Users\\juanm\\.gemini\\antigravity\\scratch\\sistema-gestion-unificado\\datos\\backups_drive\\datos_backup_actual.zip",
-  "ultimo_tamano_kb": 217.9,
+  "ultimo_tamano_kb": 216.0,
   "cantidad_backups_guardados": 10,
   "carpeta_destino_activa": "C:\\Users\\juanm\\.gemini\\antigravity\\scratch\\sistema-gestion-unificado\\datos\\backups_drive"
 }

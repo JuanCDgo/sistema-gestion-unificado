@@ -349,7 +349,7 @@ def generar_pdf_cierre_caja(
 
 
 def armar_mensaje_whatsapp_ticket(datos_ticket: Dict[str, Any]) -> str:
-    """Texto del comprobante para WhatsApp, con viñetas (-) y sin emojis que se corrompan en la URL."""
+    """Texto del comprobante para WhatsApp, con viñetas (•) y sin emojis que se corrompan en la URL."""
     negocio = datos_ticket.get("negocio_nombre", "Mi Comercio")
     cliente = datos_ticket.get("cliente_nombre", "Consumidor Final")
     lineas = [
@@ -358,8 +358,20 @@ def armar_mensaje_whatsapp_ticket(datos_ticket: Dict[str, Any]) -> str:
         f"• *Ticket Nro:* #{datos_ticket.get('venta_id', '-')}",
         f"• *Fecha:* {datos_ticket.get('fecha', '-')}",
         f"• *Medio de Pago:* {datos_ticket.get('forma_pago', '-')}",
-        f"• *Total Abonado:* {fmt_moneda(float(datos_ticket.get('total', 0.0)))}",
     ]
+    items = datos_ticket.get("items") or []
+    if items:
+        lineas.append("")
+        lineas.append("*Detalle de compra:*")
+        for it in items:
+            cant = it.get("cantidad", 1)
+            cant_str = fmt_cantidad(cant) if isinstance(cant, (int, float)) else str(cant)
+            nom = it.get("nombre", "Artículo")
+            subt = float(it.get("total") if it.get("total") is not None else (float(it.get("precio_unitario", 0)) * float(cant)))
+            lineas.append(f"• {cant_str}x {nom}: {fmt_moneda(subt)}")
+
+    lineas.append("")
+    lineas.append(f"• *Total Abonado:* {fmt_moneda(float(datos_ticket.get('total', 0.0)))}")
     puntos_ganados = float(datos_ticket.get("puntos_ganados", 0) or 0)
     puntos_canjeados = float(datos_ticket.get("puntos_canjeados", 0) or 0)
     if puntos_canjeados > 0:

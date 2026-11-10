@@ -2427,11 +2427,9 @@
         ? { id: cli.id, nombre: cli.nombre, telefono: cli.telefono || '', saldo: redondear2(cli.saldo_deudor || 0), puntos: cli.puntos }
         : { id: 0, nombre: 'Consumidor Final', telefono: '', saldo: 0, puntos: 0 };
 
-      let wspUrl = '';
-      if (cliOut.telefono) {
-        const txt = `*${cfg.nombre_comercio}*\n• Ticket Nro: #${ventaId}\n• Fecha: ${fmtFechaAR(fechaVenta)}\n• Total: *${fmtMonedaAR(total, cfg.moneda)}* (${formaPagoStr})\nMuchas gracias por tu compra!`;
-        wspUrl = armarUrlWhatsApp(cliOut.telefono, txt);
-      }
+      const itemsTxt = (detalleOut || []).map((d) => `• ${d.cantidad}x ${d.nombre}: ${fmtMonedaAR(d.total, cfg.moneda)}`).join('\n');
+      const txt = `*${cfg.nombre_comercio}*\n• Ticket Nro: #${ventaId}\n• Fecha: ${fmtFechaAR(fechaVenta)}\n• Pago: ${formaPagoStr}\n\n*Detalle de compra:*\n${itemsTxt}\n\n• *Total Abonado:* ${fmtMonedaAR(total, cfg.moneda)}\nMuchas gracias por tu compra!`;
+      const wspUrl = armarUrlWhatsApp(cliOut.telefono || '', txt);
 
       const pagaCon = Number(body.paga_con || 0);
       const baseEfectivo = body.metodo_pago === 'mixto' ? Number(body.monto_efectivo || 0) : total;
@@ -3003,7 +3001,7 @@
       return;
     }
 
-    const matchTicketPdf = href.match(/^\/api\/ventas\/(\d+)\/ticket\.pdf/);
+    const matchTicketPdf = href.match(/^\/api\/ventas\/(\d+)\/ticket\.(pdf|html)/);
     if (matchTicketPdf) {
       ev.preventDefault();
       abrirVistaImpresionTicket(Number(matchTicketPdf[1]));
