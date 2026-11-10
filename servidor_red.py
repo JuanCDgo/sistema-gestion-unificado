@@ -65,17 +65,16 @@ def generar_qr_svg(url: str) -> str:
         return ""
 
 
-def _abrir_navegador(url: str):
-    """Abre automáticamente el navegador predeterminado en la PC."""
-    time.sleep(1.2)
-    url_destino = url
-    try:
-        from main import cargar_config
-        cfg = cargar_config()
-        if int(cfg.get("wizard_completado") or 0) == 0:
-            url_destino = f"{url}/login"
-    except Exception:
-        pass
+def _abrir_navegador(url: str, puerto: int = 8000):
+    """Espera a que el servidor Uvicorn esté escuchando en el puerto y abre el navegador."""
+    for _ in range(30):
+        try:
+            with socket.create_connection(("127.0.0.1", puerto), timeout=0.5):
+                break
+        except OSError:
+            time.sleep(0.3)
+
+    url_destino = f"{url}/login"
     try:
         webbrowser.open(url_destino)
     except Exception:
@@ -113,8 +112,8 @@ def main():
     except Exception as e:
         print(f"  [Aviso] Backup vigilante: {e}")
 
-    # Abrir navegador automáticamente
-    threading.Thread(target=_abrir_navegador, args=(url_local,), daemon=True).start()
+    # Abrir navegador automáticamente cuando el puerto esté listo
+    threading.Thread(target=_abrir_navegador, args=(url_local, puerto), daemon=True).start()
 
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=puerto, reload=False, log_level="info")
