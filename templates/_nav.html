@@ -843,7 +843,8 @@
           const r = await fetch('/api/estado-barra');
           if (r.ok) {
             const d = await r.json();
-            if (d.wizard_completado === 0 && !localStorage.getItem('POS_WIZARD_COMPLETADO')) {
+            if (Number(d.wizard_completado || 0) === 0) {
+              try { localStorage.removeItem('POS_WIZARD_COMPLETADO'); } catch(_) {}
               this.mostrarWizard = true;
               this.$nextTick(() => { if (window.lucide) lucide.createIcons(); });
             }

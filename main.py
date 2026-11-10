@@ -372,10 +372,23 @@ _RUTAS_PIN_PENDIENTE = ("/api/config/cambiar-clave", "/api/logout", "/api/estado
 
 
 def requiere_sesion_html(request: Request) -> None:
-    # En la Versión Celular PWA Autónoma, la sesión y la base de datos viven dentro
-    # del navegador del teléfono (motor_offline_pwa.js) y el Service Worker necesita
-    # precachear todas las pantallas HTML en el primer ingreso.
-    return None
+    # Si la petición proviene del compilador estático PWA
+    if request.headers.get("x-compilacion-pwa") == "1":
+        return None
+
+    cfg = cargar_config()
+    # Si el Setup Wizard de primer arranque no fue completado, exigir /login para configurarlo
+    if int(cfg.get("wizard_completado") or 0) == 0:
+        raise NoAutenticado("/login?primer_arranque=1")
+
+    # Si no hay sesión válida activa en la PC, redirigir a /login
+    if not _sesion_valida(request):
+        raise NoAutenticado("/login")
+
+    # Si debe cambiar el PIN de fábrica de forma obligatoria
+    if _info_sesion(request).get("debe_cambiar_pin"):
+        if not (request.url.path.startswith("/configuracion") or request.url.path.startswith("/api")):
+            raise NoAutenticado("/configuracion#seguridad")
 
 
 def requiere_sesion_api(request: Request) -> None:
@@ -435,10 +448,17 @@ def usuarios_login():
 
 
 @app.get("/login", response_class=HTMLResponse)
+@app.get("/login.html", response_class=HTMLResponse)
 async def login_page(request: Request):
-    if _sesion_valida(request):
+    cfg = cargar_config()
+    wizard_pendiente = int(cfg.get("wizard_completado") or 0) == 0
+    # Si la sesión es válida y el wizard ya está completado, ir al POS
+    if _sesion_valida(request) and not wizard_pendiente:
         return RedirectResponse("/", status_code=303)
-    return templates.TemplateResponse(request, "login.html", {"config": config_publica()})
+    return templates.TemplateResponse(request, "login.html", {
+        "config": config_publica(),
+        "wizard_pendiente": wizard_pendiente,
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -656,6 +676,8 @@ class VentaIn(BaseModel):
 # POS: pantalla, productos, clientes y ventas
 # ---------------------------------------------------------------------------
 @app.get("/", response_class=HTMLResponse, dependencies=[Depends(requiere_sesion_html)])
+@app.get("/index.html", response_class=HTMLResponse, dependencies=[Depends(requiere_sesion_html)])
+@app.get("/pos.html", response_class=HTMLResponse, dependencies=[Depends(requiere_sesion_html)])
 async def index(request: Request):
     """Renderiza el POS inyectando la configuración de marca blanca."""
     return templates.TemplateResponse(request, "pos.html", {"config": config_publica()})

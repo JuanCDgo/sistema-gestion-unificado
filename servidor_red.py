@@ -68,8 +68,16 @@ def generar_qr_svg(url: str) -> str:
 def _abrir_navegador(url: str):
     """Abre automáticamente el navegador predeterminado en la PC."""
     time.sleep(1.2)
+    url_destino = url
     try:
-        webbrowser.open(url)
+        from main import cargar_config
+        cfg = cargar_config()
+        if int(cfg.get("wizard_completado") or 0) == 0:
+            url_destino = f"{url}/login"
+    except Exception:
+        pass
+    try:
+        webbrowser.open(url_destino)
     except Exception:
         pass
 

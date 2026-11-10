@@ -123,7 +123,7 @@ def compilar_dist():
     }
 
     for ruta, archivo_rel in rutas_html.items():
-        resp = client.get(ruta)
+        resp = client.get(ruta, headers={"x-compilacion-pwa": "1"})
         assert resp.status_code == 200, f"Error renderizando {ruta}: {resp.status_code}"
         html_procesado = inyectar_fallbacks_html(resp.text)
 
