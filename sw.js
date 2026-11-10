@@ -2,7 +2,7 @@
  * Service Worker Offline-First para el Sistema de Gestión Unificado (Next-Gen).
  * Compatible con localhost, LAN Wi-Fi y subcarpetas de GitHub Pages.
  */
-const CACHE_NAME = 'gestion-unificado-v1';
+const CACHE_NAME = 'gestion-unificado-v3';
 
 // Resuelve la ruta base para soportar despliegues en subcarpetas de GitHub Pages
 const BASE_PATH = self.location.pathname.replace(/\/sw\.js$/, '') || '';
@@ -98,7 +98,9 @@ self.addEventListener('fetch', (event) => {
       try {
         const redResp = await fetchConTimeout(req, 2000);
         if (redResp && redResp.ok) {
-          cache.put(req, redResp.clone());
+          if (!redResp.redirected) {
+            cache.put(req, redResp.clone());
+          }
           return redResp;
         }
       } catch (_) {}

@@ -133,7 +133,7 @@
 </head>
 
 <body class="bg-fondo text-gray-900 antialiased min-h-screen flex items-center justify-center p-4"
-      x-data="login({{ config | tojson }})" x-init="init(); window.lucide && lucide.createIcons()" x-cloak>
+      x-data="login({{ config | tojson | forceescape }})" x-init="init(); window.lucide && lucide.createIcons()" x-cloak>
 
     <div class="fixed top-4 right-4 z-50">
     <button type="button" @click="alternarTemaLogin()"
@@ -331,6 +331,16 @@
         error: '',
         avisoExito: '',
         cargando: false,
+        bloqueado: false,
+        segundosBloqueo: 0,
+        intervaloBloqueo: null,
+        advertenciaIntentos: '',
+        modalRecuperar: false,
+        recuperarForm: { clave_maestra: '', nuevo_pin: '', confirmar_pin: '' },
+        recuperarError: '',
+        recuperarExito: '',
+        recuperarCargando: false,
+        claveCopiadaWizard: false,
         modalRedQR: false,
         redUrl: '',
         wizardDisponible: false,
@@ -350,6 +360,7 @@
           logo_imagen: cfgInicial.logo_imagen || '',
           pin_dueno: '1234',
           pin_dueno_conf: '1234',
+          clave_maestra_rescate: cfgInicial.clave_maestra_rescate || 'RESCATE-BEBIDAS-7489',
           cajeros: [
             { nombre: 'Cajero 1', pin: '1111' },
             { nombre: 'Cajero 2', pin: '2222' },

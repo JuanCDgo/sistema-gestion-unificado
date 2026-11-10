@@ -1270,6 +1270,68 @@
       return _fetchOriginal(input, init);
     }
 
+    const esGhPagesActual = window.location.hostname.includes('github.io') || window.location.pathname.includes('/sistema-gestion-unificado');
+
+    // Cuando corre sobre el servidor local FastAPI (Iniciar_Servidor.bat o LAN Wi-Fi):
+    // 1. Siempre sincronizar Wizard, Login, Logout y Usuarios con el backend SQLite de la PC.
+    // 2. Si el comercio eligió "servidor_central" (Modo B), delegar las llamadas /api/* al servidor real.
+    if (!esGhPagesActual) {
+      const dbLocal = cargarDB();
+      const modoActual = localStorage.getItem('POS_MODO_OPERACION') || (dbLocal.config && dbLocal.config.modo_operacion) || 'servidor_central';
+      const esRutaCriticaAuth = (
+        path.startsWith('/api/setup-wizard/') ||
+        path === '/api/login' ||
+        path === '/api/logout' ||
+        path === '/api/usuarios-login' ||
+        path === '/api/auth/recuperar-pin-dueno' ||
+        path.startsWith('/api/red/')
+      );
+
+      if (esRutaCriticaAuth || modoActual === 'servidor_central') {
+        try {
+          const respBackend = await _fetchOriginal(input, init);
+          // Mantener sincronizada la sesión y config en localStorage para que el guard cliente y el backend coincidan
+          if (path === '/api/login' && method === 'POST' && respBackend.ok) {
+            const clone = respBackend.clone();
+            const dataLogin = await clone.json().catch(() => null);
+            if (dataLogin && dataLogin.usuario_id) {
+              guardarSesion({
+                usuario_id: dataLogin.usuario_id,
+                usuario: dataLogin.usuario,
+                rol: dataLogin.rol,
+                debe_cambiar_pin: Boolean(dataLogin.debe_cambiar_pin),
+              });
+            }
+          } else if (path === '/api/logout' && method === 'POST') {
+            guardarSesion(null);
+          } else if ((path === '/api/setup-wizard/completar' || path === '/api/setup-wizard/importar-modo-a') && method === 'POST' && respBackend.ok) {
+            const clone = respBackend.clone();
+            const dataWiz = await clone.json().catch(() => null);
+            guardarSesion(null);
+            if (dataWiz && dataWiz.config) {
+              dbLocal.config = { ...(dbLocal.config || {}), ...dataWiz.config, wizard_completado: 1 };
+              localStorage.setItem('POS_MODO_OPERACION', dataWiz.config.modo_operacion || 'servidor_central');
+              localStorage.setItem('POS_WIZARD_COMPLETADO', '1');
+              guardarDB(dbLocal, false);
+            }
+          } else if (path === '/api/setup-wizard/estado' && method === 'GET' && respBackend.ok) {
+            const clone = respBackend.clone();
+            const dataEst = await clone.json().catch(() => null);
+            if (dataEst && dataEst.config) {
+              dbLocal.config = { ...(dbLocal.config || {}), ...dataEst.config, wizard_completado: Number(dataEst.wizard_completado || 0) };
+              if (dataEst.modo_operacion) {
+                localStorage.setItem('POS_MODO_OPERACION', dataEst.modo_operacion);
+              }
+              guardarDB(dbLocal, false);
+            }
+          }
+          return respBackend;
+        } catch (errRed) {
+          // Si el servidor local se desconectó momentáneamente, continúa al fallback offline de abajo
+        }
+      }
+    }
+
     const db = cargarDB();
     const cfg = db.config || CONFIG_DEFAULT;
 
@@ -2598,6 +2660,7 @@
       db.config.cbu = String(body.cbu || '').trim();
       db.config.telefono = String(body.telefono || '').trim();
       if (body.logo_imagen) db.config.logo_imagen = body.logo_imagen;
+      if (body.clave_maestra_rescate) db.config.clave_maestra_rescate = String(body.clave_maestra_rescate).trim().toUpperCase();
       db.config.wizard_completado = 1;
 
       db.usuarios = db.usuarios || [];

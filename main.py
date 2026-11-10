@@ -1352,6 +1352,7 @@ def _buscar_cliente(db: Client, cliente_id: int) -> dict:
 
 
 @app.get("/clientes", response_class=HTMLResponse, dependencies=[Depends(requiere_sesion_html)])
+@app.get("/clientes.html", response_class=HTMLResponse, dependencies=[Depends(requiere_sesion_html)])
 async def clientes_page(request: Request):
     return templates.TemplateResponse(request, "clientes.html", {"config": config_publica()})
 
@@ -1618,6 +1619,7 @@ MAX_UPLOAD_BYTES = 15 * 1024 * 1024  # límite de seguridad para el archivo orig
 
 
 @app.get("/inventario", response_class=HTMLResponse, dependencies=[Depends(requiere_sesion_html)])
+@app.get("/inventario.html", response_class=HTMLResponse, dependencies=[Depends(requiere_sesion_html)])
 async def inventario(request: Request):
     """Renderiza la pantalla de gestión de inventario."""
     return templates.TemplateResponse(request, "inventario.html", {"config": config_publica()})
@@ -2196,6 +2198,7 @@ def _validar_nombre_unico(db: Client, nombre: str, excluir_id: Optional[int] = N
 
 
 @app.get("/categorias", response_class=HTMLResponse, dependencies=[Depends(requiere_sesion_html)])
+@app.get("/categorias.html", response_class=HTMLResponse, dependencies=[Depends(requiere_sesion_html)])
 async def categorias_page(request: Request):
     return templates.TemplateResponse(request, "categorias.html", {"config": config_publica()})
 
@@ -2558,6 +2561,7 @@ def _resumen_caja(db: Client, caja: dict) -> dict:
 
 
 @app.get("/caja", response_class=HTMLResponse, dependencies=[Depends(requiere_sesion_html)])
+@app.get("/caja.html", response_class=HTMLResponse, dependencies=[Depends(requiere_sesion_html)])
 async def caja_page(request: Request):
     return templates.TemplateResponse(request, "caja.html", {"config": config_publica()})
 
@@ -2790,6 +2794,7 @@ class CambiarClaveIn(BaseModel):
 
 
 @app.get("/configuracion", response_class=HTMLResponse, dependencies=[Depends(requiere_sesion_html)])
+@app.get("/configuracion.html", response_class=HTMLResponse, dependencies=[Depends(requiere_sesion_html)])
 # Nota: en HTML se verifica el rol para redirigir si es cajero
 async def configuracion_page(request: Request):
     info = _info_sesion(request)
@@ -3161,6 +3166,7 @@ def resetear_datos_api(data: ResetDatosIn, request: Request):
 # Auditoría y Trazabilidad de Movimientos (exclusivo Dueño / Admin)
 # ---------------------------------------------------------------------------
 @app.get("/auditoria", response_class=HTMLResponse, dependencies=[Depends(requiere_sesion_html)])
+@app.get("/auditoria.html", response_class=HTMLResponse, dependencies=[Depends(requiere_sesion_html)])
 async def auditoria_page(request: Request):
     info = _info_sesion(request)
     if info.get("rol") != "admin":
@@ -3509,6 +3515,8 @@ def completar_setup_wizard(datos: SetupWizardIn, response: Response):
     cfg["telefono"] = (datos.telefono or "").strip()
     if datos.logo_imagen:
         cfg["logo_imagen"] = datos.logo_imagen
+    if datos.clave_maestra_rescate and datos.clave_maestra_rescate.strip():
+        cfg["clave_maestra_rescate"] = datos.clave_maestra_rescate.strip().upper()
     cfg["wizard_completado"] = 1
     guardar_config(cfg)
 
