@@ -1,0 +1,14 @@
+/login /login/index.html 200
+/login/ /login/index.html 200
+/inventario /inventario/index.html 200
+/inventario/ /inventario/index.html 200
+/categorias /categorias/index.html 200
+/categorias/ /categorias/index.html 200
+/clientes /clientes/index.html 200
+/clientes/ /clientes/index.html 200
+/caja /caja/index.html 200
+/caja/ /caja/index.html 200
+/configuracion /configuracion/index.html 200
+/configuracion/ /configuracion/index.html 200
+/auditoria /auditoria/index.html 200
+/auditoria/ /auditoria/index.html 200

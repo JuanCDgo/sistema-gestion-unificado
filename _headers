@@ -1,0 +1,6 @@
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+/static/js/motor_offline_pwa.js
+  Cache-Control: no-cache, must-revalidate
+/motor_offline_pwa.js
+  Cache-Control: no-cache, must-revalidate
