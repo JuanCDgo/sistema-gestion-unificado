@@ -3,6 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    (function() {
+      try {
+        if (localStorage.getItem('sgu_tema') === 'claro') {
+          document.documentElement.classList.add('tema-claro');
+        } else {
+          document.documentElement.classList.remove('tema-claro');
+        }
+      } catch(e) {}
+    })();
+  </script>
   <title>{{ config.nombre_comercio }} · Ingresar</title>
 
   <script src="/static/vendor/tailwind.js"></script>
@@ -123,6 +134,17 @@
 
 <body class="bg-fondo text-gray-900 antialiased min-h-screen flex items-center justify-center p-4"
       x-data="login({{ config | tojson }})" x-init="init(); window.lucide && lucide.createIcons()" x-cloak>
+
+    <div class="fixed top-4 right-4 z-50">
+    <button type="button" @click="alternarTemaLogin()"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shadow-sm select-none"
+            :class="esModoClaro
+              ? 'bg-amber-100/90 text-amber-950 border-amber-300 hover:bg-amber-200'
+              : 'bg-[#181B26] text-slate-200 border-[#222738] hover:border-slate-500 hover:text-white'"
+            :title="esModoClaro ? 'Cambiar a Modo Oscuro' : 'Cambiar a Modo Claro'">
+      <span x-text="esModoClaro ? '🌙 Modo Oscuro' : '☀️ Modo Claro'"></span>
+    </button>
+  </div>
 
   <main class="w-full max-w-sm bg-white border border-gray-200/80 rounded-2xl shadow-xl p-7 space-y-5">
     <div class="flex flex-col items-center gap-3 text-center">
@@ -291,6 +313,18 @@
     function login(cfgServidor) {
       const cfgInicial = (window.obtenerConfigComercio ? window.obtenerConfigComercio(cfgServidor) : cfgServidor) || {};
       return {
+      esModoClaro: document.documentElement.classList.contains('tema-claro'),
+      alternarTemaLogin() {
+        if (document.documentElement.classList.contains('tema-claro')) {
+          document.documentElement.classList.remove('tema-claro');
+          localStorage.setItem('sgu_tema', 'oscuro');
+          this.esModoClaro = false;
+        } else {
+          document.documentElement.classList.add('tema-claro');
+          localStorage.setItem('sgu_tema', 'claro');
+          this.esModoClaro = true;
+        }
+      },
         usuarios: [],
         usuarioId: '',
         pin: '',

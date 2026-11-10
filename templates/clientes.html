@@ -3,6 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    (function() {
+      try {
+        if (localStorage.getItem('sgu_tema') === 'claro') {
+          document.documentElement.classList.add('tema-claro');
+        } else {
+          document.documentElement.classList.remove('tema-claro');
+        }
+      } catch(e) {}
+    })();
+  </script>
   <title>{{ config.nombre_comercio }} · Padrón de Clientes y Cuenta Corriente</title>
 
   <script src="/static/vendor/tailwind.js"></script>

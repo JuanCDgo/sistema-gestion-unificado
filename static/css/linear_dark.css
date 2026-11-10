@@ -1,6 +1,7 @@
 /* ===================================================================
-   SISTEMA DE GESTIÓN UNIFICADO · TEMA LINEAR DARK (OBSIDIAN & EMERALD)
-   Inspirado en la precisión de Linear.app · Diseñado para Juan Marcelo
+   SISTEMA DE GESTIÓN UNIFICADO · TEMA DUAL (OSCURO LINEAR & CLARO MODERNO)
+   Por defecto: Modo Oscuro Linear (Obsidian & Emerald)
+   Opcional: Modo Claro de alto contraste con selector en barra superior
    =================================================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,300..900;1,300..900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
@@ -10,38 +11,42 @@
   --color-primario-suave: rgba(16, 185, 129, 0.12);
   --color-primario-oscuro: #059669;
 
+  /* Paleta Oscura Linear (Obsidian) */
   --linear-bg: #0B0D13;
   --linear-card: #131620;
   --linear-card-hover: #181B26;
   --linear-elevated: #1A1D2B;
   --linear-border: #222738;
-  --linear-border-hover: rgba(255, 255, 255, 0.18);
   --linear-text: #F1F4F9;
   --linear-text-muted: #94A1B8;
   --linear-text-dim: #64748B;
   --linear-emerald: #10B981;
-  --linear-emerald-glow: rgba(16, 185, 129, 0.15);
+
+  /* Paleta Clara Moderna (Clean Slate) */
+  --light-bg: #F8FAFC;
+  --light-card: #FFFFFF;
+  --light-card-hover: #F1F5F9;
+  --light-border: #E2E8F0;
+  --light-text: #0F172A;
+  --light-text-muted: #475569;
+  --light-text-dim: #94A3B8;
 }
 
-/* Base y Reset Tipográfico */
+/* ===================================================================
+   1. BASE COMÚN (AMBOS TEMAS)
+   =================================================================== */
+
 * {
   box-sizing: border-box;
 }
 
 body {
   font-family: 'Figtree', system-ui, -apple-system, sans-serif !important;
-  background-color: var(--linear-bg) !important;
-  color: var(--linear-text) !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-::selection {
-  background-color: #10B981 !important;
-  color: #0B0D13 !important;
-}
-
-/* Tabular Nums para Moneda y Cantidades */
 .tabular-nums,
 .font-mono,
 [data-mono] {
@@ -49,172 +54,12 @@ body {
   font-variant-numeric: tabular-nums !important;
 }
 
-/* Scrollbars Oscuros Refinados */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #0B0D13;
-}
-::-webkit-scrollbar-thumb {
-  background: #222738;
-  border-radius: 9999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #333B54;
-}
-.scroll-fino::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-.scroll-fino::-webkit-scrollbar-thumb {
-  background: #222738;
-  border-radius: 9999px;
-}
-
-/* ===================================================================
-   TRANSFORMACIÓN DE SUPERFICIES Y CONTENEDORES (LINEAR DARK PALETTE)
-   =================================================================== */
-
-.bg-white {
-  background-color: var(--linear-card) !important;
-  color: var(--linear-text) !important;
-}
-
-.bg-fondo {
-  background-color: var(--linear-bg) !important;
-}
-
-.bg-gray-50 {
-  background-color: #161924 !important;
-}
-
-.bg-gray-100 {
-  background-color: #1A1D2B !important;
-}
-
-.bg-gray-200 {
-  background-color: #222738 !important;
-}
-
-/* Bordes y Divisores */
-.border-gray-100,
-.border-gray-200,
-.border-gray-300 {
-  border-color: var(--linear-border) !important;
-}
-
-.divide-gray-100 > :not([hidden]) ~ :not([hidden]),
-.divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
-  border-color: var(--linear-border) !important;
-}
-
-/* Jerarquía de Texto */
-.text-gray-900,
-.text-gray-800,
-.text-zinc-900,
-.text-zinc-800 {
-  color: #F1F4F9 !important;
-}
-
-.text-gray-700,
-.text-gray-600,
-.text-zinc-700,
-.text-zinc-600 {
-  color: #94A1B8 !important;
-}
-
-.text-gray-500,
-.text-gray-400,
-.text-zinc-500,
-.text-zinc-400 {
-  color: #64748B !important;
-}
-
-/* Estados Hover */
-.hover\:bg-gray-50:hover {
-  background-color: #181B26 !important;
-}
-.hover\:bg-gray-100:hover {
-  background-color: #1F2433 !important;
-}
-.hover\:bg-gray-200:hover {
-  background-color: #2A3146 !important;
-}
-.hover\:text-gray-900:hover,
-.hover\:text-gray-800:hover {
+::selection {
+  background-color: #10B981 !important;
   color: #FFFFFF !important;
 }
 
-/* ===================================================================
-   CAMPOS DE ENTRADA, FORMULARIOS Y SELECTORES TÁCTILES
-   =================================================================== */
-
-.campo,
-input[type="text"],
-input[type="number"],
-input[type="password"],
-input[type="search"],
-input[type="tel"],
-input[type="email"],
-select,
-textarea {
-  background-color: #0E1017 !important;
-  border: 1px solid var(--linear-border) !important;
-  color: #F1F4F9 !important;
-  border-radius: 0.5rem;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
-}
-
-.campo:focus,
-input:focus,
-select:focus,
-textarea:focus {
-  outline: none !important;
-  border-color: #10B981 !important;
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25) !important;
-  background-color: #131620 !important;
-}
-
-.campo::placeholder,
-input::placeholder,
-textarea::placeholder {
-  color: #64748B !important;
-}
-
-/* Sistema de Campos Flotantes Táctiles */
-.campo-flotante input,
-.campo-flotante select,
-.campo-flotante textarea {
-  background-color: #0E1017 !important;
-  border: 1.5px solid var(--linear-border) !important;
-  color: #F1F4F9 !important;
-  border-radius: 1rem;
-}
-
-.campo-flotante input:focus,
-.campo-flotante select:focus,
-.campo-flotante textarea:focus {
-  background-color: #131620 !important;
-  border-color: #10B981 !important;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25) !important;
-}
-
-.campo-flotante label {
-  color: #64748B !important;
-}
-
-.campo-flotante input:focus ~ label,
-.campo-flotante select:focus ~ label,
-.campo-flotante textarea:focus ~ label {
-  color: #10B981 !important;
-}
-
-/* ===================================================================
-   BOTONES LINEAR TÁCTILES & ACCIONES DE COBRO
-   =================================================================== */
-
+/* Botón Táctil de Cobro 3D (Común) */
 .btn-tactil-3d {
   position: relative !important;
   display: inline-flex !important;
@@ -223,11 +68,11 @@ textarea::placeholder {
   font-weight: 700 !important;
   color: #FFFFFF !important;
   background: linear-gradient(180deg, #10B981 0%, #059669 100%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
   border-radius: 0.75rem !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    0 2px 4px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 2px 4px rgba(0, 0, 0, 0.2),
     0 8px 24px -4px rgba(16, 185, 129, 0.35) !important;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
   user-select: none !important;
@@ -236,19 +81,19 @@ textarea::placeholder {
 
 .btn-tactil-3d:hover:not(:disabled) {
   background: linear-gradient(180deg, #34D399 0%, #10B981 100%) !important;
-  border-color: rgba(255, 255, 255, 0.35) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
   transform: translateY(-1px) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    0 4px 10px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 4px 10px rgba(0, 0, 0, 0.25),
     0 12px 30px -4px rgba(16, 185, 129, 0.5) !important;
 }
 
 .btn-tactil-3d:active:not(:disabled) {
   transform: translateY(1px) scale(0.99) !important;
   box-shadow:
-    inset 0 2px 4px rgba(0, 0, 0, 0.35),
-    0 1px 2px rgba(0, 0, 0, 0.4) !important;
+    inset 0 2px 4px rgba(0, 0, 0, 0.25),
+    0 1px 2px rgba(0, 0, 0, 0.2) !important;
 }
 
 .btn-tactil-3d:disabled {
@@ -260,85 +105,359 @@ textarea::placeholder {
 }
 
 /* ===================================================================
-   TABLAS Y DATAGRIDS (INVENTARIO, CAJA, AUDITORÍA, CLIENTES)
+   2. MODO OSCURO LINEAR (POR DEFECTO: html:not(.tema-claro))
    =================================================================== */
 
-table {
-  border-collapse: separate !important;
-  border-spacing: 0 !important;
-  width: 100%;
+html:not(.tema-claro) body {
+  background-color: var(--linear-bg) !important;
+  color: var(--linear-text) !important;
 }
 
-thead th {
+html:not(.tema-claro) ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+html:not(.tema-claro) ::-webkit-scrollbar-track {
+  background: #0B0D13;
+}
+html:not(.tema-claro) ::-webkit-scrollbar-thumb {
+  background: #222738;
+  border-radius: 9999px;
+}
+html:not(.tema-claro) ::-webkit-scrollbar-thumb:hover {
+  background: #333B54;
+}
+
+html:not(.tema-claro) .bg-white {
+  background-color: var(--linear-card) !important;
+  color: var(--linear-text) !important;
+}
+
+html:not(.tema-claro) .bg-fondo {
+  background-color: var(--linear-bg) !important;
+}
+
+html:not(.tema-claro) .bg-gray-50 {
+  background-color: #161924 !important;
+}
+
+html:not(.tema-claro) .bg-gray-100 {
+  background-color: #1A1D2B !important;
+}
+
+html:not(.tema-claro) .bg-gray-200 {
+  background-color: #222738 !important;
+}
+
+html:not(.tema-claro) .border-gray-100,
+html:not(.tema-claro) .border-gray-200,
+html:not(.tema-claro) .border-gray-300 {
+  border-color: var(--linear-border) !important;
+}
+
+html:not(.tema-claro) .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+html:not(.tema-claro) .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--linear-border) !important;
+}
+
+html:not(.tema-claro) .text-gray-900,
+html:not(.tema-claro) .text-gray-800,
+html:not(.tema-claro) .text-zinc-900,
+html:not(.tema-claro) .text-zinc-800 {
+  color: #F1F4F9 !important;
+}
+
+html:not(.tema-claro) .text-gray-700,
+html:not(.tema-claro) .text-gray-600,
+html:not(.tema-claro) .text-zinc-700,
+html:not(.tema-claro) .text-zinc-600 {
+  color: #94A1B8 !important;
+}
+
+html:not(.tema-claro) .text-gray-500,
+html:not(.tema-claro) .text-gray-400,
+html:not(.tema-claro) .text-zinc-500,
+html:not(.tema-claro) .text-zinc-400 {
+  color: #64748B !important;
+}
+
+html:not(.tema-claro) .hover\:bg-gray-50:hover {
+  background-color: #181B26 !important;
+}
+html:not(.tema-claro) .hover\:bg-gray-100:hover {
+  background-color: #1F2433 !important;
+}
+html:not(.tema-claro) .hover\:bg-gray-200:hover {
+  background-color: #2A3146 !important;
+}
+html:not(.tema-claro) .hover\:text-gray-900:hover,
+html:not(.tema-claro) .hover\:text-gray-800:hover {
+  color: #FFFFFF !important;
+}
+
+/* Campos oscuros */
+html:not(.tema-claro) .campo,
+html:not(.tema-claro) input[type="text"],
+html:not(.tema-claro) input[type="number"],
+html:not(.tema-claro) input[type="password"],
+html:not(.tema-claro) input[type="search"],
+html:not(.tema-claro) input[type="tel"],
+html:not(.tema-claro) input[type="email"],
+html:not(.tema-claro) input[type="date"],
+html:not(.tema-claro) select,
+html:not(.tema-claro) textarea {
+  background-color: #0E1017 !important;
+  border: 1px solid var(--linear-border) !important;
+  color: #F1F4F9 !important;
+}
+
+html:not(.tema-claro) .campo:focus,
+html:not(.tema-claro) input:focus,
+html:not(.tema-claro) select:focus,
+html:not(.tema-claro) textarea:focus {
+  outline: none !important;
+  border-color: #10B981 !important;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25) !important;
+  background-color: #131620 !important;
+}
+
+html:not(.tema-claro) .campo-flotante input,
+html:not(.tema-claro) .campo-flotante select,
+html:not(.tema-claro) .campo-flotante textarea {
+  background-color: #0E1017 !important;
+  border: 1.5px solid var(--linear-border) !important;
+  color: #F1F4F9 !important;
+}
+
+html:not(.tema-claro) .campo-flotante label {
+  color: #64748B !important;
+}
+
+html:not(.tema-claro) .campo-flotante input:focus ~ label,
+html:not(.tema-claro) .campo-flotante select:focus ~ label,
+html:not(.tema-claro) .campo-flotante textarea:focus ~ label {
+  color: #10B981 !important;
+}
+
+/* Tablas oscuras */
+html:not(.tema-claro) thead th {
   background-color: #161924 !important;
   color: #94A1B8 !important;
   border-bottom: 1px solid var(--linear-border) !important;
-  font-weight: 600 !important;
-  text-transform: uppercase;
-  font-size: 0.72rem !important;
-  letter-spacing: 0.05em !important;
-  padding: 0.65rem 0.85rem !important;
 }
 
-tbody td {
+html:not(.tema-claro) tbody td {
   border-bottom: 1px solid var(--linear-border) !important;
   color: #F1F4F9 !important;
-  padding: 0.75rem 0.85rem !important;
 }
 
-tbody tr {
-  transition: background-color 0.15s ease;
-}
-
-tbody tr:hover {
+html:not(.tema-claro) tbody tr:hover {
   background-color: #181B26 !important;
 }
 
-/* ===================================================================
-   BADGES, CHIPS Y ESTADOS SEMÁFORO
-   =================================================================== */
-
-.bg-emerald-50 {
-  background-color: rgba(16, 185, 129, 0.12) !important;
-  color: #34D399 !important;
-  border: 1px solid rgba(16, 185, 129, 0.25) !important;
-}
-
-.bg-red-50 {
-  background-color: rgba(239, 68, 68, 0.12) !important;
-  color: #F87171 !important;
-  border: 1px solid rgba(239, 68, 68, 0.25) !important;
-}
-
-.bg-amber-50 {
-  background-color: rgba(245, 158, 11, 0.12) !important;
-  color: #FBBF24 !important;
-  border: 1px solid rgba(245, 158, 11, 0.25) !important;
-}
-
-.bg-blue-50 {
-  background-color: rgba(14, 165, 233, 0.12) !important;
-  color: #38BDF8 !important;
-  border: 1px solid rgba(14, 165, 233, 0.25) !important;
-}
-
-/* ===================================================================
-   MODALES, BACKDROPS Y ELEVACIÓN
-   =================================================================== */
-
-.fixed.inset-0.bg-gray-900\/75,
-.fixed.inset-0.bg-gray-900\/70,
-.fixed.inset-0.bg-gray-900\/60,
-.fixed.inset-0.bg-gray-900\/40,
-.fixed.inset-0.bg-black\/30 {
+/* Modales oscuros */
+html:not(.tema-claro) .fixed.inset-0.bg-gray-900\/75,
+html:not(.tema-claro) .fixed.inset-0.bg-gray-900\/70,
+html:not(.tema-claro) .fixed.inset-0.bg-gray-900\/60,
+html:not(.tema-claro) .fixed.inset-0.bg-gray-900\/40,
+html:not(.tema-claro) .fixed.inset-0.bg-black\/30,
+html:not(.tema-claro) .fixed.inset-0.bg-black\/60 {
   background-color: rgba(7, 9, 13, 0.82) !important;
   backdrop-filter: blur(8px) !important;
 }
 
-.shadow-suave,
-.shadow-md,
-.shadow-lg,
-.shadow-xl,
-.shadow-2xl {
+html:not(.tema-claro) .shadow-suave,
+html:not(.tema-claro) .shadow-md,
+html:not(.tema-claro) .shadow-lg,
+html:not(.tema-claro) .shadow-xl,
+html:not(.tema-claro) .shadow-2xl {
   box-shadow: 0 16px 36px -8px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+}
+
+/* ===================================================================
+   3. MODO CLARO MODERNO (ACTIVADO POR CLASE: html.tema-claro)
+   =================================================================== */
+
+html.tema-claro body {
+  background-color: var(--light-bg) !important;
+  color: var(--light-text) !important;
+}
+
+html.tema-claro ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+html.tema-claro ::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+html.tema-claro ::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+html.tema-claro ::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Encabezado y Navbar en Modo Claro */
+html.tema-claro header {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-bottom: 1px solid #E2E8F0 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+html.tema-claro header [data-brand-nombre] {
+  color: #0F172A !important;
+}
+
+html.tema-claro nav.hidden.md\:flex {
+  background-color: #F1F5F9 !important;
+  border-color: #E2E8F0 !important;
+}
+
+html.tema-claro nav.hidden.md\:flex a {
+  color: #475569 !important;
+}
+html.tema-claro nav.hidden.md\:flex a:hover {
+  color: #0F172A !important;
+  background-color: #E2E8F0 !important;
+}
+
+html.tema-claro nav.hidden.md\:flex a.font-semibold {
+  background-color: #FFFFFF !important;
+  color: #059669 !important;
+  border-color: #CBD5E1 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Barra inferior móvil en Modo Claro */
+html.tema-claro nav.md\:hidden {
+  background-color: rgba(255, 255, 255, 0.95) !important;
+  border-top-color: #E2E8F0 !important;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05) !important;
+}
+
+html.tema-claro nav.md\:hidden a {
+  color: #64748B !important;
+}
+html.tema-claro nav.md\:hidden a.font-bold {
+  color: #059669 !important;
+  background-color: rgba(16, 185, 129, 0.08) !important;
+}
+
+/* Superficies y Tarjetas en Modo Claro */
+html.tema-claro .bg-white {
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+}
+
+html.tema-claro .bg-fondo {
+  background-color: #F8FAFC !important;
+}
+
+html.tema-claro .bg-gray-50 {
+  background-color: #F8FAFC !important;
+}
+
+html.tema-claro .bg-gray-100 {
+  background-color: #F1F5F9 !important;
+}
+
+html.tema-claro .border-gray-100,
+html.tema-claro .border-gray-200,
+html.tema-claro .border-gray-300 {
+  border-color: #E2E8F0 !important;
+}
+
+html.tema-claro .text-gray-900,
+html.tema-claro .text-gray-800 {
+  color: #0F172A !important;
+}
+
+html.tema-claro .text-gray-700,
+html.tema-claro .text-gray-600 {
+  color: #475569 !important;
+}
+
+html.tema-claro .text-gray-500,
+html.tema-claro .text-gray-400 {
+  color: #64748B !important;
+}
+
+/* Campos en Modo Claro */
+html.tema-claro .campo,
+html.tema-claro input[type="text"],
+html.tema-claro input[type="number"],
+html.tema-claro input[type="password"],
+html.tema-claro input[type="search"],
+html.tema-claro input[type="tel"],
+html.tema-claro input[type="email"],
+html.tema-claro input[type="date"],
+html.tema-claro select,
+html.tema-claro textarea {
+  background-color: #FFFFFF !important;
+  border: 1px solid #CBD5E1 !important;
+  color: #0F172A !important;
+}
+
+html.tema-claro .campo:focus,
+html.tema-claro input:focus,
+html.tema-claro select:focus,
+html.tema-claro textarea:focus {
+  border-color: #10B981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18) !important;
+  background-color: #FFFFFF !important;
+}
+
+html.tema-claro .campo-flotante input,
+html.tema-claro .campo-flotante select,
+html.tema-claro .campo-flotante textarea {
+  background-color: #F8FAFC !important;
+  border: 1.5px solid #CBD5E1 !important;
+  color: #0F172A !important;
+}
+
+html.tema-claro .campo-flotante input:focus,
+html.tema-claro .campo-flotante select:focus,
+html.tema-claro .campo-flotante textarea:focus {
+  background-color: #FFFFFF !important;
+  border-color: #10B981 !important;
+}
+
+html.tema-claro .campo-flotante label {
+  color: #64748B !important;
+}
+
+/* Tablas en Modo Claro */
+html.tema-claro thead th {
+  background-color: #F1F5F9 !important;
+  color: #475569 !important;
+  border-bottom: 1px solid #E2E8F0 !important;
+}
+
+html.tema-claro tbody td {
+  border-bottom: 1px solid #E2E8F0 !important;
+  color: #0F172A !important;
+}
+
+html.tema-claro tbody tr:hover {
+  background-color: #F8FAFC !important;
+}
+
+/* Modales en Modo Claro */
+html.tema-claro .fixed.inset-0.bg-gray-900\/75,
+html.tema-claro .fixed.inset-0.bg-gray-900\/70,
+html.tema-claro .fixed.inset-0.bg-gray-900\/60,
+html.tema-claro .fixed.inset-0.bg-gray-900\/40,
+html.tema-claro .fixed.inset-0.bg-black\/30,
+html.tema-claro .fixed.inset-0.bg-black\/60 {
+  background-color: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: blur(6px) !important;
+}
+
+html.tema-claro .shadow-suave,
+html.tema-claro .shadow-md,
+html.tema-claro .shadow-lg,
+html.tema-claro .shadow-xl,
+html.tema-claro .shadow-2xl {
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05) !important;
 }

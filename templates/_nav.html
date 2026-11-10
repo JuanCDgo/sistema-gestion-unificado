@@ -253,6 +253,23 @@
   </div>
 
 
+    <!-- Botón Selector de Tema (☀️ Claro / 🌙 Oscuro) -->
+  <button type="button" @click="alternarTema()"
+          class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shadow-sm select-none"
+          :class="esModoClaro
+            ? 'bg-amber-100/90 text-amber-950 border-amber-300 hover:bg-amber-200'
+            : 'bg-[#181B26] text-slate-200 border-[#222738] hover:border-slate-500 hover:text-white'"
+          :title="esModoClaro ? 'Cambiar a Modo Oscuro' : 'Cambiar a Modo Claro'">
+    <span x-show="!esModoClaro" class="flex items-center gap-1.5">
+      <span>☀️</span>
+      <span class="hidden lg:inline">Modo Claro</span>
+    </span>
+    <span x-show="esModoClaro" class="flex items-center gap-1.5">
+      <span>🌙</span>
+      <span class="hidden lg:inline">Modo Oscuro</span>
+    </span>
+  </button>
+
   <!-- Usuario activo + PIN + Salir (Desktop) -->
   <div class="hidden sm:flex items-center gap-1.5 bg-[#131620] border border-[#222738] rounded-xl px-2.5 py-1.5 shrink-0 shadow-sm">
     <span class="inline-flex items-center gap-1 text-xs font-medium text-slate-200 px-1.5"
@@ -464,6 +481,21 @@
 
       </div>
 
+            <!-- Selector de Tema Claro/Oscuro en Móvil -->
+      <button type="button" @click="alternarTema()"
+              class="w-full flex items-center justify-between p-3 rounded-xl border transition-all text-xs font-bold cursor-pointer"
+              :class="esModoClaro
+                ? 'bg-amber-50 text-amber-900 border-amber-300'
+                : 'bg-[#181B26] text-slate-200 border-[#222738]'">
+        <span class="flex items-center gap-2.5">
+          <span class="text-base" x-text="esModoClaro ? '☀️' : '🌙'"></span>
+          <span>Tema de Pantalla</span>
+        </span>
+        <span class="px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold"
+              :class="esModoClaro ? 'bg-amber-200 text-amber-950' : 'bg-emerald-950 text-emerald-400 border border-emerald-500/30'"
+              x-text="esModoClaro ? 'Modo Claro' : 'Modo Oscuro'"></span>
+      </button>
+
       <!-- Acciones de Cuenta y Seguridad -->
       <div class="pt-2 border-t border-gray-100 grid grid-cols-2 gap-2">
         <button type="button" @click="menuMasAbierto = false; abrirModalClave()"
@@ -541,6 +573,7 @@
   function barraGlobal() {
     return {
       cargadoBarra: false,
+      esModoClaro: document.documentElement.classList.contains('tema-claro'),
       menuMasDesktop: false,
       menuMasAbierto: false,
       stockCriticoCount: 0,
@@ -580,6 +613,18 @@
           { nombre: 'Cajero 2', pin: '2222' },
           { nombre: 'Cajero 3', pin: '3333' },
         ],
+      },
+
+            alternarTema() {
+        if (document.documentElement.classList.contains('tema-claro')) {
+          document.documentElement.classList.remove('tema-claro');
+          localStorage.setItem('sgu_tema', 'oscuro');
+          this.esModoClaro = false;
+        } else {
+          document.documentElement.classList.add('tema-claro');
+          localStorage.setItem('sgu_tema', 'claro');
+          this.esModoClaro = true;
+        }
       },
 
       abrirMenuMas() {
