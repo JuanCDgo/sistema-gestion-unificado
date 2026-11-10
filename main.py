@@ -591,7 +591,7 @@ def login(data: LoginIn, request: Request, response: Response):
         secure=es_https,
         max_age=SESION_TTL_SEG,
     )
-    return {"ok": True, "usuario": usuario["nombre"], "rol": usuario["rol"],
+    return {"ok": True, "usuario_id": usuario["id"], "usuario": usuario["nombre"], "rol": usuario["rol"],
             "debe_cambiar_pin": SESIONES_INFO[token]["debe_cambiar_pin"]}
 
 

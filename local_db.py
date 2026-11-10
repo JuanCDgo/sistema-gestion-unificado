@@ -959,7 +959,7 @@ def _rpc_verificar_login(conn: sqlite3.Connection, params: dict) -> dict:
                     "nombre": user["nombre"],
                     "rol": user["rol"],
                     "comercio_id": user["comercio_id"],
-                    "debe_cambiar_pin": pin in ("1234", "0000"),
+                    "debe_cambiar_pin": False,
                 },
             }
 

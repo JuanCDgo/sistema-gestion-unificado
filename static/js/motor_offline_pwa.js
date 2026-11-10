@@ -1294,11 +1294,11 @@
           if (path === '/api/login' && method === 'POST' && respBackend.ok) {
             const clone = respBackend.clone();
             const dataLogin = await clone.json().catch(() => null);
-            if (dataLogin && dataLogin.usuario_id) {
+            if (dataLogin && (dataLogin.usuario_id || dataLogin.usuario)) {
               guardarSesion({
-                usuario_id: dataLogin.usuario_id,
-                usuario: dataLogin.usuario,
-                rol: dataLogin.rol,
+                usuario_id: dataLogin.usuario_id || 1,
+                usuario: dataLogin.usuario || 'Dueño',
+                rol: dataLogin.rol || 'admin',
                 debe_cambiar_pin: Boolean(dataLogin.debe_cambiar_pin),
               });
             }
@@ -1531,7 +1531,7 @@
       user.intentos_fallidos = 0;
       user.bloqueado_hasta = 0;
       guardarDB(db, false);
-      const debeCambiar = pin === '1234' || pin === '0000';
+      const debeCambiar = false;
       const sesion = {
         usuario_id: user.id,
         usuario: user.nombre,

@@ -382,7 +382,7 @@
           await this.cargarUsuariosLogin();
 
           // Verificar si corresponde mostrar el Setup Wizard de primer arranque
-          const esPrimerArranque = params.get('primer_arranque') === '1' || {{ 'true' if wizard_pendiente else 'false' }};
+          const esPrimerArranque = {{ 'true' if wizard_pendiente else 'false' }};
           if (esPrimerArranque) {
             try { localStorage.removeItem('POS_WIZARD_COMPLETADO'); } catch(_) {}
             this.wizardDisponible = true;
@@ -708,7 +708,7 @@
             const isGh = window.location.hostname.includes('github.io') || window.location.pathname.includes('/sistema-gestion-unificado');
             const defDest = isGh ? '/sistema-gestion-unificado/index.html' : 'index.html';
             let destino = d.debe_cambiar_pin ? (isGh ? '/sistema-gestion-unificado/configuracion.html#seguridad' : 'configuracion.html#seguridad') : (sessionStorage.getItem('POS_REDIRECT_DESPUES_LOGIN') || defDest);
-            if (destino === '/' || destino === '/login') destino = defDest;
+            if (destino === '/' || destino.includes('login')) destino = defDest;
             try { sessionStorage.removeItem('POS_REDIRECT_DESPUES_LOGIN'); } catch (_) {}
             window.location.href = destino;
           } catch (e) { this.error = this.error || 'No se pudo conectar. Intentá de nuevo.'; }
